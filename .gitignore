@@ -1,0 +1,37 @@
+# Logs
+logs/
+*.log
+
+# PIDs
+.pids/
+*.pid
+
+# Node modules
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Environment (plantillas .env.example SÍ se versionan)
+.env
+.env.local
+.env*.local
+env.local
+!.env.example
+
+# OS
+.DS_Store
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Temporary files
+tmp/
+temp/
+
