@@ -27,9 +27,21 @@ aquí para mantener las dos líneas separadas y con sus archivos propios.
 | Documento | Versión | Contenido |
 |---|---|---|
 | [INFORME_OPTIMIZACION_WEB_V1.md](INFORME_OPTIMIZACION_WEB_V1.md) | V1 | Auditoría del frontend: 16 hallazgos (3 críticos, 5 altos, 6 medios, 2 bajos), bloqueantes B-1…B-6 y criterios de cierre C-1…C-5 |
-| [requerimientos_web.md](requerimientos_web.md) | v1.1 | RF-W-01…18, RNF-W-01…08, RT-W-01…10, modelo PostgreSQL y trazabilidad HW→requisito |
-| [plan_desarrollo_web.md](plan_desarrollo_web.md) | v1.1 | Plan vertical de la etapa: ciclos O0…O5 con tareas, gates y definición de terminado |
+| [requerimientos_web.md](requerimientos_web.md) | v1.2 | RF-W-01…18, RNF-W-01…08, RT-W-01…10, modelo PostgreSQL y trazabilidad HW→requisito |
+| [plan_desarrollo_web.md](plan_desarrollo_web.md) | v1.2 | Plan vertical de la etapa: ciclos O0…O5 con tareas, gates y definición de terminado |
 | [pruebas/verificacion_gcp_o0.md](pruebas/verificacion_gcp_o0.md) | — | Acta de verificación de los servicios GCP (Anvil de GCP + Cloud SQL) del ciclo O0 |
+| [ARTEFACTOS_DATOS_SINCRONIZADOS.md](ARTEFACTOS_DATOS_SINCRONIZADOS.md) | — | Regla de sincronización canónico↔espejo de los tres artefactos de datos |
+
+### Estado actual de la línea `@web` (2026-10-14)
+
+| Aspecto | Estado verificado |
+|---|---|
+| **Ciclo en curso** | **O0 — Fundación** (D-100). **O0.1 ✅ completado**: esquema `rwa` aplicado y verificado en Cloud SQL (10 tablas + 1 vista + 29 índices + 5 topics, idempotente) |
+| **Servicios GCP** | **Anvil de GCP** ✅ (chain 31337, 9/9 contratos, EIP-712 + RF-004 + AF-01 al día) · **Cloud SQL PostgreSQL 15.18** ✅ (`truekeate-db-dev`, `southamerica-east1-a`) |
+| **Repositorio** | `git` **creado** en `rwa-web/` — rama `rwa-web-DSH`, 229 ficheros, 0 secretos rastreados. Commit inicial `cd97c7d`. **Sin remoto todavía** (D-094 pendiente de `/push`) |
+| **Código de la app** | **Aún no consume GCP**: sigue con MongoDB (18 referencias) y red local/Besu. Es O0.2–O0.5 |
+| **Artefactos de datos** | Canónico en `rwa-sc/RepoTecnico/` + espejo aquí: `check_sincronizacion_datos.sh --check` → **exit 0** (3/3 idénticos) |
+| **Deuda detectada al versionar** | Los `docker-build/` de `web-identity`, `web-registry-trusted` y `web-registry-trusted2` **quedaron rastreados** (HW-11) e incluyen una ruta absoluta de desarrollador; deben salir del índice en O1/O3 |
 
 ### Decisiones que gobiernan la etapa
 

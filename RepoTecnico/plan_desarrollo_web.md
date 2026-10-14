@@ -5,9 +5,11 @@
 > (canónico en `rwa-sc/RepoTecnico/` + espejo en `rwa-web/RepoTecnico/`, sincronizados byte a byte). La documentación de la
 > línea `@sc` permanece en `rwa-sc/RepoTecnico/`.
 >
-> **Proyecto:** RWA · **Área:** `rwa-web/` · **Versión:** v1.1 · **Fecha:** 2026-10-14
-> **Requisitos:** `requerimientos_web.md` v1.1 · **Hallazgos:** `INFORME_OPTIMIZACION_WEB_V1.md`
-> **Decisiones:** D-088 (solo web) · D-089 (hardening + monorepo) · D-090 (orden de ciclos) · D-091 (Anvil 31337) · D-092 (SIWE) · D-093 (documentos cifrados) · D-094 (repo `rwa-web`) · **D-095 (BD off-chain = PostgreSQL)** · **D-096 (red canónica = Anvil de GCP)**
+> **Proyecto:** RWA · **Área:** `rwa-web/` · **Versión:** v1.2 · **Fecha:** 2026-10-14
+> **Requisitos:** `requerimientos_web.md` v1.2 · **Hallazgos:** `INFORME_OPTIMIZACION_WEB_V1.md`
+> **Decisiones:** D-088…D-101 (D-088 alcance · D-089 estrategia · D-090 orden · D-091/D-096 Anvil de GCP · D-092 SIWE · D-093/D-095/D-098 PostgreSQL y custodia · D-094 repo `rwa-web` · D-097 Cloud SQL · D-099 arranque limpio · D-100 ciclo O0 · D-101 conexión Cloud SQL)
+>
+> **Changelog v1.2 (2026-10-14):** (a) **reubicación** del documento a `rwa-web/RepoTecnico/` al separar las líneas `@sc`/`@web`; (b) **D-097…D-101 aprobadas** (Cloud SQL `truekeate-db-dev`, documentos `bytea` cifrado, arranque limpio sin ETL, O0 como primer ciclo, conexión socket/TCP); (c) **O0.1 completado y verificado**: `base_datos.sql` v1.0 aplicado en Cloud SQL (10 tablas + 1 vista + 29 índices + 5 topics, idempotente) — evidencia en `pruebas/verificacion_gcp_o0.md`; (d) corregida la nota de "pendiente de confirmar" del changelog v1.1 (O0 ya está aprobado por D-100).
 >
 > **Changelog v1.1 (2026-10-14):** decisión del usuario — BD off-chain **PostgreSQL** y red canónica
 > **Anvil de GCP** (chain 31337). Se añade el ciclo **O0 (Fundación: datos + red)**, pendiente de confirmar

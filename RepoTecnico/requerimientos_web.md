@@ -6,9 +6,14 @@
 > línea `@sc` permanece en `rwa-sc/RepoTecnico/`.
 >
 > **Proyecto:** RWA (security token inspirado en ERC-3643 / T-REX) · **Área:** `rwa-web/`
-> **Etapa:** Optimización del frontend · **Versión:** v1.1 · **Fecha:** 2026-10-14
+> **Etapa:** Optimización del frontend · **Versión:** v1.2 · **Fecha:** 2026-10-14
 > **Insumo auditado:** `INFORME_OPTIMIZACION_WEB_V1.md` (16 hallazgos: 3 críticos, 5 altos, 6 medios, 2 bajos; verificación adversarial 15/15 confirmados)
 > **Alcance aprobado:** D-088 = solo frontend. Los contratos quedan cerrados (394/394 en verde, cobertura `src/` 97,05 %).
+>
+> **Changelog v1.2 (2026-10-14):** (a) **reubicación** del documento a `rwa-web/RepoTecnico/` al separar las líneas
+> `@sc`/`@web` (los artefactos de datos mantienen canónico en `rwa-sc` + espejo aquí, con gate de sincronización);
+> (b) **D-101** registrada (conexión a Cloud SQL: socket canónico / TCP en host autorizado); (c) **O0.1 ejecutado**:
+> esquema `rwa` aplicado en Cloud SQL `truekeate-db-dev` — 10 tablas + 1 vista + 29 índices + catálogo de 5 topics.
 >
 > **Changelog v1.1 (2026-10-14):** **decisión del usuario:** la BD off-chain del frontend es **PostgreSQL**
 > (Cloud SQL, PG 15+) — no MongoDB — y la red on-chain canónica es el **Anvil de GCP (chain 31337)**.
@@ -42,6 +47,7 @@ Optimizar `rwa-web/` hasta que sea **apto para un entorno real de uso interno** 
 | **D-098** | **Documentos KYC = `bytea` cifrado AES-256-GCM en `rwa.document_files`** (sin almacenamiento externo) |
 | **D-099** | **Arranque limpio:** sin ETL desde MongoDB; esquema vacío + catálogo de topics sembrado |
 | **D-100** | **Se añade el ciclo O0 (fundación) como primer ciclo**, antes de O1 |
+| **D-101** | **Conexión a Cloud SQL:** socket unix canónico (`/cloudsql/truekeate-main:southamerica-east1:truekeate-db-dev`) para Cloud Run/Auth Proxy; TCP a la IP pública `34.39.180.101` en hosts autorizados. Fijado en `rwa-web/scripts/gcp-env.sh` (`--tcp`) |
 
 ---
 
