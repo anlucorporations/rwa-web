@@ -12,6 +12,13 @@ This platform consists of **3 integrated web applications**:
 | **web-registry-trusted** | 4002 | Issuer Panel & Claim Approval | Trusted Issuers |
 | **web-token** | 4003 | Token Factory & Management | Token Creators |
 
+> **📌 Nota de contexto (2026-10-14, línea `@web`).**
+> - El repositorio contiene **5** directorios de app: los **3 canónicos** de la tabla más `web-registry-trusted2`
+>   y `web-rwa`, pendientes de absorción/retirada en el ciclo **O4** (D-089; ver `RepoTecnico/INFORME_OPTIMIZACION_WEB_V1.md`, HW-10).
+> - La BD off-chain canónica es **PostgreSQL** (Cloud SQL, esquema `rwa`), que **sustituye a MongoDB** (D-095);
+>   las referencias a MongoDB de esta guía son del estado anterior y están en proceso de migración (ciclo O0.3).
+> - La documentación técnica de la línea vive en **[`RepoTecnico/`](RepoTecnico/README.md)**.
+
 ---
 
 ## 🚀 Quick Start - Launch Everything

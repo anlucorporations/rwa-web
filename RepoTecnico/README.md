@@ -16,9 +16,9 @@ archivos:
 | **`@sc`** — contratos | `rwa-sc/` | Solidity (`sc/src`, `sc/test`, `sc/script`), ABIs, despliegues, CI | `rwa-sc/RepoTecnico/` |
 | **`@web`** — frontend | `rwa-web/` | 5 apps Next.js, scripts de arranque y entorno | `rwa-web/RepoTecnico/` (esta carpeta) |
 
-La etapa de **optimización del frontend** (decisiones D-088…D-101) generó documentos propios de
+La etapa de **optimización del frontend** (decisiones D-088…D-102) generó documentos propios de
 la línea `@web` que estaban archivados dentro de `rwa-sc/RepoTecnico/`. El 2026-10-14 se movieron
-aquí para mantener las dos líneas separadas y con sus archivos propios.
+aquí para mantener las dos líneas separadas y con sus archivos propios (**D-102**).
 
 ---
 
@@ -38,7 +38,7 @@ aquí para mantener las dos líneas separadas y con sus archivos propios.
 |---|---|
 | **Ciclo en curso** | **O0 — Fundación** (D-100). **O0.1 ✅ completado**: esquema `rwa` aplicado y verificado en Cloud SQL (10 tablas + 1 vista + 29 índices + 5 topics, idempotente) |
 | **Servicios GCP** | **Anvil de GCP** ✅ (chain 31337, 9/9 contratos, EIP-712 + RF-004 + AF-01 al día) · **Cloud SQL PostgreSQL 15.18** ✅ (`truekeate-db-dev`, `southamerica-east1-a`) |
-| **Repositorio** | `git` **creado** en `rwa-web/` — rama `rwa-web-DSH`, 229 ficheros, 0 secretos rastreados. Commit inicial `cd97c7d`. **Sin remoto todavía** (D-094 pendiente de `/push`) |
+| **Repositorio** | `git` **creado** en `rwa-web/` — rama `rwa-web-DSH`, 229 ficheros, 0 secretos rastreados. Commit inicial `cd97c7d`; **5 commits** hasta `84bd35a` (incluye el contexto de la línea y las sincronizaciones del espejo de datos). **Sin remoto todavía** (D-094 pendiente de `/push`) |
 | **Código de la app** | **Aún no consume GCP**: sigue con MongoDB (18 referencias) y red local/Besu. Es O0.2–O0.5 |
 | **Artefactos de datos** | Canónico en `rwa-sc/RepoTecnico/` + espejo aquí: `check_sincronizacion_datos.sh --check` → **exit 0** (3/3 idénticos) |
 | **Deuda detectada al versionar** | Los `docker-build/` de `web-identity`, `web-registry-trusted` y `web-registry-trusted2` **quedaron rastreados** (HW-11) e incluyen una ruta absoluta de desarrollador; deben salir del índice en O1/O3 |
@@ -48,7 +48,8 @@ aquí para mantener las dos líneas separadas y con sus archivos propios.
 D-088 (alcance = solo frontend) · D-089 (hardening + monorepo) · D-090 (orden de ciclos) ·
 D-091/D-096 (red canónica = Anvil de GCP, chain 31337) · D-092 (SIWE) · D-093/D-095/D-098
 (custodia KYC y PostgreSQL) · D-094 (repositorio `rwa-web`) · D-097 (Cloud SQL `truekeate-db-dev`) ·
-D-099 (arranque limpio) · D-100 (ciclo O0) · D-101 (conexión Cloud SQL).
+D-099 (arranque limpio) · D-100 (ciclo O0) · D-101 (conexión Cloud SQL) · **D-102 (separación de
+líneas `@sc`/`@web` y duplicación sincronizada de los artefactos de datos)**.
 
 ---
 
