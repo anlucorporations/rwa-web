@@ -6,10 +6,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getContractAddress } from '@rwa/shared/deployment';
 import {
-  getContractAddress,
   NotFoundError,
   repos,
+  requireOwner,
+  requireSession,
   toErrorResponse,
   toTokenDto,
   ValidationError,
@@ -40,6 +42,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await requireSession(request);
+
     const body = (await request.json()) as Record<string, unknown>;
 
     const name = requiredString(body.name, 'name');
@@ -51,6 +55,8 @@ export async function POST(request: NextRequest) {
     const decimals = requiredDecimals(body.decimals);
     const adminAddress = requiredString(body.adminAddress, 'adminAddress');
     const tokenAddress = requiredString(body.tokenAddress, 'tokenAddress');
+
+    requireOwner(session, adminAddress, 'el token');
 
     // Fallback provisional hasta O2.4: la UI todavía no envía los tres registries.
     // Los registries son NOT NULL en el esquema (RF-W-11, fail-closed), por lo que
@@ -78,6 +84,14 @@ export async function POST(request: NextRequest) {
       description: optionalString(body.description, 'description'),
       transactionHash: optionalString(body.transactionHash, 'transactionHash'),
       blockNumber: optionalNumber(body.blockNumber, 'blockNumber'),
+    });
+
+    await repos.auditLog.record({
+      actorAddress: session.address,
+      action: 'token.create',
+      resourceType: 'token',
+      resourceId: created.id,
+      detail: { tokenAddress },
     });
 
     const withRel = await repos.tokens.findWithRelationsById(created.id);

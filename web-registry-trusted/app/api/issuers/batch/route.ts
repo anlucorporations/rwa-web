@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   ValidationError,
   repos,
+  requireSession,
   toErrorResponse,
   toIssuerDto,
   type IssuerDto,
@@ -24,6 +25,8 @@ function isStringArray(value: unknown): value is string[] {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await requireSession(request);
+
     const raw = (await request.json()) as unknown;
     const addresses = ((raw ?? {}) as { addresses?: unknown }).addresses;
 

@@ -128,8 +128,11 @@ export class ClaimRequestsRepository {
   }
 
   /**
-   * Resolución de la solicitud. Devuelve `null` si no existe.
-   * (La idempotencia y la verificación de firma del emisor son O1.2.)
+   * Resolución de la solicitud. Devuelve `null` si no existe o si ya estaba resuelta.
+   *
+   * `WHERE status = 'pending'` implementa la **idempotencia** de O1.2: una segunda
+   * revisión (o una carrera entre dos emisores) no puede sobrescribir la primera.
+   * La verificación criptográfica de la firma la hace la ruta con `requireSignature`.
    */
   async review(id: string, input: ReviewClaimRequestInput): Promise<ClaimRequestRow | null> {
     const reviewedBy = normalizeAddress(input.reviewedBy, 'reviewedBy');
@@ -143,6 +146,7 @@ export class ClaimRequestsRepository {
                 reviewed_by = $6,
                 reviewed_at = now()
           WHERE id = $1
+            AND status = 'pending'
           RETURNING ${COLUMNS}`,
         [
           id,

@@ -4,7 +4,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { NotFoundError, repos, toErrorResponse, toTokenDto, ValidationError } from '@rwa/shared';
+import {
+  NotFoundError,
+  repos,
+  requireOwner,
+  requireSession,
+  toErrorResponse,
+  toTokenDto,
+  ValidationError,
+} from '@rwa/shared';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -17,8 +25,15 @@ export async function POST(
   { params }: { params: Promise<{ tokenId: string }> }
 ) {
   try {
+    const session = await requireSession(request);
+
     const { tokenId } = await params;
     if (!UUID_RE.test(tokenId)) throw new ValidationError('id inválido', 'id');
+
+    const token = await repos.tokens.findById(tokenId);
+    if (!token) throw new NotFoundError('token', tokenId);
+
+    requireOwner(session, token.admin_address, 'el token');
 
     const body = (await request.json()) as Record<string, unknown>;
     const complianceAddress = body.complianceAddress;
@@ -28,6 +43,13 @@ export async function POST(
 
     const updated = await repos.tokens.setComplianceAddress(tokenId, complianceAddress);
     if (!updated) throw new NotFoundError('token', tokenId);
+
+    await repos.auditLog.record({
+      actorAddress: session.address,
+      action: 'token.set_compliance',
+      resourceType: 'token',
+      resourceId: tokenId,
+    });
 
     return NextResponse.json({
       success: true,

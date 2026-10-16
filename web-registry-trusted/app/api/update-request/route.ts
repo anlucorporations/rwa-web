@@ -3,17 +3,21 @@
  *
  * POST: Approve or reject a claim request (B11).
  *
- * El CHECK `claim_requests_review_consistency` exige `reviewed_by` NOT NULL al
- * resolver; mientras la recuperación de la address desde la firma sea O1.2, se
- * acepta `body.reviewedBy` o se usa el `issuer_address` de la solicitud.
+ * O1.2 (HW-01): solo el emisor destinatario de la solicitud puede resolverla y
+ * debe firmar la revisión con su propia wallet. `reviewed_by` es siempre la
+ * dirección de la sesión: ya no se acepta `body.reviewedBy` ni se cae al
+ * `issuer_address` de la solicitud.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  ConflictError,
   NotFoundError,
   ValidationError,
-  isAddress,
   repos,
+  requireOwner,
+  requireSession,
+  requireSignature,
   toClaimRequestDto,
   toErrorResponse,
 } from '@rwa/shared';
@@ -29,11 +33,12 @@ type UpdateRequestBody = {
   reviewNote?: unknown;
   issuerSignedMessage?: unknown;
   issuerSignature?: unknown;
-  reviewedBy?: unknown;
 };
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await requireSession(request);
+
     const raw = (await request.json()) as unknown;
     const body = (raw ?? {}) as UpdateRequestBody;
     const { requestId, status, issuerSignedMessage, issuerSignature } = body;
@@ -56,28 +61,43 @@ export async function POST(request: NextRequest) {
 
     const reviewNote = typeof body.reviewNote === 'string' ? body.reviewNote : undefined;
 
-    let reviewedBy: string;
-    if (typeof body.reviewedBy === 'string' && isAddress(body.reviewedBy)) {
-      reviewedBy = body.reviewedBy;
-    } else {
-      const existing = await repos.claimRequests.findById(requestId);
-      if (!existing) {
-        throw new NotFoundError('solicitud', requestId);
-      }
-      reviewedBy = existing.issuer_address;
+    const existing = await repos.claimRequests.findById(requestId);
+    if (!existing) {
+      throw new NotFoundError('solicitud', requestId);
     }
+
+    requireOwner(session, existing.issuer_address, 'la solicitud');
+
+    if (existing.status !== 'pending') {
+      throw new ConflictError('La solicitud ya fue resuelta');
+    }
+
+    await requireSignature(
+      issuerSignedMessage,
+      issuerSignature,
+      session.address,
+      'la revisión de la solicitud',
+    );
 
     const updated = await repos.claimRequests.review(requestId, {
       status,
       reviewNote,
       issuerSignedMessage,
       issuerSignature,
-      reviewedBy,
+      reviewedBy: session.address,
     });
 
     if (!updated) {
-      throw new NotFoundError('solicitud', requestId);
+      throw new ConflictError('La solicitud ya fue resuelta');
     }
+
+    await repos.auditLog.record({
+      actorAddress: session.address,
+      action: 'claim.review',
+      resourceType: 'claim_request',
+      resourceId: requestId,
+      detail: { status },
+    });
 
     return NextResponse.json({
       success: true,

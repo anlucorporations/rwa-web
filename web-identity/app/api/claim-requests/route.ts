@@ -13,6 +13,9 @@ import {
   repos,
   toClaimRequestDto,
   toErrorResponse,
+  requireSession,
+  requireOwner,
+  ForbiddenError,
   ValidationError,
   type ClaimRequestStatus,
 } from '@rwa/shared';
@@ -41,10 +44,23 @@ type CreateClaimRequestBody = {
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await requireSession(request);
     const searchParams = request.nextUrl.searchParams;
-    const requesterAddress = searchParams.get('requesterAddress') ?? undefined;
+    let requesterAddress = searchParams.get('requesterAddress') ?? undefined;
     const issuerAddress = searchParams.get('issuerAddress') ?? undefined;
     const status = parseStatus(searchParams.get('status'));
+
+    if (requesterAddress !== undefined) {
+      if (requesterAddress.toLowerCase() !== session.address) {
+        throw new ForbiddenError('Solo puedes consultar tus propias solicitudes');
+      }
+    } else if (issuerAddress !== undefined) {
+      if (issuerAddress.toLowerCase() !== session.address) {
+        throw new ForbiddenError('Solo puedes consultar las solicitudes dirigidas a tu dirección');
+      }
+    } else {
+      requesterAddress = session.address;
+    }
 
     const rows = await repos.claimRequests.list({ requesterAddress, issuerAddress, status });
 
@@ -71,6 +87,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await requireSession(request);
     const body = (await request.json()) as CreateClaimRequestBody;
 
     if (
@@ -86,6 +103,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    requireOwner(session, body.requesterAddress, 'la solicitud');
+
     const topic = await repos.claimTopics.resolve(body.claimTopic);
     if (!topic) {
       throw new ValidationError('claimTopic inválido', 'claimTopic');
@@ -98,6 +117,14 @@ export async function POST(request: NextRequest) {
       message: body.message ?? null,
       signedMessage: body.signedMessage,
       signature: body.signature,
+    });
+
+    await repos.auditLog.record({
+      actorAddress: session.address,
+      action: 'claim.create',
+      resourceType: 'claim_request',
+      resourceId: row.id,
+      detail: { topicId: topic.id },
     });
 
     return NextResponse.json(

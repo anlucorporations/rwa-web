@@ -6,8 +6,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  ForbiddenError,
   ValidationError,
   repos,
+  requireSession,
   toClaimRequestDto,
   toErrorResponse,
   type ClaimRequestStatus,
@@ -26,11 +28,19 @@ function parseStatus(value: string | null): ClaimRequestStatus | undefined {
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await requireSession(request);
+
     const searchParams = request.nextUrl.searchParams;
     const issuerAddress = searchParams.get('issuerAddress');
 
     if (!issuerAddress) {
       throw new ValidationError('issuerAddress es obligatorio', 'issuerAddress');
+    }
+
+    if (issuerAddress.toLowerCase() !== session.address) {
+      throw new ForbiddenError(
+        'Solo puedes consultar las solicitudes dirigidas a tu dirección',
+      );
     }
 
     const status = parseStatus(searchParams.get('status'));

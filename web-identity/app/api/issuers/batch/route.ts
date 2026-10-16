@@ -5,7 +5,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { repos, toIssuerDto, toErrorResponse, ValidationError, type IssuerDto } from '@rwa/shared';
+import {
+  repos,
+  toIssuerDto,
+  toErrorResponse,
+  requireSession,
+  ValidationError,
+  type IssuerDto,
+} from '@rwa/shared';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -14,6 +21,7 @@ const MAX_ADDRESSES = 200;
 
 export async function POST(request: NextRequest) {
   try {
+    await requireSession(request);
     const body = (await request.json()) as { addresses?: unknown };
     const { addresses } = body;
 

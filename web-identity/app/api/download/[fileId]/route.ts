@@ -3,11 +3,19 @@
  *
  * GET: Download a document by its id from `rwa.document_files` (bytea).
  *
- * Keeps the legacy `inline` behaviour; authorization by ownership is O1.
+ * Only the requester or the issuer of the linked claim request may download it.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { repos, toErrorResponse, ValidationError, NotFoundError } from '@rwa/shared';
+import {
+  repos,
+  toErrorResponse,
+  requireSession,
+  attachmentDisposition,
+  ForbiddenError,
+  ValidationError,
+  NotFoundError,
+} from '@rwa/shared';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -19,6 +27,7 @@ export async function GET(
   { params }: { params: Promise<{ fileId: string }> },
 ) {
   try {
+    const session = await requireSession(request);
     const { fileId } = await params;
 
     if (!UUID_RE.test(fileId)) {
@@ -30,11 +39,32 @@ export async function GET(
       throw new NotFoundError('documento', fileId);
     }
 
+    const claim = await repos.claimRequests.findById(file.claim_request_id);
+    if (!claim) {
+      throw new NotFoundError('solicitud', file.claim_request_id);
+    }
+
+    if (
+      session.address !== claim.requester_address &&
+      session.address !== claim.issuer_address
+    ) {
+      throw new ForbiddenError('No autorizado a descargar este documento');
+    }
+
+    await repos.auditLog.record({
+      actorAddress: session.address,
+      action: 'document.download',
+      resourceType: 'document_file',
+      resourceId: file.id,
+      detail: { claimRequestId: file.claim_request_id },
+    });
+
     return new NextResponse(new Uint8Array(file.content), {
       headers: {
         'Content-Type': file.content_type,
         'Content-Length': file.size_bytes,
-        'Content-Disposition': `inline; filename="${file.original_name}"`,
+        'Content-Disposition': attachmentDisposition(file.original_name),
+        'X-Content-Type-Options': 'nosniff',
       },
     });
   } catch (error) {
