@@ -18,10 +18,20 @@ cd "$ROOT"
 source "$ROOT/scripts/gcp-env.sh" --tcp
 
 PIDS=()
+PORTS=(4101 4103)
+
+# Libera un puerto matando el proceso que lo escucha (next-server sobrevive a `kill` del wrapper).
+free_port() {
+  local port=$1 pid
+  pid="$(ss -ltnp 2>/dev/null | grep ":${port} " | grep -oP 'pid=\K[0-9]+' | head -1)"
+  if [ -n "$pid" ]; then kill -9 "$pid" 2>/dev/null || true; fi
+}
+
 cleanup() {
   for pid in "${PIDS[@]:-}"; do
     [ -n "$pid" ] && kill "$pid" 2>/dev/null || true
   done
+  for port in "${PORTS[@]}"; do free_port "$port"; done
 }
 trap cleanup EXIT
 
@@ -49,6 +59,7 @@ probe() {
 
 start_app() {
   local app=$1 port=$2
+  free_port "$port"
   ( cd "$ROOT/$app" && exec npx next start -p "$port" > "/tmp/${app}-${port}.log" 2>&1 ) &
   PIDS+=("$!")
   # espera activa a que el puerto responda (máx. 30 s)
@@ -69,12 +80,14 @@ sleep 3
 
 probe web-identity 4101 /api/claim-requests '"success":true'
 probe web-identity 4101 /api/test-gridfs '"success":true'
+probe web-identity 4101 /api/health '"chainId":31337'
 probe web-token 4103 /api/tokens '"success":true'
 probe web-token 4103 /api/test-db '"database":"rwa"'
+probe web-token 4103 /api/health '"database":"ok"'
 
 echo
 if [ "$fail" -eq 0 ]; then
-  echo "[smoke-app-o0] ✓ 4/4 rutas en verde sobre PostgreSQL"
+  echo "[smoke-app-o0] ✓ 6/6 rutas en verde sobre PostgreSQL (incluye /api/health)"
   exit 0
 fi
 echo "[smoke-app-o0] ✗ ${fail} ruta(s) fallaron"

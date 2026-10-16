@@ -14,3 +14,4 @@ export * from './logging/index';
 export * from './db/index';
 export * from './api/serializers';
 export * from './api/http';
+export * from './api/health';

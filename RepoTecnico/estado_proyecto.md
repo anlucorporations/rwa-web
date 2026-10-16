@@ -51,9 +51,9 @@ antes de endurecer nada.
 | O0.2 | Capa de datos PostgreSQL en `packages/shared` (pool + repositorios) | ✅ HECHO | `pruebas/o0_2_capa_datos.md` |
 | O0.3 | Sustituir MongoDB en las 3 apps (3 `lib/mongodb.ts`, 18 refs) | ✅ HECHO | `pruebas/o0_3_migracion_postgres.md` — 0 refs Mongo, 3 builds verdes |
 | O0.4 | Arranque limpio: esquema vacío + catálogo de topics (sin ETL) | ✅ HECHO | 5 topics · resto de tablas a 0 |
-| O0.5 | Configuración única de red → Anvil de GCP (chain 31337) | 🟡 Capa compartida hecha y consumida en servidor; literales de cliente → O2.5/O2.6 | `packages/shared/src/config/*` |
+| O0.5 | Configuración única de red → Anvil de GCP (chain 31337) | ✅ HECHO — validada y consumida por `/api/health` en las 3 apps; literales de cliente → O2.5/O2.6 | `packages/shared/src/config/*` · `app/api/health` |
 | O0.6 | Consumir `.env.example`/`gcp-env.sh` y verificar 0 secretos en el árbol | ✅ HECHO | 0 secretos · `.env.local` ignorado |
-| O0.7 | Prueba de humo: `SELECT 1` + `claim_topics` + `chainId` + rutas de app | ✅ HECHO | `scripts/smoke_o0.sh` 3/3 · `scripts/smoke_app_o0.sh` 4/4 |
+| O0.7 | Prueba de humo: `SELECT 1` + `claim_topics` + `chainId` + rutas de app | ✅ HECHO | `scripts/smoke_o0.sh` 3/3 · `scripts/smoke_app_o0.sh` 6/6 |
 
 **Entregable:** aplicación leyendo y escribiendo en PostgreSQL y contra el Anvil de GCP.
 **Gate del ciclo:** `\dt rwa.*` = 10 tablas + 1 vista · 5 topics sembrados · `cast chain-id` = 31337 ·
@@ -88,14 +88,14 @@ los espejos deben ser idénticos byte a byte (gate `check_sincronizacion_datos.s
 
 ## 6. Próximo paso
 
-✅ **Ciclo O0 cerrado** (O0.1 · O0.1b · O0.2 · O0.3 · O0.4 · O0.6 · O0.7 completados; O0.5 en su parte
-de servidor, con los literales de cliente diferidos a O2.5/O2.6). Evidencias:
+✅ **Ciclo O0 cerrado** (O0.1 · O0.1b · O0.2 · O0.3 · O0.4 · O0.5 · O0.6 · O0.7 completados; los
+literales de red del cliente se difieren a O2.5/O2.6 según el plan). Evidencias:
 `pruebas/verificacion_gcp_o0.md`, `pruebas/o0_1b_monorepo.md`, `pruebas/o0_2_capa_datos.md`,
 `pruebas/o0_3_migracion_postgres.md`, `pruebas/o0_4_6_7_cierre_fundacion.md`.
 
 **Gate de cierre verificado:** 3 apps construyendo en verde sobre `@rwa/shared` (0 referencias a
 MongoDB), esquema `rwa` con 10 tablas + 1 vista y 5 topics sembrados, `chainId` 31337 y
-`smoke_app_o0.sh` 4/4 sobre PostgreSQL real.
+`smoke_app_o0.sh` **6/6** sobre PostgreSQL real (incluye `/api/health`).
 
 **Siguiente ciclo: O1 — Contención de seguridad** (plan §O1): retirar `/api/test-*`, autorizar
 `POST /api/update-request` (firma + issuer autorizado), sesión SIWE, autorización por propiedad en
@@ -103,4 +103,4 @@ lectura de PII y descarga, errores tipados 503 y tests de rechazo anónimo (HW-0
 
 ---
 
-*Fin del documento — estado_proyecto.md (etapa `@web`) v1.0*
+*Fin del documento — estado_proyecto.md (etapa `@web`) v1.1*

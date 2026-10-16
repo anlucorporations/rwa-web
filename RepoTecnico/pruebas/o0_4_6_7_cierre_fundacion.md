@@ -26,7 +26,9 @@ psql "$CONN" -Atc "SELECT 'claim_topics', count(*) FROM rwa.claim_topics UNION A
   `NEXT_PUBLIC_RPC_URL`; un `chainId` distinto lanza `ConfigError` en lugar de avisar.
 - `packages/shared/src/config/deployment.ts`: `getContractAddress()` lee las direcciones del artefacto
   versionado `rwa-sc/sc/deployments/31337-20261010T162639Z.json` (RF-W-09), sin literales en el código.
-- **Consumido hoy en servidor** por la creación de token (`web-token/app/api/tokens/route.ts`).
+- **Consumido en servidor** por la creación de token (`web-token/app/api/tokens/route.ts`, direcciones
+  del artefacto) y por el **healthcheck `/api/health` de las 3 apps**, que llama a `getNetworkConfig()`
+  (falla si el `chainId` no es 31337) y a `ping()` del pool.
 - **Deuda declarada:** los componentes cliente aún conservan literales de red heredados
   (`localhost:8545`, `0x…`); su eliminación es **O2.5/O2.6** (gates `check-network-literals`).
 
@@ -56,12 +58,16 @@ psql "$CONN" -Atc "SELECT 'claim_topics', count(*) FROM rwa.claim_topics UNION A
 **Resultado real (exit 0):**
 ```
 ✓ web-identity GET /api/claim-requests → HTTP 200 · {"success":true,"data":[],"count":0}
-✓ web-identity GET /api/test-gridfs     → HTTP 200 · {"success":true,"totalFiles":0,...}
-✓ web-token    GET /api/tokens          → HTTP 200 · {"success":true,"data":[],"count":0}
-✓ web-token    GET /api/test-db         → HTTP 200 · {"success":true,"connected":true,"database":"rwa",...,"dbStats":{"tables":11,...}}
-[smoke-app-o0] ✓ 4/4 rutas en verde sobre PostgreSQL
+✓ web-identity GET /api/test-gridfs    → HTTP 200 · {"success":true,"totalFiles":0,...}
+✓ web-identity GET /api/health         → HTTP 200 · {"status":"ok","chainId":31337,"database":"ok"}
+✓ web-token    GET /api/tokens         → HTTP 200 · {"success":true,"data":[],"count":0}
+✓ web-token    GET /api/test-db        → HTTP 200 · {"success":true,"connected":true,"database":"rwa",...,"dbStats":{"tables":11,...}}
+✓ web-token    GET /api/health         → HTTP 200 · {"status":"ok","chainId":31337,"database":"ok"}
+[smoke-app-o0] ✓ 6/6 rutas en verde sobre PostgreSQL (incluye /api/health)
 ```
-`dbStats.tables = 11` = 10 tablas + 1 vista del esquema `rwa`.
+`dbStats.tables = 11` = 10 tablas + 1 vista del esquema `rwa`. El `/api/health` de las 3 apps
+(`app/api/health/route.ts`) valida la red canónica **y** el pool en tiempo de ejecución; devolvería
+`503` si PostgreSQL cayera (`ServiceUnavailableError`).
 
 ## Gate de cierre del ciclo O0
 
