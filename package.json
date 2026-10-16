@@ -1,0 +1,17 @@
+{
+  "name": "rwa-web",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:identity": "pnpm --filter web-identity dev -- -p 4001",
+    "dev:issuer": "pnpm --filter web-registry-trusted dev -- -p 4002",
+    "dev:token": "pnpm --filter web-token dev -- -p 4003",
+    "build": "pnpm -r --if-present build",
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm -r --if-present typecheck"
+  }
+}

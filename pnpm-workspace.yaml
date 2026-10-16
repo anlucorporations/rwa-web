@@ -1,0 +1,8 @@
+# Monorepo mínimo de la etapa @web (preparación del ciclo O0)
+# Decisión de arranque: workspaces + packages/shared SIN mover las apps (eso es O4).
+# web-rwa y web-registry-trusted2 quedan fuera hasta que O4.4/O4.5 decida su destino.
+packages:
+  - 'packages/*'
+  - 'web-identity'
+  - 'web-registry-trusted'
+  - 'web-token'
