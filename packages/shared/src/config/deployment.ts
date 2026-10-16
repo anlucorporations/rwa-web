@@ -28,7 +28,9 @@ export function findWorkspaceRoot(start: string = process.cwd()): string {
   if (cachedRoot) return cachedRoot;
   let dir = resolve(start);
   for (let i = 0; i < 10; i += 1) {
-    if (existsSync(resolve(dir, 'pnpm-workspace.yaml'))) {
+    // turbopackIgnore: la ruta es dinámica a propósito; sin la anotación Turbopack
+    // traza todo el proyecto y el build pasa de ~1 min a ~9 min.
+    if (existsSync(resolve(/* turbopackIgnore: true */ dir, 'pnpm-workspace.yaml'))) {
       cachedRoot = dir;
       return dir;
     }
@@ -50,15 +52,18 @@ export function loadDeployment(env: NodeJS.ProcessEnv = process.env): Deployment
 
   const candidates = isAbsolute(reference)
     ? [reference]
-    : [resolve(process.cwd(), reference), resolve(findWorkspaceRoot(), reference)];
-  const path = candidates.find((candidate) => existsSync(candidate));
+    : [
+        resolve(/* turbopackIgnore: true */ process.cwd(), reference),
+        resolve(/* turbopackIgnore: true */ findWorkspaceRoot(), reference),
+      ];
+  const path = candidates.find((candidate) => existsSync(/* turbopackIgnore: true */ candidate));
   if (!path) {
     throw new ConfigError(`No se encontró el artefacto de despliegue "${reference}" (probado en ${candidates.join(', ')})`);
   }
 
   let parsed: DeploymentArtifact;
   try {
-    parsed = JSON.parse(readFileSync(path, 'utf8')) as DeploymentArtifact;
+    parsed = JSON.parse(readFileSync(/* turbopackIgnore: true */ path, 'utf8')) as DeploymentArtifact;
   } catch (error) {
     throw new ConfigError(`Artefacto de despliegue ilegible: ${path}`, { cause: error });
   }

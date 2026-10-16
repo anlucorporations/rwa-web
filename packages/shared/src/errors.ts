@@ -49,6 +49,20 @@ export class ConflictError extends AppError {
   }
 }
 
+/** Falta de sesión válida (401, D-092/RF-W-01). */
+export class UnauthorizedError extends AppError {
+  constructor(message = 'Sesión requerida') {
+    super('UNAUTHORIZED', message, 401);
+  }
+}
+
+/** Sesión válida pero sin permiso sobre el recurso (403, RF-W-02). */
+export class ForbiddenError extends AppError {
+  constructor(message = 'No autorizado sobre este recurso') {
+    super('FORBIDDEN', message, 403);
+  }
+}
+
 /** Dependencia caída: PostgreSQL o el RPC (503, RNF-W-04). */
 export class ServiceUnavailableError extends AppError {
   constructor(message: string, options?: { cause?: unknown }) {

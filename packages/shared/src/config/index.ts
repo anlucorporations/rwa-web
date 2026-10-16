@@ -62,6 +62,11 @@ export function getNetworkConfig(env: NodeJS.ProcessEnv = process.env): NetworkC
   return readNetworkConfig(env);
 }
 
+/** ¿Están habilitadas las rutas de depuración `/api/test-*`? (RF-W-07: solo local). */
+export function debugEndpointsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.ALLOW_DEBUG_ENDPOINTS === '1';
+}
+
 /** Valida y devuelve la configuración de servidor (BD + logging). */
 export function getServerConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   const databaseUrl = env.DATABASE_URL;

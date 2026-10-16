@@ -3,13 +3,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { repos, toErrorResponse } from '@rwa/shared';
+import { repos, toErrorResponse, debugEndpointsEnabled, NotFoundError } from '@rwa/shared';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(_request: NextRequest) {
   try {
+    if (!debugEndpointsEnabled()) {
+      throw new NotFoundError('endpoint', 'test-gridfs');
+    }
+
     const [files, totalFiles, requests] = await Promise.all([
       repos.documentFiles.list({ limit: 200 }),
       repos.documentFiles.count(),

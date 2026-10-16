@@ -45,6 +45,30 @@ export class SessionsRepository {
     }
   }
 
+  /**
+   * Consume un nonce de un solo uso: rota el nonce y extiende la caducidad.
+   * Devuelve `null` si el nonce no existe, ya se usó, está revocado o caducó
+   * (así un reintento de firma con el mismo nonce no puede reautenticarse).
+   */
+  async consumeNonce(
+    nonce: string,
+    options: { newNonce: string; expiresAt: Date; role?: SessionRole },
+  ): Promise<SessionRow | null> {
+    const { rows } = await query<SessionRow>(
+      `UPDATE rwa.sessions
+          SET nonce = $2,
+              role = COALESCE($3, role),
+              issued_at = now(),
+              expires_at = $4
+        WHERE nonce = $1
+          AND revoked_at IS NULL
+          AND expires_at > now()
+        RETURNING ${COLUMNS}`,
+      [nonce, options.newNonce, options.role ?? null, options.expiresAt],
+    );
+    return rows[0] ?? null;
+  }
+
   /** Nonce de un solo uso: la fila se busca antes de consumirla (O1). */
   async findByNonce(nonce: string): Promise<SessionRow | null> {
     const { rows } = await query<SessionRow>(

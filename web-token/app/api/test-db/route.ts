@@ -5,13 +5,15 @@
  */
 
 import { NextResponse } from 'next/server';
-import { logger, repos, toErrorResponse, toTokenDto } from '@rwa/shared';
+import { debugEndpointsEnabled, logger, NotFoundError, repos, toErrorResponse, toTokenDto } from '@rwa/shared';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET() {
   try {
+    if (!debugEndpointsEnabled()) throw new NotFoundError('endpoint', 'test-db');
+
     const items = await repos.tokens.listWithRelations();
     const stats = await repos.tokens.stats();
 
