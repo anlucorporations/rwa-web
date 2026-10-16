@@ -165,7 +165,7 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
     }
   };
 
-  const uploadFile = async (): Promise<{
+  const uploadFile = async (claimRequestId: string): Promise<{
     fileId: string;
     filename: string;
     contentType: string;
@@ -177,6 +177,7 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
       setUploading(true);
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('claimRequestId', claimRequestId);
 
       const response = await fetch('/api/upload', {
         method: 'POST',
@@ -244,27 +245,12 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
       // Step 1: Sign the message with MetaMask
       const { signedMessage, signature } = await signMessage();
 
-      // Step 2: Upload file if exists
-      let documentData: {
-        fileId: string;
-        filename: string;
-        contentType: string;
-        size: number;
-      } | null = null;
-      if (file) {
-        documentData = await uploadFile();
-      }
-
-      // Step 3: Create claim request with signature
+      // Step 2: Create the claim request (the document is not part of this payload)
       const requestBody = {
         requesterAddress: userAddress,
         issuerAddress: selectedIssuer,
         claimTopic: selectedTopic,
         message,
-        documentFileId: documentData?.fileId,
-        documentName: documentData?.filename,
-        documentContentType: documentData?.contentType,
-        documentSize: documentData?.size,
         signedMessage,
         signature,
       };
@@ -281,6 +267,24 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
 
       if (!result.success) {
         throw new Error(result.message || 'Failed to create claim request');
+      }
+
+      // Step 3: Attach the document to the created request
+      const claimRequestId: string | undefined = result.data?._id;
+      if (!claimRequestId) {
+        throw new Error('The claim request was created without an identifier');
+      }
+
+      if (file) {
+        try {
+          await uploadFile(claimRequestId);
+        } catch (uploadErr) {
+          throw new Error(
+            `The claim request was created successfully, but the document could not be uploaded: ${
+              uploadErr instanceof Error ? uploadErr.message : 'unknown error'
+            }`
+          );
+        }
       }
 
       // Reset form

@@ -7,8 +7,10 @@
  * - `@rwa/shared/logging` → logger estructurado (RT-W-10)
  */
 
-export * from './config/index.js';
-export * from './errors.js';
-export * from './logging/index.js';
-export * from './db/index.js';
-export * from './api/serializers.js';
+export * from './config/index';
+export * from './config/deployment';
+export * from './errors';
+export * from './logging/index';
+export * from './db/index';
+export * from './api/serializers';
+export * from './api/http';

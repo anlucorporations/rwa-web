@@ -4,9 +4,9 @@
  * La autoridad por topic es on-chain; esta tabla **no concede permisos**.
  */
 
-import { normalizeAddress } from '../address.js';
-import { query } from '../pool.js';
-import type { IssuerRow } from '../types.js';
+import { normalizeAddress } from '../address';
+import { query } from '../pool';
+import type { IssuerRow } from '../types';
 
 const COLUMNS = 'id, address, name, verified, verified_at, created_at, updated_at';
 

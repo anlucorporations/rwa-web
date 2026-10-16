@@ -1,99 +1,91 @@
 /**
  * API Route for Updating Request Status
- * 
- * POST: Approve or reject a claim request
+ *
+ * POST: Approve or reject a claim request (B11).
+ *
+ * El CHECK `claim_requests_review_consistency` exige `reviewed_by` NOT NULL al
+ * resolver; mientras la recuperación de la address desde la firma sea O1.2, se
+ * acepta `body.reviewedBy` o se usa el `issuer_address` de la solicitud.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
-import { UpdateRequestStatusDto } from '@/types/claim-request';
+import {
+  NotFoundError,
+  ValidationError,
+  isAddress,
+  repos,
+  toClaimRequestDto,
+  toErrorResponse,
+} from '@rwa/shared';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type UpdateRequestBody = {
+  requestId?: unknown;
+  status?: unknown;
+  reviewNote?: unknown;
+  issuerSignedMessage?: unknown;
+  issuerSignature?: unknown;
+  reviewedBy?: unknown;
+};
 
 export async function POST(request: NextRequest) {
   try {
-    const body: UpdateRequestStatusDto = await request.json();
-    
-    // Validate required fields
-    if (!body.requestId || !body.status || !body.issuerSignedMessage || !body.issuerSignature) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Missing required fields',
-          message: 'requestId, status, issuerSignedMessage, and issuerSignature are required',
-        },
-        { status: 400 }
-      );
+    const raw = (await request.json()) as unknown;
+    const body = (raw ?? {}) as UpdateRequestBody;
+    const { requestId, status, issuerSignedMessage, issuerSignature } = body;
+
+    if (typeof requestId !== 'string' || !UUID_RE.test(requestId)) {
+      throw new ValidationError('id inválido', 'id');
     }
-    
-    // Validate status
-    if (!['approved', 'rejected'].includes(body.status)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid status',
-          message: 'Status must be either "approved" or "rejected"',
-        },
-        { status: 400 }
-      );
+
+    if (status !== 'approved' && status !== 'rejected') {
+      throw new ValidationError('status debe ser "approved" o "rejected"', 'status');
     }
-    
-    // Validate ObjectId
-    if (!ObjectId.isValid(body.requestId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid request ID',
-        },
-        { status: 400 }
-      );
+
+    if (typeof issuerSignedMessage !== 'string' || issuerSignedMessage.length === 0) {
+      throw new ValidationError('issuerSignedMessage es obligatorio', 'issuerSignedMessage');
     }
-    
-    const db = await getDatabase();
-    const collection = db.collection('claim_requests');
-    
-    // Update the request with issuer signature
-    const result = await collection.updateOne(
-      { _id: new ObjectId(body.requestId) },
-      {
-        $set: {
-          status: body.status,
-          reviewedAt: new Date(),
-          reviewNote: body.reviewNote || '',
-          issuerSignedMessage: body.issuerSignedMessage,
-          issuerSignature: body.issuerSignature,
-          updatedAt: new Date(),
-        }
+
+    if (typeof issuerSignature !== 'string' || issuerSignature.length === 0) {
+      throw new ValidationError('issuerSignature es obligatorio', 'issuerSignature');
+    }
+
+    const reviewNote = typeof body.reviewNote === 'string' ? body.reviewNote : undefined;
+
+    let reviewedBy: string;
+    if (typeof body.reviewedBy === 'string' && isAddress(body.reviewedBy)) {
+      reviewedBy = body.reviewedBy;
+    } else {
+      const existing = await repos.claimRequests.findById(requestId);
+      if (!existing) {
+        throw new NotFoundError('solicitud', requestId);
       }
-    );
-    
-    if (result.matchedCount === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Request not found',
-        },
-        { status: 404 }
-      );
+      reviewedBy = existing.issuer_address;
     }
-    
-    // Get the updated request
-    const updatedRequest = await collection.findOne({ _id: new ObjectId(body.requestId) });
-    
+
+    const updated = await repos.claimRequests.review(requestId, {
+      status,
+      reviewNote,
+      issuerSignedMessage,
+      issuerSignature,
+      reviewedBy,
+    });
+
+    if (!updated) {
+      throw new NotFoundError('solicitud', requestId);
+    }
+
     return NextResponse.json({
       success: true,
-      data: updatedRequest,
-      message: `Request ${body.status} successfully`,
+      data: toClaimRequestDto(updated, null),
+      message: 'Request updated',
     });
   } catch (error) {
-    console.error('Error updating request:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to update request',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    const { status, body } = toErrorResponse(error);
+    return NextResponse.json(body, { status });
   }
 }
-

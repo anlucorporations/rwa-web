@@ -7,11 +7,11 @@
  * RF-W-11 son *fail-closed* (un token sin `claim_topics_registry` no verifica a nadie).
  */
 
-import { normalizeAddress, normalizeAddressOrUndefined } from '../address.js';
-import { query, queryWith, withTransaction } from '../pool.js';
-import { translatePgError } from '../pg-errors.js';
+import { normalizeAddress, normalizeAddressOrUndefined } from '../address';
+import { query, queryWith, withTransaction } from '../pool';
+import { translatePgError } from '../pg-errors';
 import type { PoolClient } from 'pg';
-import type { TokenComplianceModuleRow, TokenRequiredClaimRow, TokenRow } from '../types.js';
+import type { TokenComplianceModuleRow, TokenRequiredClaimRow, TokenRow } from '../types';
 
 const COLUMNS =
   'id, token_address, admin_address, name, symbol, decimals, max_total_supply, total_supply, ' +
@@ -40,6 +40,13 @@ export type CreateTokenInput = {
 };
 
 export type TokenStats = { tables: number; sizeBytes: string };
+
+/** Token con sus relaciones normalizadas (topics exigidos y módulos de compliance). */
+export type TokenWithRelations = {
+  token: TokenRow;
+  requiredClaims: TokenRequiredClaimRow[];
+  complianceModules: TokenComplianceModuleRow[];
+};
 
 export class TokensRepository {
   /** Listado off-chain del marketplace (`GET /api/tokens`); `adminAddress` opcional. */
@@ -89,6 +96,50 @@ export class TokensRepository {
       [tokenId],
     );
     return rows;
+  }
+
+  /** Listado con relaciones en 3 consultas (evita el N+1 de la versión Mongo). */
+  async listWithRelations(filter: { adminAddress?: string } = {}): Promise<TokenWithRelations[]> {
+    const tokens = await this.list(filter);
+    return this.attachRelations(tokens);
+  }
+
+  /** Un token con sus relaciones (para `GET` por id). */
+  async findWithRelationsById(id: string): Promise<TokenWithRelations | null> {
+    const token = await this.findById(id);
+    if (!token) return null;
+    const [withRelations] = await this.attachRelations([token]);
+    return withRelations;
+  }
+
+  /** Un token con sus relaciones a partir de su dirección on-chain. */
+  async findWithRelationsByAddress(tokenAddress: string): Promise<TokenWithRelations | null> {
+    const token = await this.findByAddress(tokenAddress);
+    if (!token) return null;
+    const [withRelations] = await this.attachRelations([token]);
+    return withRelations;
+  }
+
+  private async attachRelations(tokens: readonly TokenRow[]): Promise<TokenWithRelations[]> {
+    if (tokens.length === 0) return [];
+    const ids = tokens.map((token) => token.id);
+    const [claimsResult, modulesResult] = await Promise.all([
+      query<TokenRequiredClaimRow>(
+        'SELECT token_id, claim_topic_id, created_at FROM rwa.token_required_claims WHERE token_id = ANY($1::uuid[]) ORDER BY claim_topic_id',
+        [ids],
+      ),
+      query<TokenComplianceModuleRow>(
+        'SELECT token_id, module_address, is_primary, created_at FROM rwa.token_compliance_modules WHERE token_id = ANY($1::uuid[]) ORDER BY is_primary DESC, module_address',
+        [ids],
+      ),
+    ]);
+    const claimsByToken = groupBy(claimsResult.rows, (row) => row.token_id);
+    const modulesByToken = groupBy(modulesResult.rows, (row) => row.token_id);
+    return tokens.map((token) => ({
+      token,
+      requiredClaims: claimsByToken.get(token.id) ?? [],
+      complianceModules: modulesByToken.get(token.id) ?? [],
+    }));
   }
 
   /** Alta del token + topics exigidos + módulos de compliance, en una sola transacción. */
@@ -249,4 +300,15 @@ async function replaceComplianceModules(
      ON CONFLICT DO NOTHING`,
     [tokenId, [...modules], primary],
   );
+}
+
+function groupBy<T>(items: readonly T[], key: (item: T) => string): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const item of items) {
+    const k = key(item);
+    const bucket = map.get(k);
+    if (bucket) bucket.push(item);
+    else map.set(k, [item]);
+  }
+  return map;
 }

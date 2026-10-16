@@ -1,12 +1,16 @@
 /**
- * API Route for Token Compliance Management
- * 
- * POST: Add compliance contract to a token
+ * API Route: actualizar el puntero principal de compliance de un token.
+ * POST /api/tokens/[tokenId]/compliance
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { NotFoundError, repos, toErrorResponse, toTokenDto, ValidationError } from '@rwa/shared';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ADDRESS_RE = /^0x[0-9a-f]{40}$/i;
 
 export async function POST(
   request: NextRequest,
@@ -14,71 +18,24 @@ export async function POST(
 ) {
   try {
     const { tokenId } = await params;
-    const body = await request.json();
-    
-    if (!body.complianceAddress) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Missing compliance address',
-        },
-        { status: 400 }
-      );
+    if (!UUID_RE.test(tokenId)) throw new ValidationError('id inválido', 'id');
+
+    const body = (await request.json()) as Record<string, unknown>;
+    const complianceAddress = body.complianceAddress;
+    if (typeof complianceAddress !== 'string' || !ADDRESS_RE.test(complianceAddress)) {
+      throw new ValidationError('"complianceAddress" inválida', 'complianceAddress');
     }
-    
-    // Validate ObjectId
-    if (!ObjectId.isValid(tokenId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid token ID',
-        },
-        { status: 400 }
-      );
-    }
-    
-    const db = await getDatabase();
-    const collection = db.collection('tokens');
-    
-    // Update the token with compliance address
-    const result = await collection.updateOne(
-      { _id: new ObjectId(tokenId) },
-      {
-        $set: {
-          complianceAddress: body.complianceAddress.toLowerCase(),
-          updatedAt: new Date(),
-        }
-      }
-    );
-    
-    if (result.matchedCount === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Token not found',
-        },
-        { status: 404 }
-      );
-    }
-    
-    // Get the updated token
-    const updatedToken = await collection.findOne({ _id: new ObjectId(tokenId) });
-    
+
+    const updated = await repos.tokens.setComplianceAddress(tokenId, complianceAddress);
+    if (!updated) throw new NotFoundError('token', tokenId);
+
     return NextResponse.json({
       success: true,
-      data: updatedToken,
-      message: 'Compliance contract added successfully',
+      data: toTokenDto(updated, {}),
+      message: 'Compliance actualizado',
     });
   } catch (error) {
-    console.error('Error adding compliance:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to add compliance',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    const { status, body } = toErrorResponse(error);
+    return NextResponse.json(body, { status });
   }
 }
-

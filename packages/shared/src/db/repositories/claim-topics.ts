@@ -5,8 +5,8 @@
  * `claimTopic` (string o número en la API heredada) → `claim_topic_id` (FK smallint).
  */
 
-import { query } from '../pool.js';
-import type { ClaimTopicRow } from '../types.js';
+import { query } from '../pool';
+import type { ClaimTopicRow } from '../types';
 
 const COLUMNS = 'id, code, name, description, active, created_at';
 

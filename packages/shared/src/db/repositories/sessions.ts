@@ -5,10 +5,10 @@
  * Se deja listo aquí para que O1 no tenga que tocar la capa de datos.
  */
 
-import { normalizeAddress } from '../address.js';
-import { query } from '../pool.js';
-import { translatePgError } from '../pg-errors.js';
-import type { SessionRole, SessionRow } from '../types.js';
+import { normalizeAddress } from '../address';
+import { query } from '../pool';
+import { translatePgError } from '../pg-errors';
+import type { SessionRole, SessionRow } from '../types';
 
 const COLUMNS =
   'id, address, nonce, role, issued_at, expires_at, revoked_at, user_agent, ip';

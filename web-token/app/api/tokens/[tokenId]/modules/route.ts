@@ -1,11 +1,16 @@
 /**
- * API Route: Update Token Compliance Modules
+ * API Route: actualizar los módulos de compliance de un token.
  * POST /api/tokens/[tokenId]/modules
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { NotFoundError, repos, toErrorResponse, ValidationError } from '@rwa/shared';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ADDRESS_RE = /^0x[0-9a-f]{40}$/i;
 
 export async function POST(
   request: NextRequest,
@@ -13,49 +18,36 @@ export async function POST(
 ) {
   try {
     const { tokenId } = await params;
-    const body = await request.json();
-    const { modules } = body; // Array of module addresses
+    if (!UUID_RE.test(tokenId)) throw new ValidationError('id inválido', 'id');
 
-    if (!modules || !Array.isArray(modules)) {
-      return NextResponse.json(
-        { success: false, message: 'Modules array is required' },
-        { status: 400 }
-      );
-    }
+    const body = (await request.json()) as Record<string, unknown>;
+    const modules = parseModules(body.modules);
 
-    const db = await getDatabase();
-    const tokensCollection = db.collection('tokens');
-
-    // Update token with new modules array
-    const result = await tokensCollection.updateOne(
-      { _id: new ObjectId(tokenId) },
-      {
-        $set: {
-          complianceModules: modules,
-          complianceAddress: modules.length > 0 ? modules[0] : null, // Keep first for backward compatibility
-          updatedAt: new Date(),
-        },
-      }
-    );
-
-    if (result.matchedCount === 0) {
-      return NextResponse.json(
-        { success: false, message: 'Token not found' },
-        { status: 404 }
-      );
-    }
+    const updated = await repos.tokens.setComplianceModules(tokenId, modules);
+    if (!updated) throw new NotFoundError('token', tokenId);
 
     return NextResponse.json({
       success: true,
-      message: 'Modules updated successfully',
+      message: 'Módulos actualizados',
       data: { modules },
     });
   } catch (error) {
-    console.error('Error updating modules:', error);
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    );
+    const { status, body } = toErrorResponse(error);
+    return NextResponse.json(body, { status });
   }
 }
 
+/** Array de direcciones de módulo; puede estar vacío (limpia los módulos). */
+function parseModules(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    throw new ValidationError('"modules" debe ser un array de direcciones', 'modules');
+  }
+  const modules: string[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string' || !ADDRESS_RE.test(item)) {
+      throw new ValidationError('"modules" debe ser un array de direcciones', 'modules');
+    }
+    modules.push(item);
+  }
+  return modules;
+}

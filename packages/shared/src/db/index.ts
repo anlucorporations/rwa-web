@@ -5,38 +5,39 @@
  * Sustituye las 3 copias de `lib/mongodb.ts` (O0.2/O0.3, D-095).
  */
 
-export { getPool, query, queryWith, withTransaction, ping, closePool } from './pool.js';
-export { isAddress, normalizeAddress, normalizeAddressOrUndefined } from './address.js';
-export { translatePgError } from './pg-errors.js';
-export * from './types.js';
+export { getPool, query, queryWith, withTransaction, ping, closePool } from './pool';
+export { isAddress, normalizeAddress, normalizeAddressOrUndefined } from './address';
+export { translatePgError } from './pg-errors';
+export * from './types';
 
-export { ClaimTopicsRepository } from './repositories/claim-topics.js';
-export { IssuersRepository, type UpsertIssuerResult } from './repositories/issuers.js';
+export { ClaimTopicsRepository } from './repositories/claim-topics';
+export { IssuersRepository, type UpsertIssuerResult } from './repositories/issuers';
 export {
   ClaimRequestsRepository,
   type ClaimRequestFilter,
   type CreateClaimRequestInput,
   type ReviewClaimRequestInput,
-} from './repositories/claim-requests.js';
+} from './repositories/claim-requests';
 export {
   DocumentFilesRepository,
   type CreateDocumentFileInput,
-} from './repositories/document-files.js';
+} from './repositories/document-files';
 export {
   TokensRepository,
   type CreateTokenInput,
   type TokenStats,
-} from './repositories/tokens.js';
-export { SessionsRepository, type CreateSessionInput } from './repositories/sessions.js';
-export { AuditLogRepository, type RecordAuditInput } from './repositories/audit-log.js';
+  type TokenWithRelations,
+} from './repositories/tokens';
+export { SessionsRepository, type CreateSessionInput } from './repositories/sessions';
+export { AuditLogRepository, type RecordAuditInput } from './repositories/audit-log';
 
-import { AuditLogRepository } from './repositories/audit-log.js';
-import { ClaimRequestsRepository } from './repositories/claim-requests.js';
-import { ClaimTopicsRepository } from './repositories/claim-topics.js';
-import { DocumentFilesRepository } from './repositories/document-files.js';
-import { IssuersRepository } from './repositories/issuers.js';
-import { SessionsRepository } from './repositories/sessions.js';
-import { TokensRepository } from './repositories/tokens.js';
+import { AuditLogRepository } from './repositories/audit-log';
+import { ClaimRequestsRepository } from './repositories/claim-requests';
+import { ClaimTopicsRepository } from './repositories/claim-topics';
+import { DocumentFilesRepository } from './repositories/document-files';
+import { IssuersRepository } from './repositories/issuers';
+import { SessionsRepository } from './repositories/sessions';
+import { TokensRepository } from './repositories/tokens';
 
 /**
  * Instancias listas para usar. Todas comparten el mismo pool singleton.

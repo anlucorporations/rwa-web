@@ -5,7 +5,7 @@
  * mediante CHECK. Normalizamos aquí para no repetirlo en cada repositorio.
  */
 
-import { ValidationError } from '../errors.js';
+import { ValidationError } from '../errors';
 
 const ADDRESS_RE = /^0x[0-9a-f]{40}$/;
 

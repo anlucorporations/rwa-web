@@ -1,11 +1,15 @@
 /**
- * API Route: Update Token Required Claims
+ * API Route: actualizar los topics de claim exigidos por un token.
  * POST /api/tokens/[tokenId]/claims
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { NotFoundError, repos, toErrorResponse, ValidationError } from '@rwa/shared';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(
   request: NextRequest,
@@ -13,48 +17,35 @@ export async function POST(
 ) {
   try {
     const { tokenId } = await params;
-    const body = await request.json();
-    const { claims } = body; // Array of claim topic numbers
+    if (!UUID_RE.test(tokenId)) throw new ValidationError('id inválido', 'id');
 
-    if (!claims || !Array.isArray(claims)) {
-      return NextResponse.json(
-        { success: false, message: 'Claims array is required' },
-        { status: 400 }
-      );
-    }
+    const body = (await request.json()) as Record<string, unknown>;
+    const claims = parseClaims(body.claims);
 
-    const db = await getDatabase();
-    const tokensCollection = db.collection('tokens');
-
-    // Update token with new claims array
-    const result = await tokensCollection.updateOne(
-      { _id: new ObjectId(tokenId) },
-      {
-        $set: {
-          requiredClaims: claims,
-          updatedAt: new Date(),
-        },
-      }
-    );
-
-    if (result.matchedCount === 0) {
-      return NextResponse.json(
-        { success: false, message: 'Token not found' },
-        { status: 404 }
-      );
-    }
+    const updated = await repos.tokens.setRequiredClaims(tokenId, claims);
+    if (!updated) throw new NotFoundError('token', tokenId);
 
     return NextResponse.json({
       success: true,
-      message: 'Claims updated successfully',
+      message: 'Claims actualizados',
       data: { claims },
     });
   } catch (error) {
-    console.error('Error updating claims:', error);
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    );
+    const { status, body } = toErrorResponse(error);
+    return NextResponse.json(body, { status });
   }
 }
 
+function parseClaims(value: unknown): number[] {
+  if (!Array.isArray(value)) {
+    throw new ValidationError('"claims" debe ser un array de enteros', 'claims');
+  }
+  const claims: number[] = [];
+  for (const item of value) {
+    if (typeof item !== 'number' || !Number.isInteger(item)) {
+      throw new ValidationError('"claims" debe ser un array de enteros', 'claims');
+    }
+    claims.push(item);
+  }
+  return claims;
+}

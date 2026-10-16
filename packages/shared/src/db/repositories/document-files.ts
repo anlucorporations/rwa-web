@@ -7,9 +7,9 @@
  * qué hace (`encryptionAlgo`), y `'none'` deja constancia explícita de que aún no está cifrado.
  */
 
-import { query } from '../pool.js';
-import { translatePgError } from '../pg-errors.js';
-import type { DocumentFileMetaRow, DocumentFileRow } from '../types.js';
+import { query } from '../pool';
+import { translatePgError } from '../pg-errors';
+import type { DocumentFileMetaRow, DocumentFileRow } from '../types';
 
 const META_COLUMNS =
   'id, claim_request_id, original_name, content_type, size_bytes, sha256, ' +
@@ -80,6 +80,17 @@ export class DocumentFilesRepository {
       `SELECT ${META_COLUMNS} FROM rwa.document_files
         WHERE claim_request_id = $1 ORDER BY created_at ASC`,
       [claimRequestId],
+    );
+    return rows;
+  }
+
+  /** Documentos de varias solicitudes en una consulta (evita el N+1 en los listados). */
+  async listByClaimRequestIds(claimRequestIds: readonly string[]): Promise<DocumentFileMetaRow[]> {
+    if (claimRequestIds.length === 0) return [];
+    const { rows } = await query<DocumentFileMetaRow>(
+      `SELECT ${META_COLUMNS} FROM rwa.document_files
+        WHERE claim_request_id = ANY($1::uuid[]) ORDER BY created_at ASC`,
+      [[...claimRequestIds]],
     );
     return rows;
   }

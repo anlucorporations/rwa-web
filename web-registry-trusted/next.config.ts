@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
   },
   
   output: "standalone",
+  
+  transpilePackages: ["@rwa/shared"],
+  serverExternalPackages: ["pg"],
 };
 
 export default nextConfig;

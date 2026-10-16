@@ -6,10 +6,10 @@
  * (lo exige el CHECK `claim_requests_review_consistency`).
  */
 
-import { normalizeAddress, normalizeAddressOrUndefined } from '../address.js';
-import { query } from '../pool.js';
-import { translatePgError } from '../pg-errors.js';
-import type { ClaimRequestRow, ClaimRequestStatus, ClaimRequestSummaryRow } from '../types.js';
+import { normalizeAddress, normalizeAddressOrUndefined } from '../address';
+import { query } from '../pool';
+import { translatePgError } from '../pg-errors';
+import type { ClaimRequestRow, ClaimRequestStatus, ClaimRequestSummaryRow } from '../types';
 
 const COLUMNS =
   'id, requester_address, issuer_address, claim_topic_id, message, status, ' +

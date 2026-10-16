@@ -1,60 +1,35 @@
 /**
- * Test MongoDB Connection
- * 
- * GET: Test if MongoDB is connected and list tokens
+ * Diagnóstico de la conexión PostgreSQL (esquema `rwa`).
+ *
+ * GET: comprueba el pool y devuelve el listado de tokens con sus relaciones.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { getDatabase } from '@/lib/mongodb';
+import { NextResponse } from 'next/server';
+import { logger, repos, toErrorResponse, toTokenDto } from '@rwa/shared';
 
-export async function GET(request: NextRequest) {
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+export async function GET() {
   try {
-    console.log('🔍 Testing MongoDB connection...');
-    
-    const db = await getDatabase();
-    console.log('✅ MongoDB connected successfully');
-    
-    // Get all tokens
-    const tokens = await db.collection('tokens').find().toArray();
-    console.log(`📊 Found ${tokens.length} tokens in database`);
-    
-    // Get database stats
-    const stats = await db.stats();
-    
+    const items = await repos.tokens.listWithRelations();
+    const stats = await repos.tokens.stats();
+
+    logger.info({ totalTokens: items.length }, 'Conexión PostgreSQL verificada');
+
     return NextResponse.json({
       success: true,
-      message: 'MongoDB connection successful',
-      data: {
-        connected: true,
-        database: 'rwa',
-        totalTokens: tokens.length,
-        tokens: tokens.map(t => ({
-          _id: t._id.toString(),
-          name: t.name,
-          symbol: t.symbol,
-          tokenAddress: t.tokenAddress,
-          adminAddress: t.adminAddress,
-          complianceAddress: t.complianceAddress,
-          requiredClaims: t.requiredClaims,
-        })),
-        dbStats: {
-          collections: stats.collections,
-          dataSize: stats.dataSize,
-          indexSize: stats.indexSize,
-        }
+      connected: true,
+      database: 'rwa',
+      totalTokens: items.length,
+      tokens: items.map((item) => toTokenDto(item.token, item)),
+      dbStats: {
+        tables: stats.tables,
+        sizeBytes: stats.sizeBytes,
       },
     });
   } catch (error) {
-    console.error('❌ MongoDB connection failed:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to connect to MongoDB',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        details: 'Make sure MongoDB is running on localhost:27017',
-      },
-      { status: 500 }
-    );
+    const { status, body } = toErrorResponse(error);
+    return NextResponse.json(body, { status });
   }
 }
-

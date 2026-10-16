@@ -1,58 +1,57 @@
 /**
  * API Route for Batch Issuer Information
- * 
- * POST: Get issuer information for multiple addresses
+ *
+ * POST: Get issuer information for multiple addresses (B4).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDatabase } from '@/lib/mongodb';
-import { IssuerInfo } from '@/types/issuer';
+import {
+  ValidationError,
+  repos,
+  toErrorResponse,
+  toIssuerDto,
+  type IssuerDto,
+} from '@rwa/shared';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+const MAX_ADDRESSES = 200;
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { addresses } = body;
+    const raw = (await request.json()) as unknown;
+    const addresses = ((raw ?? {}) as { addresses?: unknown }).addresses;
 
-    if (!addresses || !Array.isArray(addresses)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Addresses array is required',
-        },
-        { status: 400 }
+    if (!isStringArray(addresses) || addresses.length === 0) {
+      throw new ValidationError('addresses debe ser un array no vacío', 'addresses');
+    }
+
+    if (addresses.length > MAX_ADDRESSES) {
+      throw new ValidationError(
+        `addresses no puede superar ${MAX_ADDRESSES} elementos`,
+        'addresses',
       );
     }
 
-    const db = await getDatabase();
-    const collection = db.collection<IssuerInfo>('issuers');
+    const rows = await repos.issuers.findByAddresses(addresses);
 
-    // Normalize addresses to lowercase
-    const normalizedAddresses = addresses.map((addr: string) => addr.toLowerCase());
-
-    const issuers = await collection
-      .find({ address: { $in: normalizedAddresses } })
-      .toArray();
-
-    // Create an object for quick lookup (address -> IssuerInfo)
-    const issuerMap: Record<string, IssuerInfo> = {};
-    issuers.forEach(issuer => {
-      issuerMap[issuer.address] = issuer;
-    });
+    const data: Record<string, IssuerDto> = {};
+    for (const row of rows) {
+      data[row.address] = toIssuerDto(row);
+    }
 
     return NextResponse.json({
       success: true,
-      data: issuerMap,
-      count: issuers.length,
+      data,
+      count: rows.length,
     });
   } catch (error) {
-    console.error('Error fetching issuers:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to fetch issuers',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    const { status, body } = toErrorResponse(error);
+    return NextResponse.json(body, { status });
   }
 }

@@ -1,119 +1,115 @@
 /**
  * API Route for Claim Requests
- * 
- * GET: List all claim requests
+ *
+ * GET: List claim requests (optionally filtered by requester, issuer or status)
  * POST: Create a new claim request
+ *
+ * PostgreSQL-backed via `@rwa/shared` (schema `rwa`). The document (if any) is
+ * linked afterwards through `POST /api/upload` using the created claim request id.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDatabase } from '@/lib/mongodb';
-import { CreateClaimRequestDto, ClaimRequest } from '@/types/claim-request';
+import {
+  repos,
+  toClaimRequestDto,
+  toErrorResponse,
+  ValidationError,
+  type ClaimRequestStatus,
+} from '@rwa/shared';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+const CLAIM_STATUSES: readonly ClaimRequestStatus[] = ['pending', 'approved', 'rejected'];
+
+function parseStatus(value: string | null): ClaimRequestStatus | undefined {
+  if (value === null) return undefined;
+  if (!CLAIM_STATUSES.includes(value as ClaimRequestStatus)) {
+    throw new ValidationError(`status inválido: ${value}`, 'status');
+  }
+  return value as ClaimRequestStatus;
+}
+
+type CreateClaimRequestBody = {
+  requesterAddress?: string;
+  issuerAddress?: string;
+  claimTopic?: string | number;
+  message?: string | null;
+  signedMessage?: string;
+  signature?: string;
+};
 
 export async function GET(request: NextRequest) {
   try {
-    const db = await getDatabase();
-    const collection = db.collection<ClaimRequest>('claim_requests');
-    
-    // Get query parameters for filtering
     const searchParams = request.nextUrl.searchParams;
-    const requesterAddress = searchParams.get('requesterAddress');
-    const issuerAddress = searchParams.get('issuerAddress');
-    const status = searchParams.get('status');
-    
-    // Build query
-    const query: any = {};
-    if (requesterAddress) {
-      query.requesterAddress = requesterAddress.toLowerCase();
+    const requesterAddress = searchParams.get('requesterAddress') ?? undefined;
+    const issuerAddress = searchParams.get('issuerAddress') ?? undefined;
+    const status = parseStatus(searchParams.get('status'));
+
+    const rows = await repos.claimRequests.list({ requesterAddress, issuerAddress, status });
+
+    const docs = await repos.documentFiles.listByClaimRequestIds(rows.map((r) => r.id));
+    const firstDocByClaim = new Map<string, (typeof docs)[number]>();
+    for (const doc of docs) {
+      if (!firstDocByClaim.has(doc.claim_request_id)) {
+        firstDocByClaim.set(doc.claim_request_id, doc);
+      }
     }
-    if (issuerAddress) {
-      query.issuerAddress = issuerAddress.toLowerCase();
-    }
-    if (status) {
-      query.status = status;
-    }
-    
-    const requests = await collection
-      .find(query)
-      .sort({ createdAt: -1 })
-      .toArray();
-    
+
+    const data = rows.map((row) => toClaimRequestDto(row, firstDocByClaim.get(row.id) ?? null));
+
     return NextResponse.json({
       success: true,
-      data: requests,
-      count: requests.length,
+      data,
+      count: data.length,
     });
   } catch (error) {
-    console.error('Error fetching claim requests:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to fetch claim requests',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    const { status, body } = toErrorResponse(error);
+    return NextResponse.json(body, { status });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body: CreateClaimRequestDto = await request.json();
-    
-    // Validate required fields
-    if (!body.requesterAddress || !body.issuerAddress || !body.claimTopic || !body.signedMessage || !body.signature) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Missing required fields',
-          message: 'requesterAddress, issuerAddress, claimTopic, signedMessage, and signature are required',
-        },
-        { status: 400 }
+    const body = (await request.json()) as CreateClaimRequestBody;
+
+    if (
+      !body.requesterAddress ||
+      !body.issuerAddress ||
+      body.claimTopic === undefined ||
+      body.claimTopic === null ||
+      !body.signedMessage ||
+      !body.signature
+    ) {
+      throw new ValidationError(
+        'requesterAddress, issuerAddress, claimTopic, signedMessage y signature son obligatorios',
       );
     }
-    
-    const db = await getDatabase();
-    const collection = db.collection<ClaimRequest>('claim_requests');
-    
-    // Create claim request document
-    const claimRequest: Omit<ClaimRequest, '_id'> = {
-      requesterAddress: body.requesterAddress.toLowerCase(),
-      issuerAddress: body.issuerAddress.toLowerCase(),
-      claimTopic: body.claimTopic,
-      message: body.message || '',
-      documentFileId: body.documentFileId,
-      documentName: body.documentName,
-      documentContentType: body.documentContentType,
-      documentSize: body.documentSize,
+
+    const topic = await repos.claimTopics.resolve(body.claimTopic);
+    if (!topic) {
+      throw new ValidationError('claimTopic inválido', 'claimTopic');
+    }
+
+    const row = await repos.claimRequests.create({
+      requesterAddress: body.requesterAddress,
+      issuerAddress: body.issuerAddress,
+      claimTopicId: topic.id,
+      message: body.message ?? null,
       signedMessage: body.signedMessage,
       signature: body.signature,
-      status: 'pending',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    
-    const result = await collection.insertOne(claimRequest as any);
-    
+    });
+
     return NextResponse.json(
       {
         success: true,
-        data: {
-          _id: result.insertedId,
-          ...claimRequest,
-        },
-        message: 'Claim request created successfully',
+        data: toClaimRequestDto(row, null),
+        message: 'Claim request created',
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
-    console.error('Error creating claim request:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to create claim request',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    const { status, body } = toErrorResponse(error);
+    return NextResponse.json(body, { status });
   }
 }
-

@@ -8,8 +8,8 @@
 
 import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from 'pg';
 
-import { getServerConfig } from '../config/index.js';
-import { ServiceUnavailableError } from '../errors.js';
+import { getServerConfig } from '../config/index';
+import { ServiceUnavailableError } from '../errors';
 
 interface PgGlobal {
   __rwaPgPool?: Pool;

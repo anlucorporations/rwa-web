@@ -5,7 +5,7 @@
  * driver (RF-W-13) y permite responder 409/400 en vez de 500.
  */
 
-import { ConflictError, ValidationError } from '../errors.js';
+import { ConflictError, ValidationError } from '../errors';
 
 type PgErrorLike = { code?: string; detail?: string; constraint?: string };
 

@@ -13,9 +13,9 @@
  * Sale con código ≠ 0 si cualquiera de las tres comprobaciones falla.
  */
 
-import { getNetworkConfig } from '../config/index.js';
-import { closePool, ping } from './pool.js';
-import { ClaimTopicsRepository } from './repositories/claim-topics.js';
+import { getNetworkConfig } from '../config/index';
+import { closePool, ping } from './pool';
+import { ClaimTopicsRepository } from './repositories/claim-topics';
 
 const EXPECTED_ACTIVE_TOPICS = [1, 7, 9];
 

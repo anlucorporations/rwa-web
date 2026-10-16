@@ -12,9 +12,8 @@ const nextConfig: NextConfig = {
 
   output: "standalone",
 
-  turbopack: {
-    root: __dirname,
-  },
+  transpilePackages: ["@rwa/shared"],
+  serverExternalPackages: ["pg"],
 };
 
 export default nextConfig;

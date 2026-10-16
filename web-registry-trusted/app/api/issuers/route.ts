@@ -1,113 +1,63 @@
 /**
  * API Route for Issuers
- * 
- * POST: Save or update issuer information (name)
- * GET: Get issuer information by address
+ *
+ * POST: Save or update issuer information (name)  (B9)
+ * GET:  Get issuer information by address        (B10)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDatabase } from '@/lib/mongodb';
-import { IssuerInfo } from '@/types/issuer';
+import { ValidationError, repos, toErrorResponse, toIssuerDto } from '@rwa/shared';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+type IssuerBody = { address?: unknown; name?: unknown };
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { address, name } = body;
+    const raw = (await request.json()) as unknown;
+    const { address, name } = ((raw ?? {}) as IssuerBody);
 
-    if (!address || !name) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Address and name are required',
-        },
-        { status: 400 }
-      );
+    if (typeof address !== 'string' || address.length === 0) {
+      throw new ValidationError('address es obligatorio', 'address');
     }
 
-    const db = await getDatabase();
-    const collection = db.collection<IssuerInfo>('issuers');
+    if (typeof name !== 'string' || name.trim().length === 0) {
+      throw new ValidationError('name es obligatorio', 'name');
+    }
 
-    // Normalize address to lowercase
-    const normalizedAddress = address.toLowerCase();
-
-    // Upsert: update if exists, insert if not
-    const result = await collection.updateOne(
-      { address: normalizedAddress },
-      {
-        $set: {
-          name: name.trim(),
-          updatedAt: new Date(),
-        },
-        $setOnInsert: {
-          address: normalizedAddress,
-          createdAt: new Date(),
-        },
-      },
-      { upsert: true }
-    );
+    const { issuer, created } = await repos.issuers.upsertName(address, name.trim());
 
     return NextResponse.json({
       success: true,
       data: {
-        address: normalizedAddress,
-        name: name.trim(),
+        address: issuer.address,
+        name: issuer.name,
       },
-      created: result.upsertedCount > 0,
+      created,
     });
   } catch (error) {
-    console.error('Error saving issuer:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to save issuer',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    const { status, body } = toErrorResponse(error);
+    return NextResponse.json(body, { status });
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const address = searchParams.get('address');
+    const address = request.nextUrl.searchParams.get('address');
 
     if (!address) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Address is required',
-        },
-        { status: 400 }
-      );
+      throw new ValidationError('address es obligatorio', 'address');
     }
 
-    const db = await getDatabase();
-    const collection = db.collection<IssuerInfo>('issuers');
-
-    const normalizedAddress = address.toLowerCase();
-    const issuer = await collection.findOne({ address: normalizedAddress });
-
-    if (!issuer) {
-      return NextResponse.json({
-        success: true,
-        data: null,
-      });
-    }
+    const issuer = await repos.issuers.findByAddress(address);
 
     return NextResponse.json({
       success: true,
-      data: issuer,
+      data: issuer ? toIssuerDto(issuer) : null,
     });
   } catch (error) {
-    console.error('Error fetching issuer:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to fetch issuer',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    const { status, body } = toErrorResponse(error);
+    return NextResponse.json(body, { status });
   }
 }

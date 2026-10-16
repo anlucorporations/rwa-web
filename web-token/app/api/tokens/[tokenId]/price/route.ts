@@ -1,11 +1,17 @@
 /**
- * API Route: Update Token Price
+ * API Route: actualizar el precio de un token.
  * POST /api/tokens/[tokenId]/price
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { NotFoundError, repos, toErrorResponse, ValidationError } from '@rwa/shared';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Decimal no negativo y sin notación científica (columna `numeric(38,18)`). */
+const PRICE_RE = /^\d+(\.\d+)?$/;
 
 export async function POST(
   request: NextRequest,
@@ -13,55 +19,39 @@ export async function POST(
 ) {
   try {
     const { tokenId } = await params;
-    const body = await request.json();
-    const { price } = body;
+    if (!UUID_RE.test(tokenId)) throw new ValidationError('id inválido', 'id');
 
-    if (price === undefined || price === null) {
-      return NextResponse.json(
-        { success: false, message: 'Price is required' },
-        { status: 400 }
-      );
-    }
+    const body = (await request.json()) as Record<string, unknown>;
+    const price = parsePrice(body.price);
 
-    if (price < 0) {
-      return NextResponse.json(
-        { success: false, message: 'Price cannot be negative' },
-        { status: 400 }
-      );
-    }
-
-    const db = await getDatabase();
-    const tokensCollection = db.collection('tokens');
-
-    // Update token price
-    const result = await tokensCollection.updateOne(
-      { _id: new ObjectId(tokenId) },
-      {
-        $set: {
-          price: parseFloat(price),
-          updatedAt: new Date(),
-        },
-      }
-    );
-
-    if (result.matchedCount === 0) {
-      return NextResponse.json(
-        { success: false, message: 'Token not found' },
-        { status: 404 }
-      );
-    }
+    const updated = await repos.tokens.setPrice(tokenId, String(price));
+    if (!updated) throw new NotFoundError('token', tokenId);
 
     return NextResponse.json({
       success: true,
-      message: 'Price updated successfully',
-      data: { price: parseFloat(price) },
+      message: 'Precio actualizado',
+      data: { price },
     });
   } catch (error) {
-    console.error('Error updating price:', error);
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    );
+    const { status, body } = toErrorResponse(error);
+    return NextResponse.json(body, { status });
   }
 }
 
+/** Acepta `string` o `number` y lo normaliza a string decimal no negativo. */
+function parsePrice(value: unknown): string {
+  if (value === undefined || value === null) {
+    throw new ValidationError('"price" es obligatorio', 'price');
+  }
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    throw new ValidationError('"price" debe ser texto o número', 'price');
+  }
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    throw new ValidationError('"price" debe ser un número finito', 'price');
+  }
+  const normalized = String(value);
+  if (!PRICE_RE.test(normalized)) {
+    throw new ValidationError('"price" debe ser un decimal no negativo sin notación científica', 'price');
+  }
+  return normalized;
+}

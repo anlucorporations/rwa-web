@@ -5,9 +5,9 @@
  * mutación de claims) sin interrumpir la operación principal si la auditoría falla.
  */
 
-import { query } from '../pool.js';
-import { normalizeAddressOrUndefined } from '../address.js';
-import type { AuditLogRow } from '../types.js';
+import { query } from '../pool';
+import { normalizeAddressOrUndefined } from '../address';
+import type { AuditLogRow } from '../types';
 
 const COLUMNS = 'id, actor_address, action, resource_type, resource_id, request_id, detail, at';
 

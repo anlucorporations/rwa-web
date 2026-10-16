@@ -1,57 +1,42 @@
 /**
- * Test API for GridFS functionality
+ * Diagnostic API for stored documents (`rwa.document_files`) and claim requests.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDatabase } from '@/lib/mongodb';
-import { GridFSBucket } from 'mongodb';
+import { repos, toErrorResponse } from '@rwa/shared';
 
-export async function GET(request: NextRequest) {
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+export async function GET(_request: NextRequest) {
   try {
-    const db = await getDatabase();
-    const bucket = new GridFSBucket(db, {
-      bucketName: 'claim_documents'
-    });
-    
-    // List all files in GridFS
-    const files = await bucket.find().toArray();
-    
-    // Get collection stats
-    const claimRequests = await db.collection('claim_requests').find().toArray();
-    
+    const [files, totalFiles, requests] = await Promise.all([
+      repos.documentFiles.list({ limit: 200 }),
+      repos.documentFiles.count(),
+      repos.claimRequests.list({ limit: 200 }),
+    ]);
+
     return NextResponse.json({
       success: true,
-      data: {
-        totalFiles: files.length,
-        files: files.map(f => ({
-          _id: f._id.toString(),
-          filename: f.filename,
-          length: f.length,
-          uploadDate: f.uploadDate,
-          metadata: f.metadata,
-        })),
-        totalRequests: claimRequests.length,
-        requests: claimRequests.map(r => ({
-          _id: r._id.toString(),
-          requesterAddress: r.requesterAddress,
-          issuerAddress: r.issuerAddress,
-          claimTopic: r.claimTopic,
-          documentFileId: r.documentFileId,
-          documentName: r.documentName,
-          status: r.status,
-        })),
-      },
+      totalFiles,
+      files: files.map((f) => ({
+        id: f.id,
+        filename: f.original_name,
+        contentType: f.content_type,
+        size: Number(f.size_bytes),
+        uploadedAt: f.created_at,
+      })),
+      totalRequests: requests.length,
+      requests: requests.map((r) => ({
+        _id: r.id,
+        requesterAddress: r.requester_address,
+        issuerAddress: r.issuer_address,
+        claimTopic: String(r.claim_topic_id),
+        status: r.status,
+      })),
     });
   } catch (error) {
-    console.error('Error testing GridFS:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to test GridFS',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    const { status, body } = toErrorResponse(error);
+    return NextResponse.json(body, { status });
   }
 }
-

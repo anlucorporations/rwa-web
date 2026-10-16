@@ -16,7 +16,7 @@ import type {
   TokenComplianceModuleRow,
   TokenRequiredClaimRow,
   TokenRow,
-} from '../db/types.js';
+} from '../db/types';
 
 export type ClaimRequestDto = {
   _id: string;

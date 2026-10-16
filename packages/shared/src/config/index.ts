@@ -8,7 +8,7 @@
  * un error de configuración, no una advertencia.
  */
 
-import { ConfigError } from '../errors.js';
+import { ConfigError } from '../errors';
 
 /** Chain canónico del frontend (Anvil de GCP). */
 export const CANONICAL_CHAIN_ID = 31337;
