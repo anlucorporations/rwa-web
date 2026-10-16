@@ -2,7 +2,7 @@
 
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
 > **Línea:** `@web` (`rwa-web/`) — separada de `@sc` (`rwa-sc/`) por D-102
-> **Versión:** v1.0 · 2026-10-14 · **Fase 3 (Desarrollo) en curso — ciclo O0**
+> **Versión:** v1.1 · 2026-10-14 · **Fase 3 (Desarrollo) — ciclo O0 cerrado; siguiente: O1**
 >
 > **Memoria de trabajo de la etapa.** El registro global del proyecto (contratos + etapa web)
 > sigue en `rwa-sc/RepoTecnico/estado_proyecto.md`; este archivo gobierna el día a día de `@web`.
@@ -49,11 +49,11 @@ antes de endurecer nada.
 | O0.1 | Esquema `rwa` aplicado en Cloud SQL | ✅ HECHO | `pruebas/verificacion_gcp_o0.md` |
 | O0.1b | Monorepo mínimo (`pnpm-workspace.yaml` + `packages/shared`) | ✅ HECHO | `pruebas/o0_1b_monorepo.md` |
 | O0.2 | Capa de datos PostgreSQL en `packages/shared` (pool + repositorios) | ✅ HECHO | `pruebas/o0_2_capa_datos.md` |
-| O0.3 | Sustituir MongoDB en las 3 apps (3 `lib/mongodb.ts`, 18 refs) | 🟡 EN CURSO | 0 referencias `mongodb` en rutas |
-| O0.4 | Arranque limpio: esquema vacío + catálogo de topics (sin ETL) | ⏳ | `select count(*) from rwa.claim_topics` = 5 |
-| O0.5 | Configuración única de red → Anvil de GCP (chain 31337) | 🟡 `packages/shared/config` hecho; falta consumirlo en las apps | 0 literales de red en fuente |
-| O0.6 | Consumir `.env.example`/`gcp-env.sh` y verificar 0 secretos en el árbol | ⏳ | `git ls-files` sin secretos |
-| O0.7 | Prueba de humo: `SELECT 1` + `claim_topics` + `chainId` | 🟡 script `scripts/smoke_o0.sh` → 3/3 verde; falta la ruta de app | `pruebas/o0_2_capa_datos.md` §2 |
+| O0.3 | Sustituir MongoDB en las 3 apps (3 `lib/mongodb.ts`, 18 refs) | ✅ HECHO | `pruebas/o0_3_migracion_postgres.md` — 0 refs Mongo, 3 builds verdes |
+| O0.4 | Arranque limpio: esquema vacío + catálogo de topics (sin ETL) | ✅ HECHO | 5 topics · resto de tablas a 0 |
+| O0.5 | Configuración única de red → Anvil de GCP (chain 31337) | 🟡 Capa compartida hecha y consumida en servidor; literales de cliente → O2.5/O2.6 | `packages/shared/src/config/*` |
+| O0.6 | Consumir `.env.example`/`gcp-env.sh` y verificar 0 secretos en el árbol | ✅ HECHO | 0 secretos · `.env.local` ignorado |
+| O0.7 | Prueba de humo: `SELECT 1` + `claim_topics` + `chainId` + rutas de app | ✅ HECHO | `scripts/smoke_o0.sh` 3/3 · `scripts/smoke_app_o0.sh` 4/4 |
 
 **Entregable:** aplicación leyendo y escribiendo en PostgreSQL y contra el Anvil de GCP.
 **Gate del ciclo:** `\dt rwa.*` = 10 tablas + 1 vista · 5 topics sembrados · `cast chain-id` = 31337 ·
@@ -88,15 +88,18 @@ los espejos deben ser idénticos byte a byte (gate `check_sincronizacion_datos.s
 
 ## 6. Próximo paso
 
-✅ **O0.1b** (monorepo + `pnpm install`) y **O0.2** (capa de datos PostgreSQL) completados con evidencia.
+✅ **Ciclo O0 cerrado** (O0.1 · O0.1b · O0.2 · O0.3 · O0.4 · O0.6 · O0.7 completados; O0.5 en su parte
+de servidor, con los literales de cliente diferidos a O2.5/O2.6). Evidencias:
+`pruebas/verificacion_gcp_o0.md`, `pruebas/o0_1b_monorepo.md`, `pruebas/o0_2_capa_datos.md`,
+`pruebas/o0_3_migracion_postgres.md`, `pruebas/o0_4_6_7_cierre_fundacion.md`.
 
-En curso: **O0.3** — sustituir los 3 `lib/mongodb.ts` y las 18 referencias a MongoDB por
-`@rwa/shared` en las 19 manejadores de las 16 rutas, preservando el contrato JSON con los
-serializadores. Incluye reordenar el flujo `upload → claim` (el documento se liga a la solicitud
-por `claim_request_id`).
+**Gate de cierre verificado:** 3 apps construyendo en verde sobre `@rwa/shared` (0 referencias a
+MongoDB), esquema `rwa` con 10 tablas + 1 vista y 5 topics sembrados, `chainId` 31337 y
+`smoke_app_o0.sh` 4/4 sobre PostgreSQL real.
 
-Después: **O0.4** (arranque limpio, sin ETL) · **O0.5** (config de red consumida en las apps) ·
-**O0.6** (env/secretos) · **O0.7** (smoke test de app) y cierre del ciclo con su gate.
+**Siguiente ciclo: O1 — Contención de seguridad** (plan §O1): retirar `/api/test-*`, autorizar
+`POST /api/update-request` (firma + issuer autorizado), sesión SIWE, autorización por propiedad en
+lectura de PII y descarga, errores tipados 503 y tests de rechazo anónimo (HW-01, HW-02, HW-04).
 
 ---
 
