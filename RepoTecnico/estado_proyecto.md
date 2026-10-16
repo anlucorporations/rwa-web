@@ -48,12 +48,12 @@ antes de endurecer nada.
 |---|---|---|---|
 | O0.1 | Esquema `rwa` aplicado en Cloud SQL | ✅ HECHO | `pruebas/verificacion_gcp_o0.md` |
 | O0.1b | Monorepo mínimo (`pnpm-workspace.yaml` + `packages/shared`) | ✅ HECHO | `pruebas/o0_1b_monorepo.md` |
-| O0.2 | Capa de datos PostgreSQL en `packages/shared` (pool + repositorios) | ⏳ | `packages/shared/src/db/*` |
-| O0.3 | Sustituir MongoDB en las 3 apps (3 `lib/mongodb.ts`, 18 refs) | ⏳ | 0 referencias `mongodb` en rutas |
+| O0.2 | Capa de datos PostgreSQL en `packages/shared` (pool + repositorios) | ✅ HECHO | `pruebas/o0_2_capa_datos.md` |
+| O0.3 | Sustituir MongoDB en las 3 apps (3 `lib/mongodb.ts`, 18 refs) | 🟡 EN CURSO | 0 referencias `mongodb` en rutas |
 | O0.4 | Arranque limpio: esquema vacío + catálogo de topics (sin ETL) | ⏳ | `select count(*) from rwa.claim_topics` = 5 |
-| O0.5 | Configuración única de red → Anvil de GCP (chain 31337) | ⏳ | 0 literales de red en fuente |
+| O0.5 | Configuración única de red → Anvil de GCP (chain 31337) | 🟡 `packages/shared/config` hecho; falta consumirlo en las apps | 0 literales de red en fuente |
 | O0.6 | Consumir `.env.example`/`gcp-env.sh` y verificar 0 secretos en el árbol | ⏳ | `git ls-files` sin secretos |
-| O0.7 | Prueba de humo: `SELECT 1` + `claim_topics` + `chainId` | ⏳ | script reproducible en `pruebas/` |
+| O0.7 | Prueba de humo: `SELECT 1` + `claim_topics` + `chainId` | 🟡 script `scripts/smoke_o0.sh` → 3/3 verde; falta la ruta de app | `pruebas/o0_2_capa_datos.md` §2 |
 
 **Entregable:** aplicación leyendo y escribiendo en PostgreSQL y contra el Anvil de GCP.
 **Gate del ciclo:** `\dt rwa.*` = 10 tablas + 1 vista · 5 topics sembrados · `cast chain-id` = 31337 ·
@@ -88,10 +88,15 @@ los espejos deben ser idénticos byte a byte (gate `check_sincronizacion_datos.s
 
 ## 6. Próximo paso
 
-✅ **O0.1b completado** (monorepo + `pnpm install`, evidencia en `pruebas/o0_1b_monorepo.md`).
+✅ **O0.1b** (monorepo + `pnpm install`) y **O0.2** (capa de datos PostgreSQL) completados con evidencia.
 
-En curso: **O0.2** — capa de datos PostgreSQL en `packages/shared` (pool único + repositorios),
-con el inventario Mongo→PostgreSQL de las 19 manejadores de las 16 rutas como insumo.
+En curso: **O0.3** — sustituir los 3 `lib/mongodb.ts` y las 18 referencias a MongoDB por
+`@rwa/shared` en las 19 manejadores de las 16 rutas, preservando el contrato JSON con los
+serializadores. Incluye reordenar el flujo `upload → claim` (el documento se liga a la solicitud
+por `claim_request_id`).
+
+Después: **O0.4** (arranque limpio, sin ETL) · **O0.5** (config de red consumida en las apps) ·
+**O0.6** (env/secretos) · **O0.7** (smoke test de app) y cierre del ciclo con su gate.
 
 ---
 
