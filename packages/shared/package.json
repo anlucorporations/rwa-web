@@ -14,7 +14,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
-    "smoke": "tsx src/db/smoke.ts"
+    "smoke": "tsx src/db/smoke.ts",
+    "check:media": "tsx scripts/check-media.ts"
   },
   "dependencies": {
     "pg": "^8.13.0",

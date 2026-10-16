@@ -55,6 +55,9 @@ for d in web-identity web-registry-trusted web-token; do (cd $d && npx next buil
 
 # E2E positivo de O1.2 (HW-01): firma del emisor, terceros e idempotencia
 ./scripts/test_review_o1.sh      # 5/5 en verde, exit 0
+
+# Magic bytes y saneado de Content-Disposition (sin BD ni servidor)
+pnpm --filter @rwa/shared check:media   # 9/9 en verde, exit 0
 ```
 
 **Salida real — `test_auth_o1.sh` (resumen):**
