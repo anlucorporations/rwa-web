@@ -2,7 +2,7 @@
 
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
 > **Línea:** `@web` (`rwa-web/`) — separada de `@sc` (`rwa-sc/`) por D-102
-> **Versión:** v1.3 · 2026-10-14 · **Fase 3 (Desarrollo) — O0 y O1 cerrados; O2 en curso (2.1/2.2/2.5/2.6 hechos, 2.3/2.4/2.7 pendientes)**
+> **Versión:** v1.4 · 2026-10-14 · **Fase 3 (Desarrollo) — O0 y O1 cerrados; O2: 2.1–2.6 cerrados, 2.7 bloqueado por despliegue desactualizado**
 >
 > **Memoria de trabajo de la etapa.** El registro global del proyecto (contratos + etapa web)
 > sigue en `rwa-sc/RepoTecnico/estado_proyecto.md`; este archivo gobierna el día a día de `@web`.
@@ -89,15 +89,21 @@ actuales en el Anvil de GCP (chain 31337).
 | # | Tarea | Estado | Evidencia / gate |
 |---|---|---|---|
 | O2.1 | Módulo único de red y direcciones desde `sc/deployments/*.json` | ✅ HECHO | `scripts/sync-contracts.sh` · `check-contract-drift.sh` exit 0 |
-| O2.2 | ABIs regenerados desde `sc/abis/`; eliminar copias inline | 🟡 **Parcial** — 16 ABIs generados + red limpia; quedan las copias inline de `IdentityCloneable` y de la factory/token, que se sustituyen con O2.3/O2.4 | `o2_1_contratos_generados.md`, `o2_2_red_unica.md` |
-| O2.3 | `addClaim` de 7 args + firma **EIP-712** (con `uriHash`, D-083) | ⏳ Siguiente | especificación en `o2_1_contratos_generados.md` §4 |
-| O2.4 | `claimTopicsRegistry` obligatorio + compliance al crear token | ⏳ | debía pasar de 8 args (inválidos) a los 7 reales |
+| O2.2 | ABIs regenerados desde `sc/abis/`; eliminar copias inline | ✅ HECHO — 16 ABIs generados; las 3 copias inline de `web-identity` (json + `identity-claims.ts` + `RequestDetailModal.tsx`) y las del flujo de token sustituidas por los ABIs generados | `o2_1_contratos_generados.md`, `o2_2_red_unica.md`, `o2_3_claim_eip712.md`, `o2_4_token_factory.md` |
+| O2.3 | `addClaim` de 7 args + firma **EIP-712** (con `uriHash`, D-083) | ✅ HECHO | `o2_3_claim_eip712.md` — esquema v1.1, API + 2 UIs, `test_review_o1.sh` 5/5 con firma EIP-712 |
+| O2.4 | `claimTopicsRegistry` obligatorio + compliance al crear token | ✅ HECHO | `o2_4_token_factory.md` — 7 args reales, registry por token con topics, API fail-closed |
 | O2.5 | `chainId` de la wallet vs canónico en la UI | ✅ HECHO | `assertCanonicalChain` en identidad y token |
 | O2.6 | Gates `check-abi-drift` y `check-network-literals` | ✅ HECHO | **0 literales de red** · deriva 0 |
-| O2.7 | E2E del flujo completo contra el Anvil de GCP | ⏳ | depende de O2.3/O2.4 |
+| O2.7 | E2E del flujo completo contra el Anvil de GCP | ⛔ **BLOQUEADO** — el despliegue canónico ejecuta un build anterior a D-083 (`CLAIM_TYPEHASH` sin `uriHash`) | `o2_7_e2e_anvil.md` — requiere redespliegue desde `@sc` (fuera de D-088) |
 
-**Gate del ciclo:** E2E en verde + gates de deriva y literales en verde. *(Los dos gates ya están en verde;
-falta el E2E.)*
+**Gate del ciclo:** E2E en verde + gates de deriva y literales en verde. *(Deriva y literales en verde;
+el E2E off-chain está en verde, pero el on-chain está bloqueado por el despliegue.)*
+
+> **⛔ Bloqueo de O2.7 (dependencia externa):** el Anvil de GCP ejecuta un build **anterior a D-083**
+> (`CLAIM_TYPEHASH = 0x8f71…`, sin `uriHash`), mientras `rwa-sc` y `@web` implementan el digest final
+> (`0x65c6…`). `addClaim` revierte `"Signature signer mismatch"`. `scripts/test_e2e_o2.sh` detecta la
+> discrepancia en <2 s. **Acción requerida:** redesplegar el stack canónico desde `@sc` (`sc/script/deploy.sh`),
+> luego `./scripts/sync-contracts.sh` y re-ejecutar el E2E. Detalle en `pruebas/o2_7_e2e_anvil.md`.
 
 ---
 
@@ -157,4 +163,4 @@ los espejos deben ser idénticos byte a byte (gate `check_sincronizacion_datos.s
 
 ---
 
-*Fin del documento — estado_proyecto.md (etapa `@web`) v1.3*
+*Fin del documento — estado_proyecto.md (etapa `@web`) v1.4*
