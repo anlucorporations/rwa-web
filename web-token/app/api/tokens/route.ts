@@ -6,9 +6,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getContractAddress } from '@rwa/shared/contracts';
 import {
   NotFoundError,
+  isAddress,
   repos,
   requireOwner,
   requireSession,
@@ -58,16 +58,19 @@ export async function POST(request: NextRequest) {
 
     requireOwner(session, adminAddress, 'el token');
 
-    // Fallback provisional hasta O2.4: la UI todavía no envía los tres registries.
-    // Los registries son NOT NULL en el esquema (RF-W-11, fail-closed), por lo que
-    // se toman del artefacto de despliegue de `rwa-sc` mientras la UI no los envíe.
-    const identityRegistry =
-      optionalString(body.identityRegistry, 'identityRegistry') ?? getContractAddress('IdentityRegistry');
-    const trustedIssuersRegistry =
-      optionalString(body.trustedIssuersRegistry, 'trustedIssuersRegistry') ??
-      getContractAddress('TrustedIssuersRegistry');
-    const claimTopicsRegistry =
-      optionalString(body.claimTopicsRegistry, 'claimTopicsRegistry') ?? getContractAddress('ClaimTopicsRegistry');
+    // O2.4 (RF-W-11): los tres registries son obligatorios y el claimTopicsRegistry no puede
+    // ser cero: sin él `isVerified` es fail-closed y el token no verifica a nadie.
+    const identityRegistry = requiredAddress(body.identityRegistry, 'identityRegistry');
+    const trustedIssuersRegistry = requiredAddress(body.trustedIssuersRegistry, 'trustedIssuersRegistry');
+    const claimTopicsRegistry = requiredAddress(body.claimTopicsRegistry, 'claimTopicsRegistry');
+
+    const requiredClaims = requiredIntegerArray(body.requiredClaims, 'requiredClaims');
+    if (!requiredClaims || requiredClaims.length === 0) {
+      throw new ValidationError(
+        'El token debe exigir al menos un claim topic (si no, no verificaría a nadie)',
+        'requiredClaims',
+      );
+    }
 
     const created = await repos.tokens.create({
       tokenAddress,
@@ -78,7 +81,7 @@ export async function POST(request: NextRequest) {
       identityRegistry,
       trustedIssuersRegistry,
       claimTopicsRegistry,
-      requiredClaims: requiredIntegerArray(body.requiredClaims, 'requiredClaims'),
+      requiredClaims,
       complianceModules: optionalStringArray(body.complianceModules, 'complianceModules'),
       complianceAddress: optionalString(body.complianceAddress, 'complianceAddress'),
       description: optionalString(body.description, 'description'),
@@ -116,6 +119,13 @@ function requiredString(value: unknown, field: string): string {
     throw new ValidationError(`"${field}" es obligatorio`, field);
   }
   return value;
+}
+
+function requiredAddress(value: unknown, field: string): string {
+  if (typeof value !== 'string' || !isAddress(value)) {
+    throw new ValidationError(`"${field}" debe ser una dirección 0x…`, field);
+  }
+  return value.toLowerCase();
 }
 
 function optionalString(value: unknown, field: string): string | undefined {

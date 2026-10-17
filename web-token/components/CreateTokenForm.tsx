@@ -8,8 +8,14 @@
 
 import { useState } from 'react';
 import { ethers } from 'ethers';
-import { TOKEN_CLONE_FACTORY_ADDRESS, TOKEN_CLONE_FACTORY_ABI } from '@/lib/contracts/TokenCloneFactory';
+import { TOKEN_CLONE_FACTORY_ADDRESS } from '@/lib/contracts/TokenCloneFactory';
 import { COMPLIANCE_AGGREGATOR_ADDRESS } from '@/lib/contracts/compliance';
+import {
+  ClaimTopicsRegistryCloneFactoryAbi,
+  TokenCloneableAbi,
+  TokenCloneFactoryAbi,
+  getContractAddress,
+} from '@rwa/shared/contracts';
 import { IDENTITY_REGISTRY_ADDRESS, TRUSTED_ISSUERS_REGISTRY_ADDRESS } from '@/lib/contracts/registries';
 import { INVESTMENT_CLAIMS, CLAIM_DESCRIPTIONS } from '@/types/token';
 import { CANONICAL_CHAIN_ID, ZERO_ADDRESS, assertCanonicalChain } from '@rwa/shared/network';
@@ -122,7 +128,7 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
       
       const factory = new ethers.Contract(
         TOKEN_CLONE_FACTORY_ADDRESS,
-        TOKEN_CLONE_FACTORY_ABI,
+        TokenCloneFactoryAbi,
         signer
       );
 
@@ -133,19 +139,19 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
       console.log('  Trusted Issuers Registry:', TRUSTED_ISSUERS_REGISTRY_ADDRESS);
       console.log('  Initial Supply (maxTotalSupply):', initialSupply);
       
-      // Convert initial supply to wei using decimals
-      const maxTotalSupply = ethers.parseUnits(initialSupply, parseInt(decimals));
-      console.log('  Max Total Supply (in wei):', maxTotalSupply.toString());
-      
+      // Tope de suministro en wei (0 = sin tope, D-022). Se fija tras crear el token.
+      const maxSupplyWei = initialSupply ? ethers.parseUnits(initialSupply, parseInt(decimals)) : BigInt(0);
+
+      // O2.4: la factoría real tiene 7 argumentos (sin `maxTotalSupply`). El ClaimTopicsRegistry
+      // se crea justo después y se asigna con `setClaimTopicsRegistry`.
       const tx = await factory.createTokenWithRegistries(
         name,
         symbol,
         parseInt(decimals),
         userAddress,
-        maxTotalSupply,                   // Max Total Supply (all tokens will be minted to admin)
-        IDENTITY_REGISTRY_ADDRESS,        // Identity Registry
-        TRUSTED_ISSUERS_REGISTRY_ADDRESS, // Trusted Issuers Registry
-        ZERO_ADDRESS // Claim Topics Registry (pendiente: O2.4 exige un registry real)
+        IDENTITY_REGISTRY_ADDRESS,
+        TRUSTED_ISSUERS_REGISTRY_ADDRESS,
+        ZERO_ADDRESS
       );
       
       console.log('📝 Transaction sent:', tx.hash);
@@ -241,34 +247,40 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
       console.log('  Identity Registry:', IDENTITY_REGISTRY_ADDRESS);
       console.log('  Trusted Issuers Registry:', TRUSTED_ISSUERS_REGISTRY_ADDRESS);
 
-      // Step 2: Configure ClaimTopicsRegistry for this token (if claims are selected)
-      // Note: ClaimTopicsRegistry needs to be created and configured manually per token
-      if (selectedClaims.length > 0) {
-        try {
-          setCurrentStep('Creating ClaimTopicsRegistry for token...');
-          console.log('📋 Creating ClaimTopicsRegistry with selected claims...');
-          
-          // For now, we'll set the registry to address(0) and configure it manually later
-          // In a full implementation, you would deploy a new ClaimTopicsRegistry here
-          // or use a factory to create one
-          
-          // Note: This requires deploying a ClaimTopicsRegistry contract
-          // which is not implemented in the web app yet.
-          // The token admin will need to create and configure it manually.
-          
-          console.log('⚠️ ClaimTopicsRegistry will need to be configured manually after creation');
-          console.log('   Selected claims:', selectedClaims.join(', '));
-          console.log('   The token admin should:');
-          console.log('   1. Deploy a ClaimTopicsRegistry');
-          console.log('   2. Add claim topics:', selectedClaims.join(', '));
-          console.log('   3. Call token.setClaimTopicsRegistry(registryAddress)');
-          
-          setCurrentStep('');
-        } catch (claimTopicsError) {
-          console.warn('⚠️ Could not create ClaimTopicsRegistry:', claimTopicsError);
-          console.warn('Token was created successfully. Configure ClaimTopicsRegistry manually.');
-          setCurrentStep('');
-        }
+      // Step 2 (O2.4): crear el ClaimTopicsRegistry del token y asignarlo. RF-W-11 fail-closed:
+      // un token sin claimTopicsRegistry no verifica a nadie.
+      if (selectedClaims.length === 0) {
+        throw new Error(
+          'Selecciona al menos un claim topic: sin ClaimTopicsRegistry el token no verificaría a nadie.',
+        );
+      }
+      setCurrentStep('Creating ClaimTopicsRegistry for token...');
+      const registryFactory = new ethers.Contract(
+        getContractAddress('ClaimTopicsRegistryCloneFactory'),
+        ClaimTopicsRegistryCloneFactoryAbi,
+        signer,
+      );
+      const registryTx = await registryFactory.createRegistryForTokenWithTopics(
+        userAddress,
+        tokenAddress,
+        selectedClaims.map((topic) => BigInt(topic)),
+      );
+      await registryTx.wait();
+      const claimTopicsRegistryAddress = String(await registryFactory.getRegistryForToken(tokenAddress));
+      if (!claimTopicsRegistryAddress || claimTopicsRegistryAddress === ZERO_ADDRESS) {
+        throw new Error('No se pudo crear el ClaimTopicsRegistry del token.');
+      }
+
+      const tokenContract = new ethers.Contract(tokenAddress, TokenCloneableAbi, signer);
+      setCurrentStep('Assigning ClaimTopicsRegistry...');
+      const setRegistryTx = await tokenContract.setClaimTopicsRegistry(claimTopicsRegistryAddress);
+      await setRegistryTx.wait();
+
+      // Tope de suministro (opcional; 0 = sin tope, D-022)
+      if (maxSupplyWei > BigInt(0)) {
+        setCurrentStep('Setting max supply...');
+        const supplyTx = await tokenContract.setMaxSupply(maxSupplyWei);
+        await supplyTx.wait();
       }
 
       // Note: All tokens are automatically minted to admin during initialization
@@ -281,16 +293,7 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
           setCurrentStep('Setting compliance contract...');
           console.log('🔒 Setting compliance aggregator...');
           
-          const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
-          const tokenContract = new ethers.Contract(
-            tokenAddress,
-            TOKEN_CLONEABLE_ABI,
-            signer
-          );
-
-          // Check if the function exists and user has permission
-          console.log('Checking if addComplianceModule is available...');
-          
+          // `tokenContract` (TokenCloneableAbi) ya se creó al asignar el ClaimTopicsRegistry
           const complianceTx = await tokenContract.addComplianceModule(COMPLIANCE_AGGREGATOR_ADDRESS);
           console.log('📝 Compliance transaction sent:', complianceTx.hash);
           
@@ -323,7 +326,12 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
           decimals: parseInt(decimals),
           tokenAddress,
           adminAddress: userAddress,
+          // O2.4: los tres registries reales del token (el esquema los exige NOT NULL)
+          identityRegistry: IDENTITY_REGISTRY_ADDRESS,
+          trustedIssuersRegistry: TRUSTED_ISSUERS_REGISTRY_ADDRESS,
+          claimTopicsRegistry: claimTopicsRegistryAddress,
           complianceAddress: complianceAddress || undefined,
+          complianceModules: complianceAddress ? [complianceAddress] : [],
           requiredClaims: selectedClaims,
           description,
           transactionHash: tx.hash,
@@ -350,10 +358,10 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
           ? '\n⚠ Compliance not set (optional feature)'
           : '';
       
-      const mintMessage = `\n✓ Initial supply automatically minted: ${initialSupply} ${symbol} (all tokens minted to admin)`;
+      const mintMessage = maxSupplyWei > BigInt(0) ? `\n✓ Max supply configured: ${initialSupply} ${symbol}` : '';
       
-      const claimTopicsMessage = selectedClaims.length > 0
-        ? `\n⚠ ClaimTopicsRegistry: Configure manually with topics: ${selectedClaims.join(', ')}`
+      const claimTopicsMessage = claimTopicsRegistryAddress
+        ? `\n✓ ClaimTopicsRegistry configured with topics: ${selectedClaims.join(', ')}`
         : '';
       
       alert(`Token "${name}" created successfully!\nAddress: ${tokenAddress}\n\n${registriesMessage}${complianceMessage}${mintMessage}${claimTopicsMessage}\n\n✓ Saved to MongoDB`);
