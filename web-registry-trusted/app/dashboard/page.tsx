@@ -246,6 +246,9 @@ export default function Home() {
       setAddingIssuer(true);
       setError(null);
 
+      if (typeof window.ethereum === 'undefined') {
+        throw new Error('MetaMask no disponible');
+      }
       const provider = new BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { ethers } from 'ethers';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Token } from '@/types/token';
