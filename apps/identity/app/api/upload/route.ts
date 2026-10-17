@@ -13,6 +13,8 @@ import {
   requireSession,
   requireOwner,
   assertAllowedUpload,
+  parseBody,
+  uuidSchema,
   ValidationError,
   NotFoundError,
 } from '@rwa/shared';
@@ -28,18 +30,11 @@ export async function POST(request: NextRequest) {
     const session = await requireSession(request);
     const formData = await request.formData();
     const file = formData.get('file');
-    const claimRequestId = formData.get('claimRequestId');
-
     if (!(file instanceof File)) {
       throw new ValidationError('file es obligatorio', 'file');
     }
 
-    if (typeof claimRequestId !== 'string' || !UUID_RE.test(claimRequestId)) {
-      throw new ValidationError(
-        'claimRequestId es obligatorio (sube el documento después de crear la solicitud)',
-        'claimRequestId',
-      );
-    }
+    const claimRequestId = parseBody(uuidSchema, formData.get('claimRequestId'));
 
     const claim = await repos.claimRequests.findById(claimRequestId);
     if (!claim) {

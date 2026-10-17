@@ -6,9 +6,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   NotFoundError,
+  parseBody,
   repos,
   requireOwner,
   requireSession,
+  setComplianceSchema,
   toErrorResponse,
   toTokenDto,
   ValidationError,
@@ -18,7 +20,6 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ADDRESS_RE = /^0x[0-9a-f]{40}$/i;
 
 export async function POST(
   request: NextRequest,
@@ -35,11 +36,7 @@ export async function POST(
 
     requireOwner(session, token.admin_address, 'el token');
 
-    const body = (await request.json()) as Record<string, unknown>;
-    const complianceAddress = body.complianceAddress;
-    if (typeof complianceAddress !== 'string' || !ADDRESS_RE.test(complianceAddress)) {
-      throw new ValidationError('"complianceAddress" inválida', 'complianceAddress');
-    }
+    const { complianceAddress } = parseBody(setComplianceSchema, await request.json());
 
     const updated = await repos.tokens.setComplianceAddress(tokenId, complianceAddress);
     if (!updated) throw new NotFoundError('token', tokenId);

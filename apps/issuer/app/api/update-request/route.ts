@@ -26,6 +26,7 @@ import {
   toClaimRequestDto,
   toErrorResponse,
 } from '@rwa/shared';
+import { parseBody, updateRequestSchema } from '@rwa/shared';
 import {
   CLAIM_SCHEME,
   assertClaimPayloadConsistent,
@@ -55,16 +56,6 @@ type RawClaim = {
   uri?: unknown;
   expiresAt?: unknown;
   nonce?: unknown;
-};
-
-type UpdateRequestBody = {
-  requestId?: unknown;
-  status?: unknown;
-  reviewNote?: unknown;
-  issuerSignedMessage?: unknown;
-  issuerSignature?: unknown;
-  claim?: RawClaim;
-  claimSignature?: unknown;
 };
 
 function asUintString(value: unknown, field: string): string {
@@ -117,16 +108,8 @@ export async function POST(request: NextRequest) {
   try {
     const session = await requireSession(request);
 
-    const raw = (await request.json()) as unknown;
-    const body = (raw ?? {}) as UpdateRequestBody;
+    const body = parseBody(updateRequestSchema, await request.json());
     const { requestId, status, issuerSignedMessage, issuerSignature, claimSignature } = body;
-
-    if (typeof requestId !== 'string' || !UUID_RE.test(requestId)) {
-      throw new ValidationError('id inválido', 'id');
-    }
-    if (status !== 'approved' && status !== 'rejected') {
-      throw new ValidationError('status debe ser "approved" o "rejected"', 'status');
-    }
 
     const reviewNote = typeof body.reviewNote === 'string' ? body.reviewNote : undefined;
 

@@ -1,7 +1,7 @@
 # Evidencia O4 — Consolidación en monorepo (parcial: 4.1, 4.4, 4.5) · 2026-10-17
 
 > **Ciclo:** O4 (plan §O4) · **Requisitos:** RF-W-14, RF-W-18, RT-W-05 · **Decisión:** D-089.
-> **Estado:** O4.1 ✅ · O4.3 (parcial) · O4.4 ✅ · O4.5 ✅ · O4.2/O4.6/O4.7 ⏳.
+> **Estado:** O4.1 ✅ · O4.2 ✅ (validación + cliente API; `packages/{ui,config}` diferido con O4.3) · O4.3 (parcial) · O4.4 ✅ · O4.5 ✅ · O4.6/O4.7 ⏳.
 
 ## O4.1 · Estructura del monorepo
 
@@ -42,7 +42,7 @@ Landing de 164 líneas con enlaces a puertos inexistentes (3004/3005/3006). El o
 
 | Tarea | Estado | Nota |
 |---|---|---|
-| O4.2 `packages/shared` completo (esquemas `zod`, cliente de API tipado, `packages/{ui,config}`) | ⏳ | base ya existente en `packages/shared`; falta validación `zod` en rutas |
+| O4.2 `packages/shared` completo (esquemas `zod`, cliente de API tipado, `packages/{ui,config}`) | ✅ **Validación zod en todas las rutas + cliente API tipado**; `packages/{ui,config}` se abordan junto a O4.3/O4.6 | ver abajo |
 | O4.3 Eliminar duplicados | 🟡 **Parcial** — ver abajo | `packages/ui` pendiente para `RequestDetailModal` |
 | O4.6 Unificar web3 en `wagmi`+`viem` y eliminar `window.ethereum` | ⏳ | cambio grande; varias rondas |
 | O4.7 Estado de datos con TanStack Query | ⏳ | — |
@@ -65,3 +65,31 @@ Landing de 164 líneas con enlaces a puertos inexistentes (3004/3005/3006). El o
 `apps/*` y logs sanitizados).
 
 *Fin de la evidencia — O4 (parcial)*
+
+
+## O4.2 · Validación de entrada y cliente de API
+
+### Esquemas `zod` (`@rwa/shared/validation`, RT-W-03)
+Fuente única de validación para las 3 apps: `address`, `uuid`, firma de 65 bytes, `uint256`,
+`siweNonce/siweVerify`, `createClaimRequest`, `claimPayload`, `updateRequest`, `issuersBatch`,
+`issuerName`, `createToken` (3 registries + ≥1 topic + symbol), `setClaims/setCompliance/setModules/setPrice`.
+`parseBody(schema, raw)` lanza `ValidationError` (400) con el campo culpable.
+
+**Aplicado en todas las rutas de escritura:** `POST /api/auth/nonce|verify` (handlers compartidos),
+`POST /api/claim-requests`, `POST /api/upload` (`claimRequestId` uuid), `POST /api/issuers/batch` (×2),
+`POST /api/issuers`, `POST /api/update-request`, `POST /api/tokens`,
+`POST /api/tokens/[id]/{claims,compliance,modules,price}`. Se retiraron las validaciones manuales y
+los helpers duplicados de cada ruta.
+
+### Cliente de API tipado (`@rwa/shared/api`)
+`createApiClient({ baseUrl?, fetchImpl? })` → `get/post/request` sobre el contrato `{ success, data }`,
+con `ApiClientError` (`status`, `code`) para errores HTTP y `NETWORK_ERROR` para caídas. Listo para que
+los componentes migren en O4.7 (TanStack Query).
+
+### Tests
+`packages/shared`: **35 tests / 6 suites** en verde (antes 25), incluidos los 6 de validación y 4 del cliente.
+
+**Verificación funcional (post-zod):** `test_auth_o1.sh` **30/30** · `test_review_o1.sh` **5/5** ·
+`test_token_o2.sh` **5/5** · `./scripts/ci_local.sh` **exit 0** (builds + 35 tests).
+
+*Fin de la evidencia — O4.2*

@@ -10,8 +10,8 @@
  */
 
 import { normalizeAddress } from '../db/address';
+import { parseBody, siweNonceSchema, siweVerifySchema } from '../validation/index';
 import { repos } from '../db/index';
-import { ValidationError } from '../errors';
 import { toErrorResponse } from '../api/http';
 import {
   createChallenge,
@@ -41,7 +41,7 @@ function errorResponse(error: unknown): Response {
 /** `POST /api/auth/nonce` — crea el reto SIWE para una dirección. */
 export async function handleNonce(request: Request): Promise<Response> {
   try {
-    const body = (await request.json()) as { address?: unknown };
+    const body = parseBody(siweNonceSchema, await request.json());
     const address = normalizeAddress(body.address, 'address');
     const origin = requestOrigin(request);
     const challenge = await createChallenge(address, origin, request.headers.get('user-agent'));
@@ -61,10 +61,7 @@ export async function handleNonce(request: Request): Promise<Response> {
 /** `POST /api/auth/verify` — verifica la firma y emite la cookie de sesión. */
 export async function handleVerify(request: Request): Promise<Response> {
   try {
-    const body = (await request.json()) as { message?: unknown; signature?: unknown };
-    if (typeof body.message !== 'string' || typeof body.signature !== 'string') {
-      throw new ValidationError('message y signature son obligatorios');
-    }
+    const body = parseBody(siweVerifySchema, await request.json());
     const origin = requestOrigin(request);
     const verified = await verifyChallenge(body.message, body.signature, origin);
 

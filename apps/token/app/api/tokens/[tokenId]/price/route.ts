@@ -4,7 +4,16 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { NotFoundError, repos, requireOwner, requireSession, toErrorResponse, ValidationError } from '@rwa/shared';
+import {
+  NotFoundError,
+  parseBody,
+  repos,
+  requireOwner,
+  requireSession,
+  setPriceSchema,
+  toErrorResponse,
+  ValidationError,
+} from '@rwa/shared';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -28,8 +37,7 @@ export async function POST(
 
     requireOwner(session, token.admin_address, 'el token');
 
-    const body = (await request.json()) as Record<string, unknown>;
-    const price = parsePrice(body.price);
+    const { price } = parseBody(setPriceSchema, await request.json());
 
     const updated = await repos.tokens.setPrice(tokenId, String(price));
     if (!updated) throw new NotFoundError('token', tokenId);
@@ -50,22 +58,4 @@ export async function POST(
     const { status, body } = toErrorResponse(error);
     return NextResponse.json(body, { status });
   }
-}
-
-/** Acepta `string` o `number` y lo normaliza a string decimal no negativo. */
-function parsePrice(value: unknown): string {
-  if (value === undefined || value === null) {
-    throw new ValidationError('"price" es obligatorio', 'price');
-  }
-  if (typeof value !== 'string' && typeof value !== 'number') {
-    throw new ValidationError('"price" debe ser texto o número', 'price');
-  }
-  if (typeof value === 'number' && !Number.isFinite(value)) {
-    throw new ValidationError('"price" debe ser un número finito', 'price');
-  }
-  const normalized = String(value);
-  if (!PRICE_RE.test(normalized)) {
-    throw new ValidationError('"price" debe ser un decimal no negativo sin notación científica', 'price');
-  }
-  return normalized;
 }

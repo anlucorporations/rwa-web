@@ -10,6 +10,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  createClaimRequestSchema,
+  parseBody,
   repos,
   toClaimRequestDto,
   toErrorResponse,
@@ -32,15 +34,6 @@ function parseStatus(value: string | null): ClaimRequestStatus | undefined {
   }
   return value as ClaimRequestStatus;
 }
-
-type CreateClaimRequestBody = {
-  requesterAddress?: string;
-  issuerAddress?: string;
-  claimTopic?: string | number;
-  message?: string | null;
-  signedMessage?: string;
-  signature?: string;
-};
 
 export async function GET(request: NextRequest) {
   try {
@@ -88,20 +81,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await requireSession(request);
-    const body = (await request.json()) as CreateClaimRequestBody;
-
-    if (
-      !body.requesterAddress ||
-      !body.issuerAddress ||
-      body.claimTopic === undefined ||
-      body.claimTopic === null ||
-      !body.signedMessage ||
-      !body.signature
-    ) {
-      throw new ValidationError(
-        'requesterAddress, issuerAddress, claimTopic, signedMessage y signature son obligatorios',
-      );
-    }
+    const body = parseBody(createClaimRequestSchema, await request.json());
 
     requireOwner(session, body.requesterAddress, 'la solicitud');
 

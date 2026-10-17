@@ -4,7 +4,16 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { NotFoundError, repos, requireOwner, requireSession, toErrorResponse, ValidationError } from '@rwa/shared';
+import {
+  NotFoundError,
+  parseBody,
+  repos,
+  requireOwner,
+  requireSession,
+  setClaimsSchema,
+  toErrorResponse,
+  ValidationError,
+} from '@rwa/shared';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -26,8 +35,7 @@ export async function POST(
 
     requireOwner(session, token.admin_address, 'el token');
 
-    const body = (await request.json()) as Record<string, unknown>;
-    const claims = parseClaims(body.claims);
+    const { claims } = parseBody(setClaimsSchema, await request.json());
 
     const updated = await repos.tokens.setRequiredClaims(tokenId, claims);
     if (!updated) throw new NotFoundError('token', tokenId);
@@ -48,18 +56,4 @@ export async function POST(
     const { status, body } = toErrorResponse(error);
     return NextResponse.json(body, { status });
   }
-}
-
-function parseClaims(value: unknown): number[] {
-  if (!Array.isArray(value)) {
-    throw new ValidationError('"claims" debe ser un array de enteros', 'claims');
-  }
-  const claims: number[] = [];
-  for (const item of value) {
-    if (typeof item !== 'number' || !Number.isInteger(item)) {
-      throw new ValidationError('"claims" debe ser un array de enteros', 'claims');
-    }
-    claims.push(item);
-  }
-  return claims;
 }

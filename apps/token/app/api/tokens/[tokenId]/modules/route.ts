@@ -4,7 +4,16 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { NotFoundError, repos, requireOwner, requireSession, toErrorResponse, ValidationError } from '@rwa/shared';
+import {
+  NotFoundError,
+  parseBody,
+  repos,
+  requireOwner,
+  requireSession,
+  setModulesSchema,
+  toErrorResponse,
+  ValidationError,
+} from '@rwa/shared';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -27,8 +36,7 @@ export async function POST(
 
     requireOwner(session, token.admin_address, 'el token');
 
-    const body = (await request.json()) as Record<string, unknown>;
-    const modules = parseModules(body.modules);
+    const { modules } = parseBody(setModulesSchema, await request.json());
 
     const updated = await repos.tokens.setComplianceModules(tokenId, modules);
     if (!updated) throw new NotFoundError('token', tokenId);
@@ -49,19 +57,4 @@ export async function POST(
     const { status, body } = toErrorResponse(error);
     return NextResponse.json(body, { status });
   }
-}
-
-/** Array de direcciones de módulo; puede estar vacío (limpia los módulos). */
-function parseModules(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    throw new ValidationError('"modules" debe ser un array de direcciones', 'modules');
-  }
-  const modules: string[] = [];
-  for (const item of value) {
-    if (typeof item !== 'string' || !ADDRESS_RE.test(item)) {
-      throw new ValidationError('"modules" debe ser un array de direcciones', 'modules');
-    }
-    modules.push(item);
-  }
-  return modules;
 }

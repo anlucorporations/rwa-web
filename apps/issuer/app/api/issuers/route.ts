@@ -7,6 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  issuerNameSchema,
+  parseBody,
   ValidationError,
   repos,
   requireOwner,
@@ -18,26 +20,15 @@ import {
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-type IssuerBody = { address?: unknown; name?: unknown };
-
 export async function POST(request: NextRequest) {
   try {
     const session = await requireSession(request);
 
-    const raw = (await request.json()) as unknown;
-    const { address, name } = ((raw ?? {}) as IssuerBody);
-
-    if (typeof address !== 'string' || address.length === 0) {
-      throw new ValidationError('address es obligatorio', 'address');
-    }
+    const { address, name } = parseBody(issuerNameSchema, await request.json());
 
     requireOwner(session, address, 'el registro del emisor');
 
-    if (typeof name !== 'string' || name.trim().length === 0) {
-      throw new ValidationError('name es obligatorio', 'name');
-    }
-
-    const { issuer, created } = await repos.issuers.upsertName(address, name.trim());
+    const { issuer, created } = await repos.issuers.upsertName(address, name);
 
     await repos.auditLog.record({
       actorAddress: session.address,

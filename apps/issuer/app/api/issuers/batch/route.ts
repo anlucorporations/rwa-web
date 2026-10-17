@@ -6,7 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  ValidationError,
+  issuersBatchSchema,
+  parseBody,
   repos,
   requireSession,
   toErrorResponse,
@@ -17,29 +18,11 @@ import {
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const MAX_ADDRESSES = 200;
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === 'string');
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireSession(request);
+    await requireSession(request);
 
-    const raw = (await request.json()) as unknown;
-    const addresses = ((raw ?? {}) as { addresses?: unknown }).addresses;
-
-    if (!isStringArray(addresses) || addresses.length === 0) {
-      throw new ValidationError('addresses debe ser un array no vacío', 'addresses');
-    }
-
-    if (addresses.length > MAX_ADDRESSES) {
-      throw new ValidationError(
-        `addresses no puede superar ${MAX_ADDRESSES} elementos`,
-        'addresses',
-      );
-    }
+    const { addresses } = parseBody(issuersBatchSchema, await request.json());
 
     const rows = await repos.issuers.findByAddresses(addresses);
 

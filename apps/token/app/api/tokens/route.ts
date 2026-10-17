@@ -7,14 +7,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  createTokenSchema,
+  parseBody,
   NotFoundError,
-  isAddress,
   repos,
   requireOwner,
   requireSession,
   toErrorResponse,
   toTokenDto,
-  ValidationError,
 } from '@rwa/shared';
 
 export const dynamic = 'force-dynamic';
@@ -44,33 +44,20 @@ export async function POST(request: NextRequest) {
   try {
     const session = await requireSession(request);
 
-    const body = (await request.json()) as Record<string, unknown>;
-
-    const name = requiredString(body.name, 'name');
-    const symbol = requiredString(body.symbol, 'symbol');
-    if (!SYMBOL_RE.test(symbol)) {
-      throw new ValidationError('"symbol" debe cumplir ^[A-Z0-9]{1,11}$', 'symbol');
-    }
-
-    const decimals = requiredDecimals(body.decimals);
-    const adminAddress = requiredString(body.adminAddress, 'adminAddress');
-    const tokenAddress = requiredString(body.tokenAddress, 'tokenAddress');
+    const body = parseBody(createTokenSchema, await request.json());
+    const {
+      name,
+      symbol,
+      decimals,
+      adminAddress,
+      tokenAddress,
+      identityRegistry,
+      trustedIssuersRegistry,
+      claimTopicsRegistry,
+      requiredClaims,
+    } = body;
 
     requireOwner(session, adminAddress, 'el token');
-
-    // O2.4 (RF-W-11): los tres registries son obligatorios y el claimTopicsRegistry no puede
-    // ser cero: sin él `isVerified` es fail-closed y el token no verifica a nadie.
-    const identityRegistry = requiredAddress(body.identityRegistry, 'identityRegistry');
-    const trustedIssuersRegistry = requiredAddress(body.trustedIssuersRegistry, 'trustedIssuersRegistry');
-    const claimTopicsRegistry = requiredAddress(body.claimTopicsRegistry, 'claimTopicsRegistry');
-
-    const requiredClaims = requiredIntegerArray(body.requiredClaims, 'requiredClaims');
-    if (!requiredClaims || requiredClaims.length === 0) {
-      throw new ValidationError(
-        'El token debe exigir al menos un claim topic (si no, no verificaría a nadie)',
-        'requiredClaims',
-      );
-    }
 
     const created = await repos.tokens.create({
       tokenAddress,
@@ -78,15 +65,15 @@ export async function POST(request: NextRequest) {
       name,
       symbol,
       decimals,
-      identityRegistry,
-      trustedIssuersRegistry,
-      claimTopicsRegistry,
+      identityRegistry: identityRegistry.toLowerCase(),
+      trustedIssuersRegistry: trustedIssuersRegistry.toLowerCase(),
+      claimTopicsRegistry: claimTopicsRegistry.toLowerCase(),
       requiredClaims,
-      complianceModules: optionalStringArray(body.complianceModules, 'complianceModules'),
-      complianceAddress: optionalString(body.complianceAddress, 'complianceAddress'),
-      description: optionalString(body.description, 'description'),
-      transactionHash: optionalString(body.transactionHash, 'transactionHash'),
-      blockNumber: optionalNumber(body.blockNumber, 'blockNumber'),
+      complianceModules: body.complianceModules,
+      complianceAddress: body.complianceAddress ?? undefined,
+      description: body.description ?? undefined,
+      transactionHash: body.transactionHash ?? undefined,
+      blockNumber: body.blockNumber ?? undefined,
     });
 
     await repos.auditLog.record({
@@ -112,69 +99,4 @@ export async function POST(request: NextRequest) {
     const { status, body } = toErrorResponse(error);
     return NextResponse.json(body, { status });
   }
-}
-
-function requiredString(value: unknown, field: string): string {
-  if (typeof value !== 'string' || value.trim().length === 0) {
-    throw new ValidationError(`"${field}" es obligatorio`, field);
-  }
-  return value;
-}
-
-function requiredAddress(value: unknown, field: string): string {
-  if (typeof value !== 'string' || !isAddress(value)) {
-    throw new ValidationError(`"${field}" debe ser una dirección 0x…`, field);
-  }
-  return value.toLowerCase();
-}
-
-function optionalString(value: unknown, field: string): string | undefined {
-  if (value === undefined || value === null) return undefined;
-  if (typeof value !== 'string') throw new ValidationError(`"${field}" debe ser texto`, field);
-  return value;
-}
-
-function optionalNumber(value: unknown, field: string): number | undefined {
-  if (value === undefined || value === null) return undefined;
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new ValidationError(`"${field}" debe ser numérico`, field);
-  }
-  return value;
-}
-
-function requiredDecimals(value: unknown): number {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 18) {
-    throw new ValidationError('"decimals" debe ser un entero entre 0 y 18', 'decimals');
-  }
-  return value;
-}
-
-function requiredIntegerArray(value: unknown, field: string): number[] | undefined {
-  if (value === undefined || value === null) return undefined;
-  if (!Array.isArray(value)) {
-    throw new ValidationError(`"${field}" debe ser un array de enteros`, field);
-  }
-  const result: number[] = [];
-  for (const item of value) {
-    if (typeof item !== 'number' || !Number.isInteger(item)) {
-      throw new ValidationError(`"${field}" debe ser un array de enteros`, field);
-    }
-    result.push(item);
-  }
-  return result;
-}
-
-function optionalStringArray(value: unknown, field: string): string[] | undefined {
-  if (value === undefined || value === null) return undefined;
-  if (!Array.isArray(value)) {
-    throw new ValidationError(`"${field}" debe ser un array de direcciones`, field);
-  }
-  const result: string[] = [];
-  for (const item of value) {
-    if (typeof item !== 'string') {
-      throw new ValidationError(`"${field}" debe ser un array de direcciones`, field);
-    }
-    result.push(item);
-  }
-  return result;
 }

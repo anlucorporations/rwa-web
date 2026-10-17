@@ -2,7 +2,7 @@
 
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
 > **Línea:** `@web` (`rwa-web/`) — separada de `@sc` (`rwa-sc/`) por D-102
-> **Versión:** v1.7 · 2026-10-17 · **Fase 3 — O0, O1 y O3 cerrados; O2 pendiente de redespliegue de GCP; O4 en curso (4.1/4.3 parcial/4.4/4.5 hechos)**
+> **Versión:** v1.8 · 2026-10-17 · **Fase 3 — O0, O1 y O3 cerrados; O2 pendiente de redespliegue de GCP; O4 en curso (4.1/4.2/4.4/4.5 hechos, 4.3 parcial)**
 >
 > **Memoria de trabajo de la etapa.** El registro global del proyecto (contratos + etapa web)
 > sigue en `rwa-sc/RepoTecnico/estado_proyecto.md`; este archivo gobierna el día a día de `@web`.
@@ -134,7 +134,7 @@ el E2E off-chain está en verde, pero el on-chain está bloqueado por el desplie
 | # | Tarea | Estado | Evidencia / gate |
 |---|---|---|---|
 | O4.1 | Monorepo `apps/{identity,issuer,token}` + `packages/shared` | ✅ HECHO | `apps/*` con `@rwa/{identity,issuer,token}`; workspace `packages/* + apps/*` |
-| O4.2 | `packages/shared` completo (red, ABIs, tipos, datos, cliente API, `zod`, logger) | 🟡 Base existente; falta validación `zod` en rutas y `packages/{ui,config}` | — |
+| O4.2 | `packages/shared` completo (red, ABIs, tipos, datos, cliente API, `zod`, logger) | ✅ **Validación zod en todas las rutas + cliente API tipado**; `packages/{ui,config}` van con O4.3/O4.6 | `o4_consolidacion.md` |
 | O4.3 | Eliminar duplicados | 🟡 `TrustedIssuersRegistry` y tipos comunes consolidados; queda `RequestDetailModal` ×2 (requiere `packages/ui`) | `o4_consolidacion.md` |
 | O4.4 | Destino de `web-registry-trusted2` | ✅ **Retirada** (duplicado experimental) | `o4_consolidacion.md` |
 | O4.5 | Destino de `web-rwa` | ✅ **Retirada** (landing fuera del objetivo de 3 apps) | `o4_consolidacion.md` |
@@ -201,4 +201,4 @@ los espejos deben ser idénticos byte a byte (gate `check_sincronizacion_datos.s
 
 ---
 
-*Fin del documento — estado_proyecto.md (etapa `@web`) v1.7*
+*Fin del documento — estado_proyecto.md (etapa `@web`) v1.8*
