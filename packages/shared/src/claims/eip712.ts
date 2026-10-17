@@ -115,6 +115,9 @@ export function buildClaimTypedData(payload: ClaimPayload): ClaimTypedData {
 
 /** Recupera la dirección del emisor que firmó el claim (EIP-712). */
 export async function recoverClaimIssuer(typedData: ClaimTypedData, signature: Hex): Promise<Address> {
+  if (!/^0x[0-9a-fA-F]{130}$/.test(signature)) {
+    throw new ValidationError('Firma inválida: se espera una firma de 65 bytes', 'signature');
+  }
   return recoverTypedDataAddress({
     domain: typedData.domain,
     types: typedData.types,

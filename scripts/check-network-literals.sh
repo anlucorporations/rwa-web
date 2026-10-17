@@ -11,8 +11,9 @@
 #   - URLs http:// de servicio               http://
 #   - chainIds literales de red              31337 / 81234
 #
-# Exentos (son la configuración legítima): `packages/shared/src/config`,
-# `packages/shared/src/network` y el artefacto generado `contracts/deployments.ts`.
+# Exentos (configuración legítima y fixtures): `packages/shared/src/config`,
+# `packages/shared/src/network`, `contracts/deployments.ts` y los ficheros `*.test.ts`
+# (los tests usan valores de red como datos de prueba).
 # =============================================================================
 set -uo pipefail
 
@@ -34,7 +35,7 @@ scan() { # etiqueta regex lineas-a-descartar
   hits="$(grep -rnE "$regex" \
     --include='*.ts' --include='*.tsx' --include='*.js' --include='*.mjs' \
     --exclude-dir=node_modules --exclude-dir=.next \
-    --exclude='deployments.ts' \
+    --exclude='deployments.ts' --exclude='*.test.ts' --exclude='*.test.tsx' \
     "${TARGETS[@]}" 2>/dev/null \
     | grep -vE '^\s*[^:]+:[0-9]+:\s*(\*|//)' \
     | grep -vE "$drop" || true)"

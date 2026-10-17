@@ -1,7 +1,7 @@
 # Evidencia O3 — Verificabilidad (parcial: 3.1–3.4) · 2026-10-17
 
 > **Ciclo:** O3 (plan §O3) · **Requisitos:** RF-W-15, RNF-W-03, RNF-W-07 · **Decisión:** D-094.
-> **Estado:** O3.1–O3.5 y O3.7 ✅ · O3.6 (tests) ⏳.
+> **Estado:** O3.1–O3.5 y O3.7 ✅ · O3.6 **parcial** (Vitest ✅ · Playwright diferido).
 
 ## O3.1 · Repositorio y plantillas de entorno
 
@@ -99,4 +99,33 @@ git check-ignore .env.local              # ignorado
 
 **Gate:** `./scripts/ci_local.sh` → exit 0 (lint 0 errores · tsc 0 · build ×3 · gates).
 
-*Fin de la evidencia parcial — O3.1–O3.5 y O3.7*
+## O3.6 · Tests (parcial)
+
+### Vitest en el paquete compartido — ✅
+`vitest` + `packages/shared/vitest.config.ts`; **25 tests** en 4 suites, todos en verde:
+
+| Suite | Cubre |
+|---|---|
+| `src/claims/eip712.test.ts` (6) | dominio EIP-712, 7 campos del `Claim` en orden, `dataHash`/`uriHash`, firma tipada real con `viem` + recuperación del emisor, coherencia con la solicitud, firma mal formada |
+| `src/auth/cookie.test.ts` (7) | HMAC de la cookie, `HttpOnly`/`SameSite=Strict`/`Secure`, tampering, cookie de borrado, lectura de cabecera, secreto obligatorio (fail-closed) |
+| `src/media/magic-bytes.test.ts` (8) | detección PDF/JPEG/PNG/DOC/DOCX, coincidencia con el tipo declarado, `image/jpg`, rechazos; saneado anti-inyección |
+| `src/api/serializers.test.ts` (4) | DTO de solicitud con payload EIP-712, sin payload, emisor, token con relaciones |
+
+```
+$ pnpm --filter @rwa/shared test
+ Test Files  4 passed (4)
+      Tests  25 passed (25)
+```
+El paso `test` del CI ya ejecuta `pnpm -r --if-present test` (el paquete compartido lo tiene).
+
+### E2E Playwright del flujo claim→aprobación — ⏳ diferido
+El flujo **ya está cubierto de extremo a extremo con criptografía real** por
+`scripts/test_review_o1.sh` (sesiones SIWE + firmas EIP-712) y `scripts/test_e2e_o2.sh`
+(identidad → `addClaim` → `hasVerified`). Un Playwright de navegador exigiría
+**automatizar MetaMask/wallet** en headless (el flujo requiere `personal_sign` y
+`signTypedData`), lo que no aporta cobertura sobre lo ya verificado y añade un
+andamiaje (Synpress/mock de provider) desproporcionado para esta etapa.
+**Deuda declarada:** se incorporará cuando exista un entorno con navegador y estrategia
+de wallet de test (junto a O5, contenedores/e2e de UI).
+
+*Fin de la evidencia parcial — O3.1–O3.5, O3.7 y O3.6 (parcial)*

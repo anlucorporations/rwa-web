@@ -2,7 +2,7 @@
 
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
 > **Línea:** `@web` (`rwa-web/`) — separada de `@sc` (`rwa-sc/`) por D-102
-> **Versión:** v1.5 · 2026-10-17 · **Fase 3 — O0 y O1 cerrados; O2: 2.1–2.7 verificados (E2E en verde con el build final); queda redesplegar el Anvil de GCP (fuera de D-088)**
+> **Versión:** v1.6 · 2026-10-17 · **Fase 3 — O0, O1 y O3 cerrados; O2: 2.1–2.7 verificados, pendiente redesplegar el Anvil de GCP (fuera de D-088)**
 >
 > **Memoria de trabajo de la etapa.** El registro global del proyecto (contratos + etapa web)
 > sigue en `rwa-sc/RepoTecnico/estado_proyecto.md`; este archivo gobierna el día a día de `@web`.
@@ -108,6 +108,25 @@ el E2E off-chain está en verde, pero el on-chain está bloqueado por el desplie
 
 ---
 
+## 3d. Tablero del ciclo O3 — Verificabilidad
+
+**Objetivo:** poder verificar cualquier cambio futuro (repo + CI + versiones + tipos).
+
+| # | Tarea | Estado | Evidencia / gate |
+|---|---|---|---|
+| O3.1 | Repositorio `rwa-web`, `.gitignore` y `.env.example` por app | ✅ HECHO | `.env.example` raíz + uno por app |
+| O3.2 | `.env` fuera del árbol (`git check-ignore`) | ✅ HECHO | `.env`/`.env.local` ignorados; 0 versionados |
+| O3.3 | Versión única de `next`/`react` por workspace | ✅ HECHO | **next 16.1.6 · react 19.2.3** · un `pnpm-lock.yaml` |
+| O3.4 | Retirar `ignoreBuildErrors` y saldar tipos | ✅ HECHO | **0 errores tsc** en las 3 apps; builds con type-check |
+| O3.5 | CI con lint/tsc/build/test/gates + runner local | ✅ HECHO | `.gitlab-ci.yml` · `scripts/ci_local.sh` **exit 0** |
+| O3.6 | Tests: Vitest rutas críticas + E2E Playwright | 🟡 **Parcial** — **25 tests Vitest en verde**; el flujo claim→aprobación está cubierto por E2E con criptografía real (`test_review_o1.sh`, `test_e2e_o2.sh`); Playwright de navegador diferido a O5 (requiere automatización de wallet) | `pruebas/o3_verificabilidad.md` |
+| O3.7 | Logger estructurado, 0 `console.*` | ✅ HECHO | **224 eliminadas · 0 restantes** · `no-console: error` |
+
+**Gate del ciclo:** `./scripts/ci_local.sh` en verde (literales · deriva · tsc · eslint · build ×3 · tests).
+**Cumplido** (con O3.6 parcial declarado).
+
+---
+
 ## 4. Decisiones de la etapa (D-088…D-102)
 
 Vigentes y aplicables a `@web`; el detalle está en `requerimientos_web.md` §1 y en el estado global:
@@ -164,4 +183,4 @@ los espejos deben ser idénticos byte a byte (gate `check_sincronizacion_datos.s
 
 ---
 
-*Fin del documento — estado_proyecto.md (etapa `@web`) v1.5*
+*Fin del documento — estado_proyecto.md (etapa `@web`) v1.6*
