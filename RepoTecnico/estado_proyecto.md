@@ -2,7 +2,7 @@
 
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
 > **Línea:** `@web` (`rwa-web/`) — separada de `@sc` (`rwa-sc/`) por D-102
-> **Versión:** v1.2 · 2026-10-14 · **Fase 3 (Desarrollo) — O0 y O1 cerrados; siguiente: O2**
+> **Versión:** v1.3 · 2026-10-14 · **Fase 3 (Desarrollo) — O0 y O1 cerrados; O2 en curso (2.1/2.2/2.5/2.6 hechos, 2.3/2.4/2.7 pendientes)**
 >
 > **Memoria de trabajo de la etapa.** El registro global del proyecto (contratos + etapa web)
 > sigue en `rwa-sc/RepoTecnico/estado_proyecto.md`; este archivo gobierna el día a día de `@web`.
@@ -81,6 +81,26 @@ smoke test en verde.
 
 ---
 
+## 3c. Tablero del ciclo O2 — Sincronización con los contratos
+
+**Objetivo:** que el flujo identidad → claim → aprobación → `isVerified` funcione contra los contratos
+actuales en el Anvil de GCP (chain 31337).
+
+| # | Tarea | Estado | Evidencia / gate |
+|---|---|---|---|
+| O2.1 | Módulo único de red y direcciones desde `sc/deployments/*.json` | ✅ HECHO | `scripts/sync-contracts.sh` · `check-contract-drift.sh` exit 0 |
+| O2.2 | ABIs regenerados desde `sc/abis/`; eliminar copias inline | 🟡 **Parcial** — 16 ABIs generados + red limpia; quedan las copias inline de `IdentityCloneable` y de la factory/token, que se sustituyen con O2.3/O2.4 | `o2_1_contratos_generados.md`, `o2_2_red_unica.md` |
+| O2.3 | `addClaim` de 7 args + firma **EIP-712** (con `uriHash`, D-083) | ⏳ Siguiente | especificación en `o2_1_contratos_generados.md` §4 |
+| O2.4 | `claimTopicsRegistry` obligatorio + compliance al crear token | ⏳ | debía pasar de 8 args (inválidos) a los 7 reales |
+| O2.5 | `chainId` de la wallet vs canónico en la UI | ✅ HECHO | `assertCanonicalChain` en identidad y token |
+| O2.6 | Gates `check-abi-drift` y `check-network-literals` | ✅ HECHO | **0 literales de red** · deriva 0 |
+| O2.7 | E2E del flujo completo contra el Anvil de GCP | ⏳ | depende de O2.3/O2.4 |
+
+**Gate del ciclo:** E2E en verde + gates de deriva y literales en verde. *(Los dos gates ya están en verde;
+falta el E2E.)*
+
+---
+
 ## 4. Decisiones de la etapa (D-088…D-102)
 
 Vigentes y aplicables a `@web`; el detalle está en `requerimientos_web.md` §1 y en el estado global:
@@ -120,12 +140,21 @@ los espejos deben ser idénticos byte a byte (gate `check_sincronizacion_datos.s
 **Gate de cierre de O1 verificado:** suite de autorización en verde (una prueba negativa por ruta) y
 `GET /api/test-gridfs` → 404. HW-01, HW-02, HW-04 y HW-08 cubiertos.
 
-**Siguiente ciclo: O2 — Sincronización con los contratos** (plan §O2, RF-W-08…11):
-ABIs y direcciones desde los artefactos de `rwa-sc` (con gate de deriva), `addClaim` de 7 argumentos
-con EIP-712 (incluido `uriHash`, D-083) en el flujo de la identidad, `claimTopicsRegistry` obligatorio
-al crear token, verificación del `chainId` de la wallet en la UI y E2E completo contra el Anvil de GCP.
-Antes: **crear `SIWE_SESSION_SECRET` en Secret Manager** (hoy solo existe en `.env.local` de desarrollo).
+**Siguiente ciclo: O2 — Sincronización con los contratos** (en curso).
+
+- ✅ **O2.1** módulo de contratos generado desde `rwa-sc` (16 ABIs + direcciones) con gate de deriva.
+- ✅ **O2.2 (parcial)** red única client-safe; **0 literales de red** en el código.
+- ✅ **O2.5** `assertCanonicalChain` bloquea la operación si la wallet no está en chain 31337.
+- ✅ **O2.6** gates `check-contract-drift` y `check-network-literals` en verde.
+- ⏳ **O2.3** `addClaim` de 7 args + firma EIP-712 (dominio `RWA-Identity`/`1`/31337/`<clon>`,
+  `Claim(walletOwner,topic,scheme,dataHash,expiresAt,nonce,uriHash)`): exige persistir el payload
+  firmado (columnas nuevas en `rwa.claim_requests`) y cambiar la firma del emisor de EIP-191 a
+  `signTypedData` — es la causa raíz de que el flujo no funcione on-chain.
+- ⏳ **O2.4** crear token con los **7** argumentos reales y `claimTopicsRegistry` no nulo
+  (`createRegistryForTokenWithTopics`).
+- ⏳ **O2.7** E2E contra el Anvil de GCP.
+- Pendiente operativo: **crear `SIWE_SESSION_SECRET` en Secret Manager** (hoy solo en `.env.local`).
 
 ---
 
-*Fin del documento — estado_proyecto.md (etapa `@web`) v1.2*
+*Fin del documento — estado_proyecto.md (etapa `@web`) v1.3*
