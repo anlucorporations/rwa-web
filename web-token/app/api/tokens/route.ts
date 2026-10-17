@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getContractAddress } from '@rwa/shared/deployment';
+import { getContractAddress } from '@rwa/shared/contracts';
 import {
   NotFoundError,
   repos,
