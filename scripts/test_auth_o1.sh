@@ -54,7 +54,7 @@ trap cleanup EXIT
 start_app() {
   local app=$1 port=$2
   free_port "$port"
-  ( cd "$ROOT/$app" && exec npx next start -p "$port" > "/tmp/auth-o1-${app}.log" 2>&1 ) &
+  ( cd "$ROOT/$app" && exec npx next start -p "$port" > "/tmp/auth-o1-${app//\//-}.log" 2>&1 ) &
   PIDS+=("$!")
 }
 

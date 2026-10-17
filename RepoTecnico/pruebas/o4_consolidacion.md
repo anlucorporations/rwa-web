@@ -1,7 +1,7 @@
 # Evidencia O4 — Consolidación en monorepo (parcial: 4.1, 4.4, 4.5) · 2026-10-17
 
 > **Ciclo:** O4 (plan §O4) · **Requisitos:** RF-W-14, RF-W-18, RT-W-05 · **Decisión:** D-089.
-> **Estado:** O4.1 ✅ · O4.4 ✅ · O4.5 ✅ · O4.2/O4.3/O4.6/O4.7 ⏳.
+> **Estado:** O4.1 ✅ · O4.3 (parcial) · O4.4 ✅ · O4.5 ✅ · O4.2/O4.6/O4.7 ⏳.
 
 ## O4.1 · Estructura del monorepo
 
@@ -43,8 +43,25 @@ Landing de 164 líneas con enlaces a puertos inexistentes (3004/3005/3006). El o
 | Tarea | Estado | Nota |
 |---|---|---|
 | O4.2 `packages/shared` completo (esquemas `zod`, cliente de API tipado, `packages/{ui,config}`) | ⏳ | base ya existente en `packages/shared`; falta validación `zod` en rutas |
-| O4.3 Eliminar duplicados (`TrustedIssuersRegistry` ×2, `RequestDetailModal` ×2, tipos repetidos) | ⏳ | siguiente |
+| O4.3 Eliminar duplicados | 🟡 **Parcial** — ver abajo | `packages/ui` pendiente para `RequestDetailModal` |
 | O4.6 Unificar web3 en `wagmi`+`viem` y eliminar `window.ethereum` | ⏳ | cambio grande; varias rondas |
 | O4.7 Estado de datos con TanStack Query | ⏳ | — |
 
 *Fin de la evidencia parcial — O4.1/O4.4/O4.5*
+
+
+## O4.3 · Deduplicación (parcial)
+
+| Duplicado | Acción |
+|---|---|
+| `TrustedIssuersRegistry.ts` (identity ×1 + issuer ×1, divergentes) | **Consolidado** en `@rwa/shared/network` (`TRUSTED_ISSUERS_REGISTRY_ADDRESS/_ABI`, `TRUSTED_ISSUERS_NETWORK_CONFIG`, `TRUSTED_ISSUERS_CONTRACT_OWNER`); las apps quedan con un *shim* de 10 líneas que reexporta |
+| `types/issuer.ts` (idénticos, **sin uso**) | **Eliminados** ambos |
+| `types/claim-request.ts` (divergentes: `CreateClaimRequestDto` vs `UpdateRequestStatusDto`) | Tipo común `ClaimRequest` movido a `@rwa/shared` (`api/types.ts`); cada app conserva solo su DTO específico |
+| `types/ethereum.d.ts` (×3, declaración ambiental global) | Se mantienen copias: son declaraciones ambientales por app (TS no comparte `declare global` desde un paquete sin `types` configurado) — deuda menor |
+| `RequestDetailModal.tsx` (×2: 337 vs 474 líneas, UX distinta inversor/emisor) | ⏳ Pendiente: requiere `packages/ui` (componentes compartidos) |
+
+**Verificación:** `tsc --noEmit` 0 errores en las 3 apps + shared · `./scripts/ci_local.sh` **exit 0** ·
+`scripts/test_review_o1.sh` **5/5** y `scripts/test_auth_o1.sh` **30/30** tras el movimiento (rutas
+`apps/*` y logs sanitizados).
+
+*Fin de la evidencia — O4 (parcial)*

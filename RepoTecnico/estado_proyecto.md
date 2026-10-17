@@ -2,7 +2,7 @@
 
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
 > **Línea:** `@web` (`rwa-web/`) — separada de `@sc` (`rwa-sc/`) por D-102
-> **Versión:** v1.6 · 2026-10-17 · **Fase 3 — O0, O1 y O3 cerrados; O2: 2.1–2.7 verificados, pendiente redesplegar el Anvil de GCP (fuera de D-088)**
+> **Versión:** v1.7 · 2026-10-17 · **Fase 3 — O0, O1 y O3 cerrados; O2 pendiente de redespliegue de GCP; O4 en curso (4.1/4.3 parcial/4.4/4.5 hechos)**
 >
 > **Memoria de trabajo de la etapa.** El registro global del proyecto (contratos + etapa web)
 > sigue en `rwa-sc/RepoTecnico/estado_proyecto.md`; este archivo gobierna el día a día de `@web`.
@@ -127,6 +127,24 @@ el E2E off-chain está en verde, pero el on-chain está bloqueado por el desplie
 
 ---
 
+## 3e. Tablero del ciclo O4 — Consolidación en monorepo
+
+**Objetivo:** 3 apps mantenibles sobre una base compartida.
+
+| # | Tarea | Estado | Evidencia / gate |
+|---|---|---|---|
+| O4.1 | Monorepo `apps/{identity,issuer,token}` + `packages/shared` | ✅ HECHO | `apps/*` con `@rwa/{identity,issuer,token}`; workspace `packages/* + apps/*` |
+| O4.2 | `packages/shared` completo (red, ABIs, tipos, datos, cliente API, `zod`, logger) | 🟡 Base existente; falta validación `zod` en rutas y `packages/{ui,config}` | — |
+| O4.3 | Eliminar duplicados | 🟡 `TrustedIssuersRegistry` y tipos comunes consolidados; queda `RequestDetailModal` ×2 (requiere `packages/ui`) | `o4_consolidacion.md` |
+| O4.4 | Destino de `web-registry-trusted2` | ✅ **Retirada** (duplicado experimental) | `o4_consolidacion.md` |
+| O4.5 | Destino de `web-rwa` | ✅ **Retirada** (landing fuera del objetivo de 3 apps) | `o4_consolidacion.md` |
+| O4.6 | Unificar web3 en `wagmi`+`viem`; 0 `window.ethereum` | ⏳ | — |
+| O4.7 | Estado de datos con TanStack Query | ⏳ | — |
+
+**Gate del ciclo:** `pnpm -r build && pnpm -r test` en verde + conteo de duplicados = 0. *(Parcial: builds/tests en verde; quedan O4.2/O4.6/O4.7 y el `RequestDetailModal`.)*
+
+---
+
 ## 4. Decisiones de la etapa (D-088…D-102)
 
 Vigentes y aplicables a `@web`; el detalle está en `requerimientos_web.md` §1 y en el estado global:
@@ -183,4 +201,4 @@ los espejos deben ser idénticos byte a byte (gate `check_sincronizacion_datos.s
 
 ---
 
-*Fin del documento — estado_proyecto.md (etapa `@web`) v1.6*
+*Fin del documento — estado_proyecto.md (etapa `@web`) v1.7*

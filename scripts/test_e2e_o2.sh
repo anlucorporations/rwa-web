@@ -72,7 +72,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-start_app() { local app=$1 port=$2; free_port "$port"; ( cd "$ROOT/$app" && exec npx next start -p "$port" > "/tmp/e2e-o2-$app.log" 2>&1 ) & PIDS+=("$!"); }
+start_app() { local app=$1 port=$2; free_port "$port"; ( cd "$ROOT/$app" && exec npx next start -p "$port" > "/tmp/e2e-o2-${app//\//-}.log" 2>&1 ) & PIDS+=("$!"); }
 code() { curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$@"; }
 check() { if [ "$3" = "$2" ]; then echo "✓ $1 → $3"; else echo "✗ $1 → $3 (esperado $2)"; FAIL=$((FAIL + 1)); fi; }
 

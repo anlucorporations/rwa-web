@@ -12,6 +12,7 @@ export * from './errors';
 export * from './logging/index';
 export * from './db/index';
 export * from './api/serializers';
+export type * from './api/types';
 export * from './api/http';
 export * from './api/health';
 export * from './auth/index';

@@ -40,7 +40,7 @@ fail=0
 # probe <app-dir> <port> <path> <esperado-substring>
 probe() {
   local app=$1 port=$2 path=$3 expected=$4
-  local log="/tmp/${app}-${port}.log"
+  local log="/tmp/${app//\//-}-${port}.log"
   if ! curl -s --max-time 10 "http://localhost:${port}/" -o /dev/null 2>/dev/null; then
     : # la raíz puede redirigir; el probe real es el de la API
   fi
@@ -60,7 +60,7 @@ probe() {
 start_app() {
   local app=$1 port=$2
   free_port "$port"
-  ( cd "$ROOT/$app" && exec npx next start -p "$port" > "/tmp/${app}-${port}.log" 2>&1 ) &
+  ( cd "$ROOT/$app" && exec npx next start -p "$port" > "/tmp/${app//\//-}-${port}.log" 2>&1 ) &
   PIDS+=("$!")
   # espera activa a que el puerto responda (máx. 30 s)
   for _ in $(seq 1 30); do

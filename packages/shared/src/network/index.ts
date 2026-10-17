@@ -10,6 +10,7 @@
  */
 
 import { getNetworkConfig } from '../config/index';
+import { TrustedIssuersRegistryAbi, getContractAddress } from '../contracts/index';
 import { ConfigError, ValidationError } from '../errors';
 
 /** chainId canónico del frontend: Anvil de GCP (D-096). */
@@ -81,3 +82,31 @@ export const DEMO_ACCOUNTS: readonly DemoAccount[] = [
     privateKey: '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',
   },
 ];
+
+
+// ---------------------------------------------------------------------------
+// Helpers del TrustedIssuersRegistry compartidos por las apps (O4.3)
+// ---------------------------------------------------------------------------
+
+/** Dirección canónica del registro (desde el artefacto generado, sin literales). */
+export const TRUSTED_ISSUERS_REGISTRY_ADDRESS = getContractAddress('TrustedIssuersRegistry');
+
+/** ABI real del contrato (generado desde `rwa-sc/sc/abis`). */
+export const TRUSTED_ISSUERS_REGISTRY_ABI = TrustedIssuersRegistryAbi;
+
+/** Configuración de red expuesta a la UI (getters perezosos). */
+export const TRUSTED_ISSUERS_NETWORK_CONFIG = {
+  chainId: CANONICAL_CHAIN_ID,
+  get chainName(): string {
+    return 'Anvil de GCP';
+  },
+  get rpcUrl(): string {
+    return getRpcUrl();
+  },
+} as const;
+
+/**
+ * Owner del despliegue canónico (cuenta admin por defecto de Anvil, pública por
+ * diseño). Solo para la UI; la verdad está en `owner()` on-chain.
+ */
+export const TRUSTED_ISSUERS_CONTRACT_OWNER: string = DEMO_ACCOUNTS[0].address;
