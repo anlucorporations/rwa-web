@@ -10,7 +10,8 @@
     "./db": "./src/db/index.ts",
     "./config": "./src/config/index.ts",
     "./contracts": "./src/contracts/index.ts",
-    "./network": "./src/network/index.ts"
+    "./network": "./src/network/index.ts",
+    "./claims": "./src/claims/eip712.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

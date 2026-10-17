@@ -8,6 +8,13 @@
 
 import { useState } from 'react';
 import { ClaimRequest } from '@/types/claim-request';
+import {
+  IdentityCloneableAbi,
+  IdentityRegistryAbi,
+  getContractAddress,
+} from '@rwa/shared/contracts';
+import { buildClaimTypedData, type ClaimPayload } from '@rwa/shared/claims';
+import { CANONICAL_CHAIN_ID, ZERO_ADDRESS, assertCanonicalChain, getRpcUrl } from '@rwa/shared/network';
 
 interface RequestDetailModalProps {
   request: ClaimRequest;
@@ -66,6 +73,80 @@ I hereby ${status === 'approved' ? 'APPROVE' : 'REJECT'} this claim request with
     }
   };
 
+  /**
+   * O2.3: construye el payload EIP-712 del claim con datos on-chain (clon de identidad
+   * y `claimNonce(topic, issuer)`) y lo firma con `signTypedData`. El inversor enviará
+   * después `addClaim` con esta firma.
+   */
+  const signClaim = async (): Promise<{ payload: ClaimPayload; signature: string }> => {
+    if (typeof window === 'undefined' || !window.ethereum) {
+      throw new Error('MetaMask not available');
+    }
+    const { ethers } = await import('ethers');
+    const browserProvider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await browserProvider.getSigner();
+    const network = await browserProvider.getNetwork();
+    const chainId = Number(network.chainId);
+    assertCanonicalChain(chainId);
+
+    const rpc = new ethers.JsonRpcProvider(getRpcUrl());
+    const registry = new ethers.Contract(
+      getContractAddress('IdentityRegistry'),
+      IdentityRegistryAbi,
+      rpc,
+    );
+    const identityAddress = String(await registry.getIdentity(request.requesterAddress));
+    if (!identityAddress || identityAddress === ZERO_ADDRESS) {
+      throw new Error(
+        'El inversor todavía no ha creado su identidad on-chain; no se puede emitir el claim firmado.',
+      );
+    }
+
+    const identity = new ethers.Contract(identityAddress, IdentityCloneableAbi, rpc);
+    const owner = String(await identity.owner());
+    if (owner.toLowerCase() !== request.requesterAddress.toLowerCase()) {
+      throw new Error('La identidad on-chain no pertenece al solicitante (owner distinto).');
+    }
+
+    const topic = Number(request.claimTopic);
+    const nonce = String(await identity.claimNonce(topic, issuerAddress));
+    const expiresAt = String(Math.floor(Date.now() / 1000) + 365 * 24 * 3600);
+    const data = ethers.hexlify(
+      ethers.toUtf8Bytes(
+        JSON.stringify({
+          claimRequestId: request._id,
+          documentFileId: request.documentFileId ?? null,
+          issuer: issuerAddress,
+          requester: request.requesterAddress,
+          reviewedAt: new Date().toISOString(),
+        }),
+      ),
+    );
+    const uri = request.documentFileId
+      ? `/api/download/${request.documentFileId}`
+      : `/api/claim/${request._id}`;
+
+    const payload: ClaimPayload = {
+      chainId,
+      identityAddress: identityAddress as `0x${string}`,
+      walletOwner: owner as `0x${string}`,
+      topic: String(topic),
+      scheme: 1,
+      data: data as `0x${string}`,
+      uri,
+      expiresAt,
+      nonce,
+    };
+
+    const typedData = buildClaimTypedData(payload);
+    const signature = await signer.signTypedData(
+      typedData.domain,
+      typedData.types as unknown as Record<string, { name: string; type: string }[]>,
+      typedData.message,
+    );
+    return { payload, signature };
+  };
+
   const handleAction = async (status: 'approved' | 'rejected') => {
     // Verify issuer address matches
     if (issuerAddress.toLowerCase() !== request.issuerAddress.toLowerCase()) {
@@ -82,22 +163,36 @@ I hereby ${status === 'approved' ? 'APPROVE' : 'REJECT'} this claim request with
       setLoading(true);
       setError(null);
 
-      // Sign the review decision
-      console.log('🔐 Requesting signature from issuer...');
-      const { signedMessage, signature } = await signReviewDecision(status);
+      let reviewBody: Record<string, unknown>;
+
+      if (status === 'approved') {
+        // O2.3: el alta exige una firma EIP-712 del claim (addClaim on-chain)
+        const { payload, signature } = await signClaim();
+        reviewBody = {
+          requestId: request._id,
+          status,
+          reviewNote,
+          claim: payload,
+          claimSignature: signature,
+        };
+      } else {
+        // El rechazo no genera claim on-chain: basta la firma EIP-191 del mensaje de revisión
+        const { signedMessage, signature } = await signReviewDecision(status);
+        reviewBody = {
+          requestId: request._id,
+          status,
+          reviewNote,
+          issuerSignedMessage: signedMessage,
+          issuerSignature: signature,
+        };
+      }
 
       const response = await fetch('/api/update-request', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          requestId: request._id,
-          status,
-          reviewNote,
-          issuerSignedMessage: signedMessage,
-          issuerSignature: signature,
-        }),
+        body: JSON.stringify(reviewBody),
       });
 
       const result = await response.json();

@@ -45,6 +45,18 @@ export type ClaimRequestRow = {
   issuer_signature: string | null;
   reviewed_by: string | null;
   reviewed_at: Date | null;
+  // O2.3: payload EIP-712 firmado por el emisor (IdentityCloneable.addClaim)
+  identity_address: string | null;
+  claim_chain_id: number | null;
+  claim_scheme: number;
+  claim_wallet_owner: string | null;
+  claim_nonce: string | null;
+  claim_expires_at: string | null;
+  claim_data: string | null;
+  claim_uri: string | null;
+  claim_uri_hash: string | null;
+  claim_data_hash: string | null;
+  claim_signature: string | null;
   created_at: Date;
   updated_at: Date;
 };

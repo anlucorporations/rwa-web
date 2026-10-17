@@ -61,6 +61,43 @@ start_app() { local app=$1 port=$2; free_port "$port"; ( cd "$ROOT/$app" && exec
 code() { curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$@"; }
 check() { if [ "$3" = "$2" ]; then echo "✓ $1 → HTTP $3"; else echo "✗ $1 → HTTP $3 (esperado $2)"; FAIL=$((FAIL + 1)); fi; }
 
+# --- O2.3: claim firmado con EIP-712 (el servidor reconstruye el mismo digest) ---
+IDENTITY_DUMMY="0x000000000000000000000000000000000000dEaD"
+CLAIM_DATA="0x1234"
+CLAIM_URI="rwa://e2e/claim"
+DATA_HASH="$(cast keccak "$CLAIM_DATA")"
+URI_HASH="$(cast keccak "$CLAIM_URI")"
+
+claim_payload() { # walletOwner
+  jq -nc --arg w "$1" --arg dh "$DATA_HASH" --arg uh "$URI_HASH" \
+    --arg idm "$IDENTITY_DUMMY" --arg data "$CLAIM_DATA" --arg uri "$CLAIM_URI" \
+    '{chainId:31337, identityAddress:$idm, walletOwner:$w, topic:"1", scheme:1,
+      data:$data, uri:$uri, expiresAt:"0", nonce:"0"}'
+}
+
+typed_data_json() { # walletOwner
+  jq -nc --arg w "$1" --arg dh "$DATA_HASH" --arg uh "$URI_HASH" --arg idm "$IDENTITY_DUMMY" '
+    {types:{
+       EIP712Domain:[{name:"name",type:"string"},{name:"version",type:"string"},
+                     {name:"chainId",type:"uint256"},{name:"verifyingContract",type:"address"}],
+       Claim:[{name:"walletOwner",type:"address"},{name:"topic",type:"uint256"},
+              {name:"scheme",type:"uint256"},{name:"dataHash",type:"bytes32"},
+              {name:"expiresAt",type:"uint256"},{name:"nonce",type:"uint256"},
+              {name:"uriHash",type:"bytes32"}]},
+     primaryType:"Claim",
+     domain:{name:"RWA-Identity",version:"1",chainId:31337,verifyingContract:$idm},
+     message:{walletOwner:$w,topic:"1",scheme:"1",dataHash:$dh,expiresAt:"0",nonce:"0",uriHash:$uh}}'
+}
+
+sign_claim() { # walletOwner privateKey
+  cast wallet sign --data "$(typed_data_json "$1")" --private-key "$2" 2>/dev/null
+}
+
+review_body() { # requestId signature [reviewNote]
+  jq -nc --arg id "$1" --arg s "$2" --arg note "${3:-}" --argjson claim "$(claim_payload "$REQUESTER")" \
+    '{requestId:$id, status:"approved", reviewNote:$note, claim:$claim, claimSignature:$s}'
+}
+
 # login <base> <address> <key> <jar>
 login() {
   local base=$1 addr=$2 key=$3 jar=$4 nonce msg sig
@@ -91,26 +128,26 @@ if [ -n "$CLAIM_ID" ]; then echo "✓ solicitud creada: $CLAIM_ID"; else echo "�
 echo
 echo "2) Un tercero no puede resolverla (403)"
 login "$REG_BASE" "$THIRD" "$THIRD_KEY" /tmp/jar_third.txt || FAIL=$((FAIL + 1))
-THIRD_SIG="$(cast wallet sign "review by third" --private-key "$THIRD_KEY" 2>/dev/null)"
-BODY_THIRD="$(jq -nc --arg id "$CLAIM_ID" --arg s "$THIRD_SIG" '{requestId:$id,status:"approved",issuerSignedMessage:"review by third",issuerSignature:$s}')"
+THIRD_SIG="$(sign_claim "$REQUESTER" "$THIRD_KEY")"
+BODY_THIRD="$(review_body "$CLAIM_ID" "$THIRD_SIG")"
 check "POST /api/update-request (tercero)" 403 "$(code -b /tmp/jar_third.txt -X POST "$REG_BASE/api/update-request" -H 'Content-Type: application/json' -d "$BODY_THIRD")"
 
 echo
 echo "3) El emisor con la firma de otra wallet no puede resolverla (403)"
 login "$REG_BASE" "$ISSUER" "$ISSUER_KEY" /tmp/jar_issuer.txt || FAIL=$((FAIL + 1))
-WRONG_SIG="$(cast wallet sign "review wrong key" --private-key "$THIRD_KEY" 2>/dev/null)"
-BODY_WRONG="$(jq -nc --arg id "$CLAIM_ID" --arg s "$WRONG_SIG" '{requestId:$id,status:"approved",issuerSignedMessage:"review wrong key",issuerSignature:$s}')"
+WRONG_SIG="$(sign_claim "$REQUESTER" "$THIRD_KEY")"
+BODY_WRONG="$(review_body "$CLAIM_ID" "$WRONG_SIG")"
 check "POST /api/update-request (firma ajena)" 403 "$(code -b /tmp/jar_issuer.txt -X POST "$REG_BASE/api/update-request" -H 'Content-Type: application/json' -d "$BODY_WRONG")"
 
 echo
-echo "4) El emisor destinatario la resuelve con su firma (200)"
-OK_SIG="$(cast wallet sign "review ok" --private-key "$ISSUER_KEY" 2>/dev/null)"
-BODY_OK="$(jq -nc --arg id "$CLAIM_ID" --arg s "$OK_SIG" '{requestId:$id,status:"approved",reviewNote:"ok",issuerSignedMessage:"review ok",issuerSignature:$s}')"
+echo "4) El emisor destinatario la resuelve con su firma EIP-712 (200)"
+OK_SIG="$(sign_claim "$REQUESTER" "$ISSUER_KEY")"
+BODY_OK="$(review_body "$CLAIM_ID" "$OK_SIG" "ok")"
 RESP_OK="$(curl -s --max-time 20 -b /tmp/jar_issuer.txt -X POST "$REG_BASE/api/update-request" -H 'Content-Type: application/json' -d "$BODY_OK")"
 echo "   respuesta: $(printf '%s' "$RESP_OK" | head -c 220)"
 STATUS_OK="$(printf '%s' "$RESP_OK" | jq -r '.data.status // empty')"
-REVIEWED_BY="$(printf '%s' "$RESP_OK" | jq -r '.data.reviewedBy // empty')"
-if [ "$STATUS_OK" = "approved" ]; then echo "✓ estado = approved · reviewedBy = $REVIEWED_BY"; else echo "✗ estado inesperado: $RESP_OK"; FAIL=$((FAIL + 1)); fi
+REVIEWED_BY="$(printf '%s' "$RESP_OK" | jq -r '.data.claimSignature // empty')"
+if [ "$STATUS_OK" = "approved" ] && [ -n "$REVIEWED_BY" ]; then echo "✓ estado = approved · claimSignature persistida"; else echo "✗ estado inesperado: $RESP_OK"; FAIL=$((FAIL + 1)); fi
 
 echo
 echo "5) Segunda revisión (idempotencia, 409)"

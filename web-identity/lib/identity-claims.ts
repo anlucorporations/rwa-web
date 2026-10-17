@@ -5,58 +5,10 @@
  */
 
 import { ethers } from 'ethers';
+import { IdentityCloneableAbi } from '@rwa/shared/contracts';
 
-// Minimal ABI for Identity contract claims functions
-export const IDENTITY_CLAIM_ABI = [
-  {
-    "type": "function",
-    "name": "addClaim",
-    "inputs": [
-      { "name": "_topic", "type": "uint256" },
-      { "name": "_scheme", "type": "uint256" },
-      { "name": "_issuer", "type": "address" },
-      { "name": "_signature", "type": "bytes" },
-      { "name": "_data", "type": "bytes" },
-      { "name": "_uri", "type": "string" }
-    ],
-    "outputs": [{ "name": "", "type": "bytes32" }],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "getClaim",
-    "inputs": [
-      { "name": "_topic", "type": "uint256" },
-      { "name": "_issuer", "type": "address" }
-    ],
-    "outputs": [
-      { "name": "topic", "type": "uint256" },
-      { "name": "scheme", "type": "uint256" },
-      { "name": "issuer", "type": "address" },
-      { "name": "signature", "type": "bytes" },
-      { "name": "data", "type": "bytes" },
-      { "name": "uri", "type": "string" }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "claimExists",
-    "inputs": [
-      { "name": "_topic", "type": "uint256" },
-      { "name": "_issuer", "type": "address" }
-    ],
-    "outputs": [{ "name": "", "type": "bool" }],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getClaimIssuersForTopic",
-    "inputs": [{ "name": "_topic", "type": "uint256" }],
-    "outputs": [{ "name": "", "type": "address[]" }],
-    "stateMutability": "view"
-  }
-] as const;
+// ABI única desde el artefacto generado (O2.2)
+export const IDENTITY_CLAIM_ABI = IdentityCloneableAbi;
 
 export interface IdentityClaim {
   topic: bigint;
@@ -76,6 +28,7 @@ export async function addClaimToIdentity(
   issuer: string,
   issuerSignature: string,
   requestData: any,
+  expiresAt: bigint | number,
   signer: ethers.Signer
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
@@ -108,7 +61,8 @@ export async function addClaimToIdentity(
       issuer,
       issuerSignature,
       data,
-      uri
+      uri,
+      BigInt(expiresAt)
     );
 
     console.log('Transaction sent:', tx.hash);

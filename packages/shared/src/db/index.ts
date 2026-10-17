@@ -17,6 +17,7 @@ export {
   type ClaimRequestFilter,
   type CreateClaimRequestInput,
   type ReviewClaimRequestInput,
+  type ClaimPayloadFields,
 } from './repositories/claim-requests';
 export {
   DocumentFilesRepository,

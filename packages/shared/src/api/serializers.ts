@@ -37,6 +37,19 @@ export type ClaimRequestDto = {
   reviewNote?: string;
   issuerSignedMessage?: string;
   issuerSignature?: string;
+  /** O2.3: payload EIP-712 firmado por el emisor (para que el inversor envíe `addClaim`). */
+  claimPayload?: {
+    chainId: number;
+    identityAddress: string;
+    walletOwner: string;
+    topic: string;
+    scheme: number;
+    data: string;
+    uri: string;
+    expiresAt: string;
+    nonce: string;
+  } | null;
+  claimSignature?: string;
 };
 
 /** `document` es el primer documento asociado a la solicitud (si existe). */
@@ -63,6 +76,28 @@ export function toClaimRequestDto(
     reviewNote: row.review_note ?? undefined,
     issuerSignedMessage: row.issuer_signed_message ?? undefined,
     issuerSignature: row.issuer_signature ?? undefined,
+    claimPayload:
+      row.claim_signature &&
+      row.identity_address &&
+      row.claim_chain_id !== null &&
+      row.claim_wallet_owner &&
+      row.claim_nonce !== null &&
+      row.claim_expires_at !== null &&
+      row.claim_data !== null &&
+      row.claim_uri !== null
+        ? {
+            chainId: row.claim_chain_id,
+            identityAddress: row.identity_address,
+            walletOwner: row.claim_wallet_owner,
+            topic: String(row.claim_topic_id),
+            scheme: row.claim_scheme,
+            data: row.claim_data,
+            uri: row.claim_uri,
+            expiresAt: row.claim_expires_at,
+            nonce: row.claim_nonce,
+          }
+        : null,
+    claimSignature: row.claim_signature ?? undefined,
   };
 }
 

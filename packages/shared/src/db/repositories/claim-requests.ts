@@ -7,6 +7,7 @@
  */
 
 import { normalizeAddress, normalizeAddressOrUndefined } from '../address';
+import { ValidationError } from '../../errors';
 import { query } from '../pool';
 import { translatePgError } from '../pg-errors';
 import type { ClaimRequestRow, ClaimRequestStatus, ClaimRequestSummaryRow } from '../types';
@@ -14,7 +15,9 @@ import type { ClaimRequestRow, ClaimRequestStatus, ClaimRequestSummaryRow } from
 const COLUMNS =
   'id, requester_address, issuer_address, claim_topic_id, message, status, ' +
   'signed_message, signature, review_note, issuer_signed_message, issuer_signature, ' +
-  'reviewed_by, reviewed_at, created_at, updated_at';
+  'reviewed_by, reviewed_at, identity_address, claim_chain_id, claim_scheme, ' +
+  'claim_wallet_owner, claim_nonce, claim_expires_at, claim_data, claim_uri, ' +
+  'claim_uri_hash, claim_data_hash, claim_signature, created_at, updated_at';
 
 const SUMMARY_COLUMNS =
   'id, requester_address, issuer_address, issuer_name, claim_topic_id, claim_topic_name, ' +
@@ -37,13 +40,31 @@ export type CreateClaimRequestInput = {
   signature: string;
 };
 
+/** Payload EIP-712 firmado por el emisor (O2.3). Solo para `status = 'approved'`. */
+export type ClaimPayloadFields = {
+  identityAddress: string;
+  chainId: number;
+  walletOwner: string;
+  nonce: string;
+  expiresAt: string;
+  scheme: number;
+  data: string;
+  uri: string;
+  uriHash: string;
+  dataHash: string;
+  signature: string;
+};
+
 export type ReviewClaimRequestInput = {
   status: Extract<ClaimRequestStatus, 'approved' | 'rejected'>;
   reviewNote?: string | null;
-  issuerSignedMessage: string;
-  issuerSignature: string;
   /** Dirección del emisor que revisa; el CHECK del esquema la exige al resolver. */
   reviewedBy: string;
+  /** Obligatorio al aprobar: el claim firmado con EIP-712 que el inversor enviará a `addClaim`. */
+  claim?: ClaimPayloadFields;
+  /** Firma EIP-191 del mensaje de revisión (solo rechazos; el alta exige EIP-712). */
+  issuerSignedMessage?: string;
+  issuerSignature?: string;
 };
 
 function buildWhere(filter: ClaimRequestFilter): { clause: string; params: unknown[] } {
@@ -136,6 +157,14 @@ export class ClaimRequestsRepository {
    */
   async review(id: string, input: ReviewClaimRequestInput): Promise<ClaimRequestRow | null> {
     const reviewedBy = normalizeAddress(input.reviewedBy, 'reviewedBy');
+    const claim = input.claim;
+    if (input.status === 'approved' && !claim) {
+      throw new ValidationError('Al aprobar se exige el payload EIP-712 firmado por el emisor', 'claim');
+    }
+    if (!claim && !input.issuerSignature) {
+      throw new ValidationError('Una revisión necesita una firma del emisor', 'issuerSignature');
+    }
+
     try {
       const { rows } = await query<ClaimRequestRow>(
         `UPDATE rwa.claim_requests
@@ -144,7 +173,18 @@ export class ClaimRequestsRepository {
                 issuer_signed_message = $4,
                 issuer_signature = $5,
                 reviewed_by = $6,
-                reviewed_at = now()
+                reviewed_at = now(),
+                identity_address = $7,
+                claim_chain_id = $8,
+                claim_scheme = $9,
+                claim_wallet_owner = $10,
+                claim_nonce = $11,
+                claim_expires_at = $12,
+                claim_data = $13,
+                claim_uri = $14,
+                claim_uri_hash = $15,
+                claim_data_hash = $16,
+                claim_signature = $17
           WHERE id = $1
             AND status = 'pending'
           RETURNING ${COLUMNS}`,
@@ -152,9 +192,20 @@ export class ClaimRequestsRepository {
           id,
           input.status,
           input.reviewNote ?? null,
-          input.issuerSignedMessage,
-          input.issuerSignature,
+          claim ? JSON.stringify(claim) : (input.issuerSignedMessage ?? null),
+          claim ? claim.signature : (input.issuerSignature ?? null),
           reviewedBy,
+          claim ? normalizeAddress(claim.identityAddress, 'claim.identityAddress') : null,
+          claim ? claim.chainId : null,
+          claim ? claim.scheme : 1,
+          claim ? normalizeAddress(claim.walletOwner, 'claim.walletOwner') : null,
+          claim ? claim.nonce : null,
+          claim ? claim.expiresAt : null,
+          claim ? claim.data : null,
+          claim ? claim.uri : null,
+          claim ? claim.uriHash : null,
+          claim ? claim.dataHash : null,
+          claim ? claim.signature : null,
         ],
       );
       return rows[0] ?? null;

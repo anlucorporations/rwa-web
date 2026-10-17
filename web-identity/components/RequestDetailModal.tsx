@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { ClaimRequest } from '@/types/claim-request';
+import { IdentityCloneableAbi } from '@rwa/shared/contracts';
 import { ZERO_ADDRESS } from '@rwa/shared/network';
 
 interface RequestDetailModalProps {
@@ -56,67 +57,28 @@ export default function RequestDetailModal({ request, onClose, identityAddress, 
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
 
-      // Identity contract ABI for addClaim
-      const identityABI = [
-        {
-          "type": "function",
-          "name": "addClaim",
-          "inputs": [
-            { "name": "_topic", "type": "uint256" },
-            { "name": "_scheme", "type": "uint256" },
-            { "name": "_issuer", "type": "address" },
-            { "name": "_signature", "type": "bytes" },
-            { "name": "_data", "type": "bytes" },
-            { "name": "_uri", "type": "string" }
-          ],
-          "outputs": [{ "name": "", "type": "bytes32" }],
-          "stateMutability": "nonpayable"
-        }
-      ];
+      const identityContract = new ethers.Contract(identityAddress, IdentityCloneableAbi, signer);
 
-      const identityContract = new ethers.Contract(
-        identityAddress,
-        identityABI,
-        signer
-      );
-
-      // Prepare claim data
-      const topic = BigInt(request.claimTopic);
-      const scheme = 1n; // ECDSA signature scheme
-      const issuer = request.issuerAddress;
-      
-      // Use issuer's signature as the signature bytes
-      const signatureBytes = request.issuerSignature || '0x';
-      
-      // Encode additional data (message, timestamps, etc.)
-      const claimData = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['string', 'string', 'uint256'],
-        [
-          request.message || '',
-          request.issuerSignedMessage || '',
-          Math.floor(new Date(request.reviewedAt || request.updatedAt).getTime() / 1000)
-        ]
-      );
-      
-      const uri = request.documentFileId 
-        ? `/api/download/${request.documentFileId}`
-        : '';
-
-      console.log('📝 Calling addClaim with:', {
-        topic: topic.toString(),
-        scheme: scheme.toString(),
-        issuer,
-        signature: signatureBytes.substring(0, 20) + '...',
-        uri
-      });
+      // O2.3: el claim se envía con la firma EIP-712 emitida por el emisor.
+      const payload = request.claimPayload;
+      const claimSignature = request.claimSignature;
+      if (!payload || !claimSignature) {
+        throw new Error(
+          'Esta solicitud no tiene un claim firmado (EIP-712). Pide al emisor que la apruebe de nuevo.',
+        );
+      }
+      if (payload.identityAddress.toLowerCase() !== identityAddress.toLowerCase()) {
+        throw new Error('El claim firmado corresponde a otra identidad on-chain.');
+      }
 
       const tx = await identityContract.addClaim(
-        topic,
-        scheme,
-        issuer,
-        signatureBytes,
-        claimData,
-        uri
+        BigInt(payload.topic),
+        BigInt(payload.scheme),
+        request.issuerAddress,
+        claimSignature,
+        payload.data,
+        payload.uri,
+        BigInt(payload.expiresAt),
       );
 
       console.log('⏳ Transaction sent:', tx.hash);

@@ -23,6 +23,19 @@ export interface ClaimRequest {
   // Digital signature fields (issuer review)
   issuerSignedMessage?: string;    // Message signed by issuer when approving/rejecting
   issuerSignature?: string;         // Issuer's cryptographic signature
+  // O2.3: claim firmado con EIP-712 que el inversor envía a addClaim
+  claimPayload?: {
+    chainId: number;
+    identityAddress: string;
+    walletOwner: string;
+    topic: string;
+    scheme: number;
+    data: string;
+    uri: string;
+    expiresAt: string;
+    nonce: string;
+  } | null;
+  claimSignature?: string;
 }
 
 export interface CreateClaimRequestDto {
