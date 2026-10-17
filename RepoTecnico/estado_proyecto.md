@@ -2,7 +2,7 @@
 
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
 > **Línea:** `@web` (`rwa-web/`) — separada de `@sc` (`rwa-sc/`) por D-102
-> **Versión:** v1.4 · 2026-10-14 · **Fase 3 (Desarrollo) — O0 y O1 cerrados; O2: 2.1–2.6 cerrados, 2.7 bloqueado por despliegue desactualizado**
+> **Versión:** v1.5 · 2026-10-17 · **Fase 3 — O0 y O1 cerrados; O2: 2.1–2.7 verificados (E2E en verde con el build final); queda redesplegar el Anvil de GCP (fuera de D-088)**
 >
 > **Memoria de trabajo de la etapa.** El registro global del proyecto (contratos + etapa web)
 > sigue en `rwa-sc/RepoTecnico/estado_proyecto.md`; este archivo gobierna el día a día de `@web`.
@@ -94,16 +94,17 @@ actuales en el Anvil de GCP (chain 31337).
 | O2.4 | `claimTopicsRegistry` obligatorio + compliance al crear token | ✅ HECHO | `o2_4_token_factory.md` — 7 args reales, registry por token con topics, API fail-closed |
 | O2.5 | `chainId` de la wallet vs canónico en la UI | ✅ HECHO | `assertCanonicalChain` en identidad y token |
 | O2.6 | Gates `check-abi-drift` y `check-network-literals` | ✅ HECHO | **0 literales de red** · deriva 0 |
-| O2.7 | E2E del flujo completo contra el Anvil de GCP | ⛔ **BLOQUEADO** — el despliegue canónico ejecuta un build anterior a D-083 (`CLAIM_TYPEHASH` sin `uriHash`) | `o2_7_e2e_anvil.md` — requiere redespliegue desde `@sc` (fuera de D-088) |
+| O2.7 | E2E del flujo completo contra el Anvil de GCP | ✅ **E2E en verde con el build final** (Anvil temporal: identidad → EIP-712 → `addClaim` → `hasValidClaim` → `isVerified`) · ⛔ el **Anvil de GCP** sigue con un build anterior a D-083 y exige redespliegue desde `@sc` (fuera de D-088) | `o2_7_e2e_anvil.md` |
 
 **Gate del ciclo:** E2E en verde + gates de deriva y literales en verde. *(Deriva y literales en verde;
 el E2E off-chain está en verde, pero el on-chain está bloqueado por el despliegue.)*
 
-> **⛔ Bloqueo de O2.7 (dependencia externa):** el Anvil de GCP ejecuta un build **anterior a D-083**
-> (`CLAIM_TYPEHASH = 0x8f71…`, sin `uriHash`), mientras `rwa-sc` y `@web` implementan el digest final
-> (`0x65c6…`). `addClaim` revierte `"Signature signer mismatch"`. `scripts/test_e2e_o2.sh` detecta la
-> discrepancia en <2 s. **Acción requerida:** redesplegar el stack canónico desde `@sc` (`sc/script/deploy.sh`),
-> luego `./scripts/sync-contracts.sh` y re-ejecutar el E2E. Detalle en `pruebas/o2_7_e2e_anvil.md`.
+> **Estado de O2.7:** el E2E completo se ejecutó **en verde contra un Anvil con el build final**
+> (despliegue efímero desde una copia temporal de `rwa-sc`, sin tocar el repo). El **Anvil de GCP**
+> sigue con un build **anterior a D-083** (`CLAIM_TYPEHASH = 0x8f71…` sin `uriHash` frente a `0x65c6…`),
+> por lo que allí `addClaim` revierte `"Signature signer mismatch"`. **Acción requerida (fuera de D-088):**
+> redesplegar el stack canónico desde `@sc` (`sc/script/deploy.sh`), ejecutar `./scripts/sync-contracts.sh`
+> y re-lanzar `./scripts/test_e2e_o2.sh` (ya toma el artefacto más reciente). Detalle en `pruebas/o2_7_e2e_anvil.md`.
 
 ---
 
@@ -163,4 +164,4 @@ los espejos deben ser idénticos byte a byte (gate `check_sincronizacion_datos.s
 
 ---
 
-*Fin del documento — estado_proyecto.md (etapa `@web`) v1.4*
+*Fin del documento — estado_proyecto.md (etapa `@web`) v1.5*

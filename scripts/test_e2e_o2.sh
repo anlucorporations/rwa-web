@@ -28,8 +28,8 @@ export PATH="$HOME/.foundry/bin:$PATH"
 # shellcheck disable=SC1091
 source "$ROOT/scripts/gcp-env.sh" --tcp >/dev/null 2>&1
 
-RPC="${RPC_URL}"
-ARTIFACT="$(ls "$ROOT"/../rwa-sc/sc/deployments/*.json | sort | tail -1)"
+RPC="${O2_RPC_URL:-$RPC_URL}"
+ARTIFACT="${O2_ARTIFACT:-$(ls "$ROOT"/../rwa-sc/sc/deployments/*.json | sort | tail -1)}"
 PSQL="$(command -v psql || echo "$HOME/bin/psql")"
 CONN="host=34.39.180.101 port=5432 dbname=truekeate user=app sslmode=disable connect_timeout=10"
 
