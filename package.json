@@ -20,6 +20,7 @@
     "smoke:services": "bash scripts/smoke_o0.sh",
     "smoke:app": "bash scripts/smoke_app_o0.sh",
     "test:auth": "bash scripts/test_auth_o1.sh",
-    "test:review": "bash scripts/test_review_o1.sh"
+    "test:review": "bash scripts/test_review_o1.sh",
+    "ci": "bash scripts/ci_local.sh"
   }
 }

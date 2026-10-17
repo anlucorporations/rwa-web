@@ -100,7 +100,7 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
       }
       
       // Get issuer names from MongoDB
-      let issuerNamesMap: Record<string, string> = {};
+      const issuerNamesMap: Record<string, string> = {};
       try {
         const issuerNamesResponse = await fetch('/api/issuers/batch', {
           method: 'POST',

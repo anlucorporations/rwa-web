@@ -28,7 +28,9 @@
   "devDependencies": {
     "@types/node": "^20",
     "@types/pg": "^8.11.10",
+    "eslint": "^9",
     "tsx": "^4.19.2",
-    "typescript": "^5"
+    "typescript": "^5",
+    "typescript-eslint": "^8"
   }
 }

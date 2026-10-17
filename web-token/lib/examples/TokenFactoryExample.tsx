@@ -308,7 +308,7 @@ export default function TokenFactoryExample() {
         </button>
 
         <p className="mt-2 text-xs text-gray-500">
-          * You'll need MetaMask installed and connected to create tokens
+          * You&apos;ll need MetaMask installed and connected to create tokens
         </p>
       </div>
 

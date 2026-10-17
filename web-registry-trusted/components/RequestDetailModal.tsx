@@ -343,7 +343,7 @@ I hereby ${status === 'approved' ? 'APPROVE' : 'REJECT'} this claim request with
               </div>
               
               <p className="mt-2 text-xs text-green-700 dark:text-green-500">
-                ✓ This request has been cryptographically signed by the requester's wallet, ensuring authenticity and non-repudiation.
+                ✓ This request has been cryptographically signed by the requester&apos;s wallet, ensuring authenticity and non-repudiation.
               </p>
             </div>
           )}
@@ -397,7 +397,7 @@ I hereby ${status === 'approved' ? 'APPROVE' : 'REJECT'} this claim request with
                 {/* Issuer Signature */}
                 <div>
                   <p className="mb-1 text-xs font-semibold text-blue-800 dark:text-blue-400">
-                    Issuer's Cryptographic Signature:
+                    Issuer&apos;s Cryptographic Signature:
                   </p>
                   <code className="block break-all rounded bg-white p-2 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-300">
                     {request.issuerSignature}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
+import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Token } from '@/types/token';
@@ -357,7 +358,7 @@ export default function MarketplacePage() {
       return;
     }
 
-    let totalPriceWei: bigint | undefined = undefined;
+    const totalPriceWei: bigint | undefined = undefined;
     
     try {
       setBuying(token._id);
@@ -929,8 +930,8 @@ export default function MarketplacePage() {
                       const COMPLIANCE_ABI = [
                         "function canTransfer(address,address,uint256) view returns (bool)"
                       ];
-                      const module = new ethers.Contract(moduleAddr, COMPLIANCE_ABI, provider);
-                      const moduleCanTransfer = await module.canTransfer(userAddress, recipient, transferAmount);
+                      const moduleContract = new ethers.Contract(moduleAddr, COMPLIANCE_ABI, provider);
+                      const moduleCanTransfer = await moduleContract.canTransfer(userAddress, recipient, transferAmount);
                       if (!moduleCanTransfer) {
                         errorMsg += `      ❌ This module is BLOCKING the transfer\n`;
                       }
@@ -1001,12 +1002,12 @@ export default function MarketplacePage() {
               
               {/* Navigation */}
               <div className="mt-3 flex gap-3">
-                <a
+                <Link
                   href="/"
                   className="text-sm text-blue-600 hover:underline dark:text-blue-400"
                 >
                   ← Back to Factory
-                </a>
+                </Link>
               </div>
             </div>
             

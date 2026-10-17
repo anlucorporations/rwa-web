@@ -1,7 +1,7 @@
 # Evidencia O3 — Verificabilidad (parcial: 3.1–3.4) · 2026-10-17
 
 > **Ciclo:** O3 (plan §O3) · **Requisitos:** RF-W-15, RNF-W-03, RNF-W-07 · **Decisión:** D-094.
-> **Estado:** O3.1 · O3.2 · O3.3 · O3.4 ✅ · O3.5 (CI) · O3.6 (tests) · O3.7 (logging) ⏳.
+> **Estado:** O3.1–O3.5 ✅ · O3.6 (tests) · O3.7 (logging) ⏳.
 
 ## O3.1 · Repositorio y plantillas de entorno
 
@@ -59,4 +59,29 @@ for d in web-identity web-registry-trusted web-token; do (cd $d && npx next buil
 git check-ignore .env.local              # ignorado
 ```
 
-*Fin de la evidencia parcial — O3.1–O3.4*
+## O3.5 · Pipeline de CI y runner local
+
+- **`.gitlab-ci.yml`**: etapas `validate` (network-literals + ABI-drift) → `quality` (`typecheck`, `lint`)
+  → `build`. Node 22 + pnpm 9.15.9, `--frozen-lockfile`, caché del store. El gate de deriva clona
+  `rwa-sc` con `RWA_SC_REPO_URL` (variable de CI con token de lectura) y falla de forma explícita si falta.
+- **`scripts/ci_local.sh`** (y `pnpm ci`): ensayo local del mismo pipeline, secuencial
+  (`--workspace-concurrency=1`) para no saturar RAM/disco: gates → typecheck → lint → build → test.
+- `typecheck` añadido a los `package.json` de las 3 apps; `lint` configurado también en `packages/shared`
+  (con `eslint` + `typescript-eslint`).
+- **Lint en 0 errores** (antes: 25/14/34). Deuda declarada como *warning* (no bloquea): reglas del
+  React Compiler (`react-hooks/*`) y `@typescript-eslint/no-explicit-any`, a refactorizar en O4.
+- **Eliminados** los `docker-build/` de las 3 apps (HW-11) y añadidos a `.gitignore`; eliminados los
+  `package-lock.json` de las apps del workspace (un único `pnpm-lock.yaml`, O3.3).
+
+**Salida real:**
+```
+▶ 1/6 Gate de literales de red        ✓ 0 literales
+▶ 2/6 Gate de deriva de ABIs          ✓ sincronizados
+▶ 3/6 TypeScript                      ✓ 4 paquetes
+▶ 4/6 ESLint                          ✓ 0 errores
+▶ 5/6 Build de producción             ✓ exit 0 ×3
+▶ 6/6 Tests                           ✓ (sin tests aún: O3.6)
+✓ CI local en verde
+```
+
+*Fin de la evidencia parcial — O3.1–O3.5*

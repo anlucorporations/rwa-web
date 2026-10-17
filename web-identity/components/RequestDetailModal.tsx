@@ -229,7 +229,7 @@ export default function RequestDetailModal({ request, onClose, identityAddress, 
           {request.reviewNote && (
             <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-900">
               <p className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                Issuer's Review Note
+                Issuer&apos;s Review Note
               </p>
               <p className="text-sm text-gray-900 dark:text-white">
                 {request.reviewNote}
@@ -241,14 +241,14 @@ export default function RequestDetailModal({ request, onClose, identityAddress, 
           {request.issuerSignedMessage && request.issuerSignature && (
             <div className="rounded-lg border-2 border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
               <p className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-900 dark:text-blue-300">
-                ✍️ Issuer's Digital Signature
+                ✍️ Issuer&apos;s Digital Signature
               </p>
               
               <div className="space-y-3">
                 {/* Signed Decision Message */}
                 <div>
                   <p className="mb-1 text-xs font-semibold text-blue-800 dark:text-blue-400">
-                    Issuer's Signed Decision:
+                    Issuer&apos;s Signed Decision:
                   </p>
                   <div className="rounded bg-white p-2 dark:bg-gray-900">
                     <pre className="whitespace-pre-wrap break-words text-xs text-gray-700 dark:text-gray-300">
@@ -260,7 +260,7 @@ export default function RequestDetailModal({ request, onClose, identityAddress, 
                 {/* Issuer Signature */}
                 <div>
                   <p className="mb-1 text-xs font-semibold text-blue-800 dark:text-blue-400">
-                    Issuer's Cryptographic Signature:
+                    Issuer&apos;s Cryptographic Signature:
                   </p>
                   <code className="block break-all rounded bg-white p-2 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-300">
                     {request.issuerSignature}

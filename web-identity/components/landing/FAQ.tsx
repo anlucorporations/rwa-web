@@ -86,7 +86,7 @@ export default function FAQ() {
         {/* Support CTA */}
         <div className="mt-12 rounded-2xl border border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 p-8 text-center dark:border-gray-800 dark:from-gray-900/50 dark:to-gray-950/50">
           <p className="mb-4 text-gray-600 dark:text-gray-400">
-            Can't find what you're looking for?
+            Can&apos;t find what you&apos;re looking for?
           </p>
           <a
             href="mailto:support@codecrypto.dev"

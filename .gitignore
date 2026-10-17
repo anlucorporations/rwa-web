@@ -35,3 +35,6 @@ env.local
 tmp/
 temp/
 
+
+# Artefactos de build parciales (HW-11)
+docker-build/

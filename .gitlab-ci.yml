@@ -1,0 +1,69 @@
+# =============================================================================
+# CI de `rwa-web` (O3.5 · RF-W-15)
+# =============================================================================
+# Gates: check-network-literals · check-contract-drift · lint · tsc --noEmit ·
+#        build · test.
+#
+# El gate `check-abi-drift` necesita el repo `rwa-sc` (fuente de sc/abis y
+# deployments). Se clona con `RWA_SC_REPO_URL` (variable de CI, con token de
+# lectura); si no está definida, el job lo indica y falla de forma explícita,
+# salvo que se marque como manual.
+# =============================================================================
+
+stages:
+  - validate
+  - quality
+  - build
+
+default:
+  image: node:22-bookworm
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store
+  before_script:
+    - corepack enable
+    - corepack prepare pnpm@9.15.9 --activate
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install --frozen-lockfile
+
+variables:
+  PNPM_HOME: "$CI_PROJECT_DIR/.pnpm"
+  NEXT_TELEMETRY_DISABLED: "1"
+
+# --- Gates de integridad con los contratos -----------------------------------
+validate:network-literals:
+  stage: validate
+  script:
+    - bash scripts/check-network-literals.sh
+
+validate:abi-drift:
+  stage: validate
+  script:
+    - |
+      if [ -z "${RWA_SC_REPO_URL:-}" ]; then
+        echo "RWA_SC_REPO_URL no definida: no se puede comprobar la deriva de ABIs." >&2
+        echo "Define la variable (token de lectura de rwa-sc) o ejecuta el gate en local." >&2
+        exit 1
+      fi
+    - git clone --depth 1 "$RWA_SC_REPO_URL" ../rwa-sc
+    - bash scripts/check-contract-drift.sh
+
+# --- Calidad estática ---------------------------------------------------------
+quality:typecheck:
+  stage: quality
+  script:
+    - pnpm -r --workspace-concurrency=1 --if-present typecheck
+
+quality:lint:
+  stage: quality
+  script:
+    - pnpm -r --workspace-concurrency=1 --if-present lint
+
+# --- Build de producción ------------------------------------------------------
+build:apps:
+  stage: build
+  script:
+    - pnpm -r --workspace-concurrency=1 --if-present build
