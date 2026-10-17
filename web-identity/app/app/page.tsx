@@ -10,6 +10,11 @@ import {
 import ClaimRequestForm from "@/components/ClaimRequestForm";
 import ClaimRequestsList from "@/components/ClaimRequestsList";
 import { CLAIM_TOPIC_NAMES } from "@/lib/identity-claims";
+import {
+  CANONICAL_CHAIN_ID,
+  ZERO_ADDRESS,
+  assertCanonicalChain,
+} from "@rwa/shared/network";
 
 export default function Home() {
   const {
@@ -41,9 +46,8 @@ export default function Home() {
       const network = await provider.getNetwork();
       console.log("   Network chainId:", network.chainId);
 
-      if (network.chainId !== 81234n) {
-        throw new Error(`Wrong network! Please switch to Besu (chainId: 81234). Current: ${network.chainId}`);
-      }
+      // Lanza un ValidationError con el mensaje de red incorrecta si no es la canónica.
+      assertCanonicalChain(Number(network.chainId));
 
       const registryWithProvider = getIdentityRegistryContract(provider);
       console.log("   Registry contract:", await registryWithProvider.getAddress());
@@ -65,14 +69,17 @@ export default function Home() {
       const error = err as { code?: string; message?: string; reason?: string; data?: string };
 
       // If it's a contract error, assume not registered
-      if (error.code === 'CALL_EXCEPTION') {
+      if (error.code === 'VALIDATION_ERROR') {
+        // Red incorrecta: muestra el mensaje del ValidationError de @rwa/shared/network
+        setError(error.message || `Red incorrecta: la red canónica es chainId ${CANONICAL_CHAIN_ID}.`);
+      } else if (error.code === 'CALL_EXCEPTION') {
         console.log("⚠️ Error en llamada al contrato");
         console.log("   Error data:", error.data);
         console.log("   Error reason:", error.reason);
         console.log("   Asumiendo no registrado");
         setIsRegistered(false);
         setIdentityAddress("");
-        setError("Cannot connect to contracts. Make sure you're on Besu network (chainId: 81234)");
+        setError(`Cannot connect to contracts. Make sure your wallet is on the canonical network (chainId: ${CANONICAL_CHAIN_ID}).`);
       } else {
         setError(`Error checking registration: ${error.message || "Unknown error"}`);
       }
@@ -303,7 +310,7 @@ export default function Home() {
   };
 
   const loadIdentityClaims = useCallback(async () => {
-    if (!identityAddress || identityAddress === '0x0000000000000000000000000000000000000000' || !provider) {
+    if (!identityAddress || identityAddress === ZERO_ADDRESS || !provider) {
       setIdentityClaims([]);
       return;
     }
@@ -371,7 +378,7 @@ export default function Home() {
 
   // Load claims when identity address changes
   useEffect(() => {
-    if (identityAddress && identityAddress !== '0x0000000000000000000000000000000000000000' && provider) {
+    if (identityAddress && identityAddress !== ZERO_ADDRESS && provider) {
       loadIdentityClaims();
     }
   }, [identityAddress, provider, loadIdentityClaims]);
@@ -426,7 +433,7 @@ export default function Home() {
                         </p>
                       </div>
 
-                      {identityAddress && identityAddress !== '0x0000000000000000000000000000000000000000' && (
+                      {identityAddress && identityAddress !== ZERO_ADDRESS && (
                         <div>
                           <p className="text-base font-medium text-gray-500 dark:text-gray-400">Identity Contract:</p>
                           <p className="mt-1 break-all font-mono text-sm text-gray-900 dark:text-white">
@@ -461,7 +468,7 @@ export default function Home() {
                           </p>
                         </div>
                       )}
-                      {identityAddress && identityAddress !== '0x0000000000000000000000000000000000000000' && identityClaims.length === 0 && (
+                      {identityAddress && identityAddress !== ZERO_ADDRESS && identityClaims.length === 0 && (
                         <div>
                           <p className="text-sm text-gray-500 dark:text-gray-400">
                             No claims found in your identity contract. Request claims from trusted issuers below.
@@ -548,7 +555,7 @@ export default function Home() {
               <>
                 {!isRegistered && !isCheckingRegistration && (
                   <>
-                    {!identityAddress || identityAddress === '0x0000000000000000000000000000000000000000' ? (
+                    {!identityAddress || identityAddress === ZERO_ADDRESS ? (
                       <button
                         onClick={createIdentity}
                         disabled={isCreating}

@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { ClaimRequest } from '@/types/claim-request';
+import { ZERO_ADDRESS } from '@rwa/shared/network';
 
 interface RequestDetailModalProps {
   request: ClaimRequest;
@@ -26,7 +27,7 @@ export default function RequestDetailModal({ request, onClose, identityAddress, 
   };
 
   const addClaimToIdentity = async () => {
-    if (!identityAddress || identityAddress === '0x0000000000000000000000000000000000000000') {
+    if (!identityAddress || identityAddress === ZERO_ADDRESS) {
       setError('No identity contract found');
       return;
     }

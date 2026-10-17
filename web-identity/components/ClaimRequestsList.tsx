@@ -11,6 +11,7 @@ import { ClaimRequest } from '@/types/claim-request';
 import RequestDetailModal from './RequestDetailModal';
 import { useWallet } from '@/contexts/WalletContext';
 import { claimExists } from '@/lib/identity-claims';
+import { ZERO_ADDRESS } from '@rwa/shared/network';
 
 interface ClaimRequestsListProps {
   userAddress: string;
@@ -29,7 +30,7 @@ export default function ClaimRequestsList({ userAddress, refreshTrigger, identit
   const [claimsInContract, setClaimsInContract] = useState<Set<string>>(new Set());
 
   const checkClaimsInContract = useCallback(async () => {
-    if (!identityAddress || identityAddress === '0x0000000000000000000000000000000000000000' || !provider) {
+    if (!identityAddress || identityAddress === ZERO_ADDRESS || !provider) {
       return;
     }
 
@@ -70,7 +71,7 @@ export default function ClaimRequestsList({ userAddress, refreshTrigger, identit
   }, [userAddress, refreshTrigger, filter]);
 
   useEffect(() => {
-    if (requests.length > 0 && identityAddress && identityAddress !== '0x0000000000000000000000000000000000000000' && provider) {
+    if (requests.length > 0 && identityAddress && identityAddress !== ZERO_ADDRESS && provider) {
       checkClaimsInContract();
     }
   }, [requests, identityAddress, provider, checkClaimsInContract]);

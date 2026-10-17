@@ -6,12 +6,13 @@
 #   ./scripts/check-network-literals.sh
 #
 # Falla si el código fuente de las apps o de `packages/shared` contiene:
-#   - direcciones Ethereum literales         0x + 40 hex
+#   - direcciones Ethereum literales         0x + 40 hex (salvo la dirección cero)
 #   - URLs de servicio locales               localhost:  /  127.0.0.1:
-#   - URLs http:// de servicio               http:// (salvo comentarios de docs)
-#   - chainIds literales de red              31337 / 81234 fuera de la config
+#   - URLs http:// de servicio               http://
+#   - chainIds literales de red              31337 / 81234
 #
-# Exclusiones: código generado (contracts/), dependencias, build y los propios scripts de gate.
+# Exentos (son la configuración legítima): `packages/shared/src/config`,
+# `packages/shared/src/network` y el artefacto generado `contracts/deployments.ts`.
 # =============================================================================
 set -uo pipefail
 
@@ -19,24 +20,24 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 TARGETS=(
-  web-identity/app web-identity/components web-identity/lib web-identity/contracts
-  web-registry-trusted/app web-registry-trusted/components web-registry-trusted/lib
-  web-token/app web-token/components web-token/lib
+  web-identity/app web-identity/components web-identity/contexts web-identity/lib web-identity/contracts
+  web-registry-trusted/app web-registry-trusted/components web-registry-trusted/contexts web-registry-trusted/lib
+  web-token/app web-token/components web-token/contexts web-token/lib
   packages/shared/src
 )
 
-# Rutas exentas: el artefacto generado `contracts/deployments.ts` es la fuente legítima
-# de direcciones y se excluye por nombre de fichero; `contracts/abis` no contiene literales.
 FAIL=0
 
-scan() { # etiqueta regex
-  local label=$1 regex=$2
+scan() { # etiqueta regex lineas-a-descartar
+  local label=$1 regex=$2 drop=${3:-'$^'}
   local hits
   hits="$(grep -rnE "$regex" \
     --include='*.ts' --include='*.tsx' --include='*.js' --include='*.mjs' \
     --exclude-dir=node_modules --exclude-dir=.next \
     --exclude='deployments.ts' \
-    "${TARGETS[@]}" 2>/dev/null | grep -vE '^\s*[^:]+:[0-9]+:\s*(\*|//)' || true)"
+    "${TARGETS[@]}" 2>/dev/null \
+    | grep -vE '^\s*[^:]+:[0-9]+:\s*(\*|//)' \
+    | grep -vE "$drop" || true)"
   if [ -n "$hits" ]; then
     echo "✗ $label:"
     printf '%s\n' "$hits" | sed 's/^/    /'
@@ -46,11 +47,14 @@ scan() { # etiqueta regex
   fi
 }
 
+CONFIG_EXEMPT='packages/shared/src/(config|network)/'
+ZERO='0x0{40}'
+
 echo "[check-network-literals] Escaneando ${#TARGETS[@]} rutas de código fuente…"
-scan "Sin direcciones Ethereum literales (0x+40 hex)" '0x[0-9a-fA-F]{40}'
-scan "Sin 'localhost:' ni '127.0.0.1:'" '(localhost|127\.0\.0\.1):'
-scan "Sin URLs 'http://' de servicio" "['\"\`]http://"
-scan "Sin chainIds literales (31337/81234)" '\b(31337|81234)\b'
+scan "Sin direcciones Ethereum literales (0x+40 hex)" '0x[0-9a-fA-F]{40}' "($ZERO|$CONFIG_EXEMPT|packages/shared/src/contracts/)"
+scan "Sin 'localhost:' ni '127.0.0.1:'" '(localhost|127\.0\.0\.1):' "$CONFIG_EXEMPT"
+scan "Sin URLs 'http://' de servicio" "['\"\`]http://" "$CONFIG_EXEMPT"
+scan "Sin chainIds literales (31337/81234)" '\b(31337|81234)\b' "$CONFIG_EXEMPT"
 
 echo
 if [ "$FAIL" -eq 0 ]; then

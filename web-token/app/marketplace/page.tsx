@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import { Token } from '@/types/token';
 import { CLAIM_DESCRIPTIONS } from '@/types/token';
 import { TOKEN_CLONE_FACTORY_ADDRESS } from '@/lib/contracts';
+import { ZERO_ADDRESS } from '@rwa/shared/network';
 
 export default function MarketplacePage() {
   const [tokens, setTokens] = useState<Token[]>([]);
@@ -632,7 +633,7 @@ export default function MarketplacePage() {
           diagnostic += `📍 Trusted Issuers Registry: ${trustedIssuersRegStr}\n\n`;
 
           // Check Identity Registry
-          if (identityRegStr === '0x0000000000000000000000000000000000000000' || identityRegStr === '0x0') {
+          if (identityRegStr === ZERO_ADDRESS || identityRegStr === '0x0') {
             diagnostic += '❌ ERROR: Identity Registry not set on token\n\n';
             diagnostic += '⚠️ This token needs to be configured with compliance registries.\n';
             diagnostic += 'The token admin needs to call:\n';
@@ -661,11 +662,11 @@ export default function MarketplacePage() {
               const identityAddress = await identityRegistry.getIdentity(userAddress);
               diagnostic += `3️⃣ Identity Contract: ${identityAddress}\n`;
 
-              if (identityAddress === '0x0000000000000000000000000000000000000000') {
+              if (identityAddress === ZERO_ADDRESS) {
                 diagnostic += '   ❌ ERROR: Identity contract not found\n';
               } else {
                 // Check Claim Topics Registry
-                if (claimTopicsRegStr === '0x0000000000000000000000000000000000000000' || claimTopicsRegStr === '0x0') {
+                if (claimTopicsRegStr === ZERO_ADDRESS || claimTopicsRegStr === '0x0') {
                   diagnostic += '4️⃣ Claim Topics Registry: Not set (no claims required)\n';
                 } else {
                   const CLAIM_TOPICS_REGISTRY_ABI = [
@@ -681,7 +682,7 @@ export default function MarketplacePage() {
                   diagnostic += `4️⃣ Required Claim Topics: ${requiredTopics.length > 0 ? requiredTopics.join(', ') : 'None'}\n\n`;
 
                   // Check Trusted Issuers Registry
-                  if (trustedIssuersRegStr === '0x0000000000000000000000000000000000000000' || trustedIssuersRegStr === '0x0') {
+                  if (trustedIssuersRegStr === ZERO_ADDRESS || trustedIssuersRegStr === '0x0') {
                     diagnostic += '❌ ERROR: Trusted Issuers Registry not set\n';
                     diagnostic += '   The token admin needs to call:\n';
                     diagnostic += '   token.setTrustedIssuersRegistry(<REGISTRY_ADDRESS>)\n\n';

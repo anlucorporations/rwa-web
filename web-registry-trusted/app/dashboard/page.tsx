@@ -8,6 +8,7 @@ import {
   NETWORK_CONFIG,
   CONTRACT_OWNER,
 } from '@/lib/contracts';
+import { CANONICAL_CHAIN_ID, DEMO_ACCOUNTS, getRpcUrl } from '@rwa/shared/network';
 import IssuerRequestsList from '@/components/IssuerRequestsList';
 import RequestDetailModal from '@/components/RequestDetailModal';
 import { ClaimRequest } from '@/types/claim-request';
@@ -16,6 +17,19 @@ interface IssuerData {
   address: string;
   claimTopics: bigint[];
   isTrusted: boolean;
+}
+
+/**
+ * RPC que se muestra en la guía de configuración. `getRpcUrl()` es perezoso y
+ * lanza si el entorno no define `NEXT_PUBLIC_RPC_URL`; la guía no debe romperse
+ * por eso, solo avisar de la configuración pendiente.
+ */
+function getRpcUrlForDisplay(): string {
+  try {
+    return getRpcUrl();
+  } catch {
+    return 'No configurada: define NEXT_PUBLIC_RPC_URL en .env.local';
+  }
 }
 
 export default function Home() {
@@ -309,9 +323,9 @@ export default function Home() {
                     <li>Completa los datos:</li>
                   </ol>
                   <div className="mt-3 rounded bg-white p-3 font-mono text-xs dark:bg-gray-900">
-                    <div><strong>Network Name:</strong> Anvil Local</div>
-                    <div><strong>RPC URL:</strong> http://localhost:8545</div>
-                    <div><strong>Chain ID:</strong> 31337</div>
+                    <div><strong>Network Name:</strong> {NETWORK_CONFIG.chainName}</div>
+                    <div><strong>RPC URL:</strong> {getRpcUrlForDisplay()}</div>
+                    <div><strong>Chain ID:</strong> {CANONICAL_CHAIN_ID}</div>
                     <div><strong>Currency Symbol:</strong> ETH</div>
                   </div>
                 </div>
@@ -322,7 +336,8 @@ export default function Home() {
                     Paso 2: Importar Cuenta Owner
                   </h3>
                   <p className="mb-2 text-sm text-green-800 dark:text-green-300">
-                    Para agregar issuers, necesitas importar la cuenta owner:
+                    Para agregar issuers, necesitas importar la cuenta owner
+                    ({DEMO_ACCOUNTS[0].role}):
                   </p>
                   <div className="rounded bg-white p-3 dark:bg-gray-900">
                     <div className="mb-3">
@@ -331,14 +346,14 @@ export default function Home() {
                           Address:
                         </p>
                         <button
-                          onClick={() => copyToClipboard(CONTRACT_OWNER, 'Address')}
+                          onClick={() => copyToClipboard(DEMO_ACCOUNTS[0].address, 'Address')}
                           className="rounded bg-blue-100 px-2 py-1 text-xs text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-300"
                         >
                           📋 Copiar
                         </button>
                       </div>
                       <code className="block break-all text-xs text-gray-900 dark:text-white">
-                        {CONTRACT_OWNER}
+                        {DEMO_ACCOUNTS[0].address}
                       </code>
                     </div>
                     <div>
@@ -347,14 +362,14 @@ export default function Home() {
                           Private Key:
                         </p>
                         <button
-                          onClick={() => copyToClipboard('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', 'Private Key')}
+                          onClick={() => copyToClipboard(DEMO_ACCOUNTS[0].privateKey, 'Private Key')}
                           className="rounded bg-green-100 px-2 py-1 text-xs text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-300"
                         >
                           📋 Copiar
                         </button>
                       </div>
                       <code className="block break-all text-xs text-gray-900 dark:text-white">
-                        0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+                        {DEMO_ACCOUNTS[0].privateKey}
                       </code>
                     </div>
                   </div>
@@ -372,16 +387,13 @@ export default function Home() {
                     Cuentas Adicionales (para testing)
                   </h3>
                   <div className="space-y-2 text-xs">
-                    <div className="rounded bg-white p-2 dark:bg-gray-800">
-                      <p className="font-semibold">Cuenta 2:</p>
-                      <code className="block break-all">0x70997970C51812dc3A010C7d01b50e0d17dc79C8</code>
-                      <code className="block break-all text-gray-500">PK: 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d</code>
-                    </div>
-                    <div className="rounded bg-white p-2 dark:bg-gray-800">
-                      <p className="font-semibold">Cuenta 3:</p>
-                      <code className="block break-all">0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC</code>
-                      <code className="block break-all text-gray-500">PK: 0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a</code>
-                    </div>
+                    {DEMO_ACCOUNTS.slice(1).map((demoAccount) => (
+                      <div key={demoAccount.address} className="rounded bg-white p-2 dark:bg-gray-800">
+                        <p className="font-semibold">{demoAccount.role}:</p>
+                        <code className="block break-all">{demoAccount.address}</code>
+                        <code className="block break-all text-gray-500">PK: {demoAccount.privateKey}</code>
+                      </div>
+                    ))}
                   </div>
                 </div>
 

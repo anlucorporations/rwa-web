@@ -1,300 +1,39 @@
 /**
  * TrustedIssuersRegistry Contract Configuration
- * 
- * This file contains the ABI and deployed address for the TrustedIssuersRegistry contract
- * 
- * Deployed on: Anvil Local Network (Chain ID: 31337)
- * Contract Address: 0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
- * Deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
- * Block: 3
- * Transaction Hash: 0x5e750f5244089cf3ecb36867d6a75622d495257c7089350c2c5f7272cd1363a2
+ *
+ * La dirección, el ABI y la configuración de red proceden de la fuente única
+ * generada en `@rwa/shared` (RF-W-08/RF-W-09): no se escriben literales de red
+ * en este fichero. El ABI es el real de `rwa-sc` (19 entradas), incluida
+ * `getTrustedIssuersPaginated`.
  */
 
-export const TRUSTED_ISSUERS_REGISTRY_ADDRESS = "0xa5e5E6Bd361b11bfDF46b3101108a517dfB063f0" as const;
+import { TrustedIssuersRegistryAbi, getContractAddress } from '@rwa/shared/contracts';
+import { CANONICAL_CHAIN_ID, DEMO_ACCOUNTS, getRpcUrl } from '@rwa/shared/network';
 
-export const TRUSTED_ISSUERS_REGISTRY_ABI = [
-  {
-    "type": "constructor",
-    "inputs": [
-      {
-        "name": "initialOwner",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "addTrustedIssuer",
-    "inputs": [
-      {
-        "name": "_issuer",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_claimTopics",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "getIssuerClaimTopics",
-    "inputs": [
-      {
-        "name": "_issuer",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getTrustedIssuers",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address[]",
-        "internalType": "address[]"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getTrustedIssuersCount",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "hasClaimTopic",
-    "inputs": [
-      {
-        "name": "_issuer",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_claimTopic",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "isTrustedIssuer",
-    "inputs": [
-      {
-        "name": "_issuer",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "owner",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "removeTrustedIssuer",
-    "inputs": [
-      {
-        "name": "_issuer",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "renounceOwnership",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "transferOwnership",
-    "inputs": [
-      {
-        "name": "newOwner",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "updateIssuerClaimTopics",
-    "inputs": [
-      {
-        "name": "_issuer",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_claimTopics",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "event",
-    "name": "ClaimTopicsUpdated",
-    "inputs": [
-      {
-        "name": "issuer",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "claimTopics",
-        "type": "uint256[]",
-        "indexed": false,
-        "internalType": "uint256[]"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "OwnershipTransferred",
-    "inputs": [
-      {
-        "name": "previousOwner",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "newOwner",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "TrustedIssuerAdded",
-    "inputs": [
-      {
-        "name": "issuer",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "claimTopics",
-        "type": "uint256[]",
-        "indexed": false,
-        "internalType": "uint256[]"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "TrustedIssuerRemoved",
-    "inputs": [
-      {
-        "name": "issuer",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "error",
-    "name": "OwnableInvalidOwner",
-    "inputs": [
-      {
-        "name": "owner",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "OwnableUnauthorizedAccount",
-    "inputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  }
-] as const;
+/** Dirección canónica del registro, leída del artefacto de despliegue (no literal). */
+export const TRUSTED_ISSUERS_REGISTRY_ADDRESS = getContractAddress('TrustedIssuersRegistry');
 
-// Network Configuration
+/** ABI real del contrato, generado desde `rwa-sc/sc/abis`. */
+export const TRUSTED_ISSUERS_REGISTRY_ABI = TrustedIssuersRegistryAbi;
+
+/**
+ * Configuración de red expuesta a la UI.
+ * `rpcUrl` es un getter: `getRpcUrl()` solo se evalúa cuando se usa (no al importar).
+ */
 export const NETWORK_CONFIG = {
-  chainId: 81234,
-  chainName: "Besu CodeCrypto",
-  rpcUrl: "https://besu1.proyectos.codecrypto.academy",
+  chainId: CANONICAL_CHAIN_ID,
+  get chainName(): string {
+    return 'Anvil de GCP';
+  },
+  get rpcUrl(): string {
+    return getRpcUrl();
+  },
 } as const;
 
-// Contract Owner Address
-export const CONTRACT_OWNER = "0x3a9B38FF944dbda3154c3b180Ad01139b2C395eE" as const;
-
+/**
+ * Cuenta owner del despliegue canónico: la cuenta admin por defecto de Anvil
+ * (`DEMO_ACCOUNTS[0]`, pública por diseño) es la que firma el despliegue y queda
+ * como owner del contrato. Solo se usa en la UI (guía de ayuda y distinción de
+ * owner); si el ownership se transfiere, la verdad está en `owner()` en cadena.
+ */
+export const CONTRACT_OWNER: string = DEMO_ACCOUNTS[0].address;

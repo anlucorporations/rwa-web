@@ -7,7 +7,10 @@
  * Factory Address: 0x95Ac1Bf6ca44bC847A78936d67556701a764dA84
  */
 
-export const TOKEN_CLONE_FACTORY_ADDRESS = "0xf4AC03d0be980f027887667025bB30ddB5c752Ea" as const;
+import { getContractAddress } from '@rwa/shared/contracts';
+import { CANONICAL_CHAIN_ID, getRpcUrl } from '@rwa/shared/network';
+
+export const TOKEN_CLONE_FACTORY_ADDRESS = getContractAddress('TokenCloneFactory');
 export const TOKEN_IMPLEMENTATION_ADDRESS = "" as const;
 
 export const TOKEN_CLONE_FACTORY_ABI =   [
@@ -369,15 +372,18 @@ export const TOKEN_CLONE_FACTORY_ABI =   [
   }
 ] as const;
 
-// Network Configuration
+// Network Configuration (fuente única: @rwa/shared/network; getters perezosos)
 export const NETWORK_CONFIG = {
-  chainId: 31337,
-  chainName: "Anvil Local",
-  rpcUrl: "http://localhost:8545",
-} as const;
-
-// Factory Owner Address
-export const FACTORY_OWNER = "0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38" as const;
+  get chainId(): number {
+    return CANONICAL_CHAIN_ID;
+  },
+  get chainName(): string {
+    return 'Anvil de GCP';
+  },
+  get rpcUrl(): string {
+    return getRpcUrl();
+  },
+};
 
 // Gas Savings Information
 export const GAS_SAVINGS = {

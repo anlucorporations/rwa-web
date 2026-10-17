@@ -9,7 +9,8 @@
     ".": "./src/index.ts",
     "./db": "./src/db/index.ts",
     "./config": "./src/config/index.ts",
-    "./contracts": "./src/contracts/index.ts"
+    "./contracts": "./src/contracts/index.ts",
+    "./network": "./src/network/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { ethers } from 'ethers';
+import { CANONICAL_CHAIN_ID } from '@rwa/shared/network';
 import { 
   setupBesuNetwork, 
   getWalletName,
@@ -55,13 +56,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       return null;
     }
 
-    // Create a custom network for Besu to avoid unnecessary RPC calls
-    const besuNetwork = {
-      chainId: 81234,
-      name: 'besu',
+    // Create a custom network for the canonical chain to avoid unnecessary RPC calls
+    const canonicalNetwork = {
+      chainId: CANONICAL_CHAIN_ID,
+      name: 'canonical',
     };
 
-    return new ethers.BrowserProvider(walletProvider, besuNetwork);
+    return new ethers.BrowserProvider(walletProvider, canonicalNetwork);
   }, []);
 
   // Check if wallet is already connected on mount
@@ -176,7 +177,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         throw new Error('No accounts found. Please create an account in your wallet.');
       }
 
-      // Setup/switch to Besu network
+      // Setup/switch to the canonical network
       await setupBesuNetwork();
 
       // Set state

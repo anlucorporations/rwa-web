@@ -12,6 +12,7 @@ import { TOKEN_CLONE_FACTORY_ADDRESS, TOKEN_CLONE_FACTORY_ABI } from '@/lib/cont
 import { COMPLIANCE_AGGREGATOR_ADDRESS } from '@/lib/contracts/compliance';
 import { IDENTITY_REGISTRY_ADDRESS, TRUSTED_ISSUERS_REGISTRY_ADDRESS } from '@/lib/contracts/registries';
 import { INVESTMENT_CLAIMS, CLAIM_DESCRIPTIONS } from '@/types/token';
+import { CANONICAL_CHAIN_ID, ZERO_ADDRESS, assertCanonicalChain } from '@rwa/shared/network';
 
 interface CreateTokenFormProps {
   userAddress: string;
@@ -80,15 +81,17 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
         const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' }) as string;
         chainId = Number(BigInt(chainIdHex));
       } catch {
-        // Fallback to default if chainId retrieval fails
-        chainId = 81234; // Besu network default
+        // Fallback a la red canónica si no se puede leer la wallet
+        chainId = CANONICAL_CHAIN_ID;
       }
+      // O2.5: la wallet debe estar en la red canónica (mensaje claro si no)
+      assertCanonicalChain(chainId);
 
       // Create network object - explicitly disable ENS to avoid errors on local networks
       // Omit ensAddress to prevent ENS resolution on local networks
       const network: ethers.Networkish = {
         chainId: chainId,
-        name: 'besu',
+        name: 'rwa-canonical',
         // Don't set ensAddress - ethers.js will not try to resolve ENS if it's not set
       };
 
@@ -142,7 +145,7 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
         maxTotalSupply,                   // Max Total Supply (all tokens will be minted to admin)
         IDENTITY_REGISTRY_ADDRESS,        // Identity Registry
         TRUSTED_ISSUERS_REGISTRY_ADDRESS, // Trusted Issuers Registry
-        '0x0000000000000000000000000000000000000000' // Claim Topics Registry (to be configured later)
+        ZERO_ADDRESS // Claim Topics Registry (pendiente: O2.4 exige un registry real)
       );
       
       console.log('📝 Transaction sent:', tx.hash);

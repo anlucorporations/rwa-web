@@ -5,7 +5,10 @@
  * Address: 0xDD75370cd0cd9810E164B5935AadbD31b8609A8b
  */
 
-export const COMPLIANCE_AGGREGATOR_ADDRESS = "0xDD75370cd0cd9810E164B5935AadbD31b8609A8b" as const;
+import { getContractAddress } from '@rwa/shared/contracts';
+import { CANONICAL_CHAIN_ID, getRpcUrl } from '@rwa/shared/network';
+
+export const COMPLIANCE_AGGREGATOR_ADDRESS = getContractAddress('ComplianceAggregator');
 
 // Minimal ABI for ModularCompliance contract interactions
 export const MODULAR_COMPLIANCE_ABI = [
@@ -194,10 +197,16 @@ export const CLAIM_TOPIC_NAMES: Record<number, string> = {
   9: "Jurisdiction - Geographic Compliance",
 };
 
-// Network Configuration
+// Network Configuration (fuente única: @rwa/shared/network; getters perezosos)
 export const NETWORK_CONFIG = {
-  chainId: 31337,
-  chainName: "Anvil Local",
-  rpcUrl: "http://localhost:8545",
-} as const;
+  get chainId(): number {
+    return CANONICAL_CHAIN_ID;
+  },
+  get chainName(): string {
+    return 'Anvil de GCP';
+  },
+  get rpcUrl(): string {
+    return getRpcUrl();
+  },
+};
 

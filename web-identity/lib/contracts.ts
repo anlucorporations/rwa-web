@@ -1,20 +1,29 @@
 import { ethers } from 'ethers';
-import IdentityRegistryABI from '../contracts/IdentityRegistry.abi.json';
-import IdentityCloneFactoryABI from '../contracts/IdentityCloneFactory.abi.json';
-
-// Contract addresses from smart_contract.txt
-export const IDENTITY_REGISTRY_ADDRESS = '0xDD75370cd0cd9810E164B5935AadbD31b8609A8b';
-export const IDENTITY_FACTORY_ADDRESS = '0x7210f8bF14C4a00a8E7bD67D35495913039d34c4';
-
-// Besu RPC URL 
-export const BESU_RPC_URL = 'https://besu1.proyectos.codecrypto.academy';
-export const BESU_CHAIN_ID = '0x13D52'; // 81234 in hex
+import {
+  IdentityCloneFactoryAbi,
+  IdentityRegistryAbi,
+  getContractAddress,
+} from '@rwa/shared/contracts';
+import { CANONICAL_CHAIN_ID, ZERO_ADDRESS, getRpcUrl } from '@rwa/shared/network';
 
 /**
- * Get an ethers provider for the Besu network
+ * Direcciones canónicas de los contratos: fuente única generada desde `rwa-sc`
+ * (RF-W-09). Se conservan los nombres históricos para no romper los imports.
+ */
+export const IDENTITY_REGISTRY_ADDRESS = getContractAddress('IdentityRegistry');
+export const IDENTITY_FACTORY_ADDRESS = getContractAddress('IdentityCloneFactory');
+
+/** chainId canónico en formato hex, el que exigen los métodos `wallet_*` (EIP-1193). */
+function canonicalChainIdHex(): string {
+  return `0x${CANONICAL_CHAIN_ID.toString(16)}`;
+}
+
+/**
+ * Get an ethers provider for the canonical network.
+ * `getRpcUrl()` se evalúa de forma perezosa (no en el nivel superior del módulo).
  */
 export function getProvider() {
-  return new ethers.JsonRpcProvider(BESU_RPC_URL);
+  return new ethers.JsonRpcProvider(getRpcUrl());
 }
 
 /**
@@ -35,7 +44,10 @@ function getPreferredProvider() {
 }
 
 /**
- * Add or switch to Besu network in the connected wallet
+ * Add or switch to the canonical network in the connected wallet.
+ *
+ * El nombre `setupBesuNetwork` se conserva por compatibilidad con los imports
+ * existentes; la red operativa es `CANONICAL_CHAIN_ID`.
  */
 export async function setupBesuNetwork() {
   const provider = getPreferredProvider();
@@ -44,12 +56,13 @@ export async function setupBesuNetwork() {
   }
 
   const walletName = getWalletName();
+  const chainId = canonicalChainIdHex();
 
   try {
-    // Try to switch to Besu network
+    // Try to switch to the canonical network
     await provider.request({
       method: 'wallet_switchEthereumChain',
-      params: [{ chainId: BESU_CHAIN_ID }],
+      params: [{ chainId }],
     });
   } catch (switchError) {
     const error = switchError as { code?: number; message?: string };
@@ -60,19 +73,19 @@ export async function setupBesuNetwork() {
           method: 'wallet_addEthereumChain',
           params: [
             {
-              chainId: BESU_CHAIN_ID,
-              chainName: 'Besu CodeCrypto',
+              chainId,
+              chainName: 'RWA Canonical (Anvil)',
               nativeCurrency: {
                 name: 'Ethereum',
                 symbol: 'ETH',
                 decimals: 18,
               },
-              rpcUrls: [BESU_RPC_URL],
+              rpcUrls: [getRpcUrl()],
             },
           ],
         });
       } catch {
-        throw new Error(`Failed to add Besu network to ${walletName}`);
+        throw new Error(`Failed to add the canonical network to ${walletName}`);
       }
     } else {
       throw error;
@@ -138,7 +151,7 @@ export function getIdentityRegistryContract(signerOrProvider?: ethers.Signer | e
   const provider = signerOrProvider || getProvider();
   return new ethers.Contract(
     IDENTITY_REGISTRY_ADDRESS,
-    IdentityRegistryABI,
+    IdentityRegistryAbi,
     provider
   );
 }
@@ -151,7 +164,7 @@ export function getIdentityCloneFactoryContract(signerOrProvider?: ethers.Signer
   const provider = signerOrProvider || getProvider();
   return new ethers.Contract(
     IDENTITY_FACTORY_ADDRESS,
-    IdentityCloneFactoryABI,
+    IdentityCloneFactoryAbi,
     provider
   );
 }
@@ -181,7 +194,6 @@ export async function getIdentityAddress(walletAddress: string): Promise<string>
     return result;
   } catch (error) {
     console.error('Error calling getIdentity:', error);
-    return '0x0000000000000000000000000000000000000000';
+    return ZERO_ADDRESS;
   }
 }
-

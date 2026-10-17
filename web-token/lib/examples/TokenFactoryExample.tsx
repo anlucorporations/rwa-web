@@ -334,7 +334,7 @@ export default function TokenFactoryExample() {
                   <code className="text-xs break-all text-gray-600">{token.address}</code>
                 </div>
                 <a
-                  href={`http://localhost:8545`}
+                  href={NETWORK_CONFIG.rpcUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-blue-600 hover:text-blue-800"
