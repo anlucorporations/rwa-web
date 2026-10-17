@@ -29,6 +29,12 @@ La única fuente de **direcciones** es `@rwa/shared/contracts` (`getContractAddr
 También se corrigió `web-identity/contexts/WalletContext.tsx` (fijaba el `BrowserProvider` a 81234,
 lo que habría bloqueado la red canónica) y se amplió el gate a los directorios `contexts/`.
 
+**Cierre de ABIs inline (O2.2, 2026-10-14):** además de las 3 copias de `web-identity`, se sustituyeron
+las de `web-token` (`TOKEN_CLONE_FACTORY_ABI`, `TOKEN_CLONEABLE_ABI`, `MODULAR_COMPLIANCE_ABI`,
+`TOKEN_COMPLIANCE_ABI` y los ABIs locales de `marketplace/page.tsx`) por los ABIs generados de
+`@rwa/shared/contracts`. Deuda conocida: el ABI real no tiene `buyToken()`/`setPrice()`; el flujo de
+compra del marketplace queda fuera de O2 (requiere un contrato de venta).
+
 **Pendiente en O2.3/O2.4 (no es red, es ABI):** las copias inline de ABI de `IdentityCloneable`
 (`web-identity/lib/identity-claims.ts`, `RequestDetailModal.tsx`, `.abi.json`) y de
 `TokenCloneFactory`/`TokenCloneable`/compliance de `web-token` siguen siendo las antiguas; se

@@ -47,6 +47,22 @@ Usa exclusivamente los ABIs generados (`TokenCloneFactoryAbi`, `ClaimTopicsRegis
 ./scripts/check-contract-drift.sh       # 0 deriva
 ```
 
+## 3.1 Gate de la API (RF-W-11)
+
+```bash
+./scripts/test_token_o2.sh
+```
+**Resultado real (exit 0):**
+```
+✓ POST /api/tokens anónimo → 401
+✓ POST sin registries (sesión) → 400
+✓ POST sin requiredClaims → 400
+✓ POST válido (201) → 201
+✓ GET /api/tokens incluye el token → 200
+[test-token-o2] ✓ gate de token en verde
+```
+La fila de prueba se elimina al terminar (esquema limpio, D-099).
+
 ## 4. Deuda declarada
 
 | Punto | Cierre previsto |

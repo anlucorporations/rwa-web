@@ -29,7 +29,7 @@ export PATH="$HOME/.foundry/bin:$PATH"
 source "$ROOT/scripts/gcp-env.sh" --tcp >/dev/null 2>&1
 
 RPC="${RPC_URL}"
-ARTIFACT="$ROOT/../rwa-sc/sc/deployments/31337-20261010T162639Z.json"
+ARTIFACT="$(ls "$ROOT"/../rwa-sc/sc/deployments/*.json | sort | tail -1)"
 PSQL="$(command -v psql || echo "$HOME/bin/psql")"
 CONN="host=34.39.180.101 port=5432 dbname=truekeate user=app sslmode=disable connect_timeout=10"
 

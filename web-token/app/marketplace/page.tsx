@@ -7,6 +7,11 @@ import { Token } from '@/types/token';
 import { CLAIM_DESCRIPTIONS } from '@/types/token';
 import { TOKEN_CLONE_FACTORY_ADDRESS } from '@/lib/contracts';
 import { ZERO_ADDRESS } from '@rwa/shared/network';
+import {
+  ClaimTopicsRegistryAbi,
+  IdentityCloneableAbi,
+  TrustedIssuersRegistryAbi,
+} from '@rwa/shared/contracts';
 
 export default function MarketplacePage() {
   const [tokens, setTokens] = useState<Token[]>([]);
@@ -669,9 +674,7 @@ export default function MarketplacePage() {
                 if (claimTopicsRegStr === ZERO_ADDRESS || claimTopicsRegStr === '0x0') {
                   diagnostic += '4️⃣ Claim Topics Registry: Not set (no claims required)\n';
                 } else {
-                  const CLAIM_TOPICS_REGISTRY_ABI = [
-                    "function getClaimTopics() view returns (uint256[])"
-                  ];
+                  const CLAIM_TOPICS_REGISTRY_ABI = ClaimTopicsRegistryAbi;
                   const claimTopicsRegistry = new ethers.Contract(
                     claimTopicsRegStr,
                     CLAIM_TOPICS_REGISTRY_ABI,
@@ -687,11 +690,7 @@ export default function MarketplacePage() {
                     diagnostic += '   The token admin needs to call:\n';
                     diagnostic += '   token.setTrustedIssuersRegistry(<REGISTRY_ADDRESS>)\n\n';
                   } else {
-                    const TRUSTED_ISSUERS_REGISTRY_ABI = [
-                      "function hasClaimTopic(address,uint256) view returns (bool)",
-                      "function isTrustedIssuer(address) view returns (bool)",
-                      "function getTrustedIssuers() view returns (address[])"
-                    ];
+                    const TRUSTED_ISSUERS_REGISTRY_ABI = TrustedIssuersRegistryAbi;
                     const trustedIssuersRegistry = new ethers.Contract(
                       trustedIssuersRegStr,
                       TRUSTED_ISSUERS_REGISTRY_ABI,
@@ -699,9 +698,7 @@ export default function MarketplacePage() {
                     );
 
                     // Check Identity contract for claims
-                    const IDENTITY_ABI = [
-                      "function getClaimIssuersForTopic(uint256) view returns (address[])"
-                    ];
+                    const IDENTITY_ABI = IdentityCloneableAbi;
                     const identityContract = new ethers.Contract(
                       identityAddress,
                       IDENTITY_ABI,

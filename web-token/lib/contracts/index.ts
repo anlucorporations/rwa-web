@@ -14,7 +14,6 @@ export {
 
 export {
   TOKEN_CLONEABLE_ABI,
-  TOKEN_FUNCTION_SELECTORS,
 } from './TokenCloneable';
 
 export {
