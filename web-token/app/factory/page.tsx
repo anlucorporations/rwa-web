@@ -36,10 +36,8 @@ export default function FactoryPage() {
       setUserAddress(address);
       setConnected(true);
 
-      console.log('Wallet conectada:', address);
-    } catch (err) {
-      console.error('Error conectando wallet:', err);
-      alert('Error al conectar la wallet');
+          } catch (err) {
+            alert('Error al conectar la wallet');
     }
   };
 

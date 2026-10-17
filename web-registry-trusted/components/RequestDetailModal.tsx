@@ -56,20 +56,17 @@ Review Note: ${reviewNote || 'N/A'}
 
 I hereby ${status === 'approved' ? 'APPROVE' : 'REJECT'} this claim request with my digital signature.`;
       
-      console.log('📝 Message to sign:', messageToSign);
-      
+            
       // Request signature from MetaMask
       const signature = await signer.signMessage(messageToSign);
       
-      console.log('✅ Signature obtained:', signature);
-      
+            
       return {
         signedMessage: messageToSign,
         signature: signature
       };
     } catch (err) {
-      console.error('Error signing review decision:', err);
-      throw new Error('Failed to sign decision. Please approve the signature request in MetaMask.');
+            throw new Error('Failed to sign decision. Please approve the signature request in MetaMask.');
     }
   };
 
@@ -205,8 +202,7 @@ I hereby ${status === 'approved' ? 'APPROVE' : 'REJECT'} this claim request with
       onUpdate();
       onClose();
     } catch (err) {
-      console.error('Error updating request:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update request');
+            setError(err instanceof Error ? err.message : 'Failed to update request');
     } finally {
       setLoading(false);
     }

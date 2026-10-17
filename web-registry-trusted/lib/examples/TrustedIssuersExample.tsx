@@ -70,8 +70,7 @@ export default function TrustedIssuersExample() {
 
       setIssuerDetails(details);
     } catch (err) {
-      console.error('Error loading trusted issuers:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error occurred');
+            setError(err instanceof Error ? err.message : 'Unknown error occurred');
     } finally {
       setLoading(false);
     }
@@ -89,8 +88,7 @@ export default function TrustedIssuersExample() {
       const isTrusted = await contract.isTrustedIssuer(address);
       alert(`Address ${address} is ${isTrusted ? 'TRUSTED' : 'NOT TRUSTED'}`);
     } catch (err) {
-      console.error('Error checking issuer:', err);
-      alert('Error checking issuer status');
+            alert('Error checking issuer status');
     }
   };
 

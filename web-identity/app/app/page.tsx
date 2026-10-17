@@ -40,44 +40,34 @@ export default function Home() {
     setIsCheckingRegistration(true);
     setError("");
     try {
-      console.log("🔍 Verificando registro para:", address);
-
+      
       // First verify we're on the right network
       const network = await provider.getNetwork();
-      console.log("   Network chainId:", network.chainId);
-
+      
       // Lanza un ValidationError con el mensaje de red incorrecta si no es la canónica.
       assertCanonicalChain(Number(network.chainId));
 
       const registryWithProvider = getIdentityRegistryContract(provider);
-      console.log("   Registry contract:", await registryWithProvider.getAddress());
-
+      
       const registered = await registryWithProvider.isRegistered(address);
-      console.log("   Resultado:", registered ? "Registrado" : "No registrado");
-
+      
       setIsRegistered(registered);
 
       if (registered) {
         const identity = await registryWithProvider.getIdentity(address);
-        console.log("   Dirección de identidad:", identity);
-        setIdentityAddress(identity);
+                setIdentityAddress(identity);
       } else {
         setIdentityAddress("");
       }
     } catch (err) {
-      console.error("Error checking registration:", err);
-      const error = err as { code?: string; message?: string; reason?: string; data?: string };
+            const error = err as { code?: string; message?: string; reason?: string; data?: string };
 
       // If it's a contract error, assume not registered
       if (error.code === 'VALIDATION_ERROR') {
         // Red incorrecta: muestra el mensaje del ValidationError de @rwa/shared/network
         setError(error.message || `Red incorrecta: la red canónica es chainId ${CANONICAL_CHAIN_ID}.`);
       } else if (error.code === 'CALL_EXCEPTION') {
-        console.log("⚠️ Error en llamada al contrato");
-        console.log("   Error data:", error.data);
-        console.log("   Error reason:", error.reason);
-        console.log("   Asumiendo no registrado");
-        setIsRegistered(false);
+                                        setIsRegistered(false);
         setIdentityAddress("");
         setError(`Cannot connect to contracts. Make sure your wallet is on the canonical network (chainId: ${CANONICAL_CHAIN_ID}).`);
       } else {
@@ -113,15 +103,11 @@ export default function Home() {
     try {
       // Get the signer from the context provider
       setSuccess("Getting signer...");
-      console.log("📝 Obteniendo signer para la cuenta:", account);
-
+      
       const signer = await provider.getSigner();
       const signerAddress = await signer.getAddress();
 
-      console.log("✅ Signer obtenido!");
-      console.log("   Connected account:", account);
-      console.log("   Signer address:", signerAddress);
-
+                  
       // Verify the signer matches the connected account
       if (signerAddress.toLowerCase() !== account.toLowerCase()) {
         throw new Error("Signer address doesn't match connected account. Please reconnect your wallet.");
@@ -132,19 +118,13 @@ export default function Home() {
 
       const factory = getIdentityCloneFactoryContract(signer);
 
-      console.log("📝 Preparando transacción para crear identidad...");
-      console.log("   Factory address:", factory.target);
-      console.log("   Owner address:", signerAddress);
-
+                  
       // Use the signer's address instead of the account state
       setSuccess("Waiting for transaction signature... Check your wallet!");
-      console.log("⏳ Esperando firma del usuario en la wallet...");
-
+      
       const tx = await factory.createIdentity(signerAddress);
 
-      console.log("✅ Transacción firmada y enviada!");
-      console.log("   Transaction hash:", tx.hash);
-
+            
       setSuccess(`Transaction sent! Hash: ${tx.hash.substring(0, 10)}... Waiting for confirmation...`);
       const receipt = await tx.wait();
 
@@ -168,19 +148,16 @@ export default function Home() {
       }
 
       const newIdentityAddress = event.args.identity;
-      console.log("✅ Identidad creada:", newIdentityAddress);
-      setIdentityAddress(newIdentityAddress); // Set identity address immediately
+            setIdentityAddress(newIdentityAddress); // Set identity address immediately
       setSuccess(`Identity created at ${newIdentityAddress}. Registering...`);
 
       // Step 2: Register the identity in IdentityRegistry
-      console.log("📝 Preparando transacción para registrar identidad...");
-      const registry = getIdentityRegistryContract(signer);
+            const registry = getIdentityRegistryContract(signer);
 
       // Check if already registered before attempting to register
       const isAlreadyRegistered = await registry.isRegistered(signerAddress);
       if (isAlreadyRegistered) {
-        console.log("⚠️ Address already registered, skipping registration");
-        const existingIdentity = await registry.getIdentity(signerAddress);
+                const existingIdentity = await registry.getIdentity(signerAddress);
         setIdentityAddress(existingIdentity);
         setIsRegistered(true);
         setSuccess(`Identity already registered at ${existingIdentity}!`);
@@ -188,13 +165,10 @@ export default function Home() {
       }
 
       setSuccess("Waiting for registration signature... Check your wallet!");
-      console.log("⏳ Esperando segunda firma del usuario en la wallet...");
-
+      
       const registerTx = await registry.registerIdentity(signerAddress, newIdentityAddress);
 
-      console.log("✅ Registro firmado y enviado!");
-      console.log("   Transaction hash:", registerTx.hash);
-
+            
       setSuccess(`Registration sent! Hash: ${registerTx.hash.substring(0, 10)}... Waiting for confirmation...`);
       const registerReceipt = await registerTx.wait();
 
@@ -206,8 +180,7 @@ export default function Home() {
       setIsRegistered(true);
       setSuccess(`Identity successfully created and registered at ${newIdentityAddress}!`);
     } catch (err) {
-      console.error("Error creating identity:", err);
-      let errorMessage = "Unknown error";
+            let errorMessage = "Unknown error";
       const error = err as {
         code?: string;
         message?: string;
@@ -258,17 +231,13 @@ export default function Home() {
       const signer = await provider.getSigner();
       const signerAddress = await signer.getAddress();
 
-      console.log("📝 Registrando identidad existente:", identityAddress);
-      const registry = getIdentityRegistryContract(signer);
+            const registry = getIdentityRegistryContract(signer);
 
       setSuccess("Waiting for registration signature... Check your wallet!");
-      console.log("⏳ Esperando firma del usuario en la wallet...");
-
+      
       const registerTx = await registry.registerIdentity(signerAddress, identityAddress);
 
-      console.log("✅ Registro firmado y enviado!");
-      console.log("   Transaction hash:", registerTx.hash);
-
+            
       setSuccess(`Registration sent! Hash: ${registerTx.hash.substring(0, 10)}... Waiting for confirmation...`);
       const registerReceipt = await registerTx.wait();
 
@@ -283,8 +252,7 @@ export default function Home() {
       // Recheck registration status to confirm
       await checkRegistrationStatus(account);
     } catch (err) {
-      console.error("Error registering identity:", err);
-      let errorMessage = "Unknown error";
+            let errorMessage = "Unknown error";
       const error = err as { code?: string; message?: string; reason?: string };
 
       if (error.code === 'ACTION_REJECTED') {
@@ -316,8 +284,7 @@ export default function Home() {
     }
 
     try {
-      console.log('📋 Loading claims from identity contract:', identityAddress);
-
+      
       // Dynamic import of ethers
       const { ethers } = await import('ethers');
       const { getIdentityClaims } = await import('@/lib/identity-claims');
@@ -342,15 +309,12 @@ export default function Home() {
               allTopics.add(Number(topic));
             });
           } catch (err) {
-            console.warn(`Error getting topics for issuer ${issuerAddress}:`, err);
-          }
+                      }
         }
 
         topicsToCheck = Array.from(allTopics);
-        console.log('📋 Found topics from registry:', topicsToCheck);
-      } catch (err) {
-        console.warn('Could not load topics from registry, using default range:', err);
-        // Fallback: check a wider range of common topics
+              } catch (err) {
+                // Fallback: check a wider range of common topics
         topicsToCheck = Array.from({ length: 20 }, (_, i) => i + 1);
       }
 
@@ -368,11 +332,9 @@ export default function Home() {
         issuer: claim.issuer
       }));
 
-      console.log('✅ Claims loaded:', claims);
-      setIdentityClaims(claims);
+            setIdentityClaims(claims);
     } catch (err) {
-      console.error('Error loading claims:', err);
-      setIdentityClaims([]);
+            setIdentityClaims([]);
     }
   }, [identityAddress, provider]);
 

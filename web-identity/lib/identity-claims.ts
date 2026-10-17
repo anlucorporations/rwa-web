@@ -46,15 +46,7 @@ export async function addClaimToIdentity(
     );
     const uri = `ipfs://claim-${topic}-${issuer}`; // Could be IPFS hash in production
 
-    console.log('Adding claim to identity:', {
-      topic,
-      scheme,
-      issuer,
-      signatureLength: issuerSignature.length,
-      dataLength: data.length,
-      uri
-    });
-
+    
     const tx = await identityContract.addClaim(
       topic,
       scheme,
@@ -65,17 +57,14 @@ export async function addClaimToIdentity(
       BigInt(expiresAt)
     );
 
-    console.log('Transaction sent:', tx.hash);
-    await tx.wait();
-    console.log('Claim added successfully!');
-
+        await tx.wait();
+    
     return {
       success: true,
       txHash: tx.hash
     };
   } catch (error) {
-    console.error('Error adding claim to identity:', error);
-    return {
+        return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
     };
@@ -103,15 +92,13 @@ export async function getIdentityClaims(
       try {
         // Get all issuers for this topic
         const issuers = await identityContract.getClaimIssuersForTopic(topic);
-        console.log(`Topic ${topic} has ${issuers.length} issuer(s)`);
-        
+                
         for (const issuer of issuers) {
           try {
             // First check if claim exists
             const exists = await identityContract.claimExists(topic, issuer);
             if (!exists) {
-              console.warn(`Claim does not exist for topic ${topic} and issuer ${issuer}`);
-              continue;
+                            continue;
             }
             
             // Get the full claim data
@@ -124,20 +111,16 @@ export async function getIdentityClaims(
               data: claim.data,
               uri: claim.uri,
             });
-            console.log(`✅ Found claim: topic ${topic}, issuer ${issuer}`);
-          } catch (err) {
-            console.warn(`Error getting claim for topic ${topic} and issuer ${issuer}:`, err);
-          }
+                      } catch (err) {
+                      }
         }
       } catch (err) {
-        console.warn(`Error getting issuers for topic ${topic}:`, err);
-      }
+              }
     }
 
     return claims;
   } catch (error) {
-    console.error('Error getting identity claims:', error);
-    return [];
+        return [];
   }
 }
 
@@ -159,8 +142,7 @@ export async function claimExists(
 
     return await identityContract.claimExists(topic, issuer);
   } catch (error) {
-    console.error('Error checking claim existence:', error);
-    return false;
+        return false;
   }
 }
 

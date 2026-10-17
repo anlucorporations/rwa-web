@@ -93,8 +93,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
             symbol: symbol
           };
         } catch (err) {
-          console.error(`Error loading balance for token ${token.tokenAddress}:`, err);
-          balances[token._id || token.tokenAddress] = {
+                    balances[token._id || token.tokenAddress] = {
             balance: 'Error',
             symbol: token.symbol || 'N/A'
           };
@@ -103,8 +102,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
 
       setAdminBalances(balances);
     } catch (err) {
-      console.error('Error loading admin balances:', err);
-    }
+          }
   };
 
   const loadTokenPrices = async () => {
@@ -147,14 +145,12 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
 
           prices[token._id || ''] = priceEth;
         } catch (err) {
-          console.error(`Error loading price for token ${token._id}:`, err);
-        }
+                  }
       }
 
       setTokenPrices(prices);
     } catch (err) {
-      console.error('Error loading token prices:', err);
-    }
+          }
   };
 
   const loadTokens = async () => {
@@ -185,8 +181,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       }
       setTokenSupportsCompliance(supportMap);
     } catch (err) {
-      console.error('Error loading tokens:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load tokens');
+            setError(err instanceof Error ? err.message : 'Failed to load tokens');
     } finally {
       setLoading(false);
     }
@@ -220,9 +215,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       setAddingCompliance(token._id);
       setError(null);
 
-      console.log('🔒 Adding compliance module to token:', token.tokenAddress);
-      console.log('📦 Module address:', complianceModule);
-
+            
       if (typeof window === 'undefined' || !window.ethereum) {
         throw new Error('MetaMask not available');
       }
@@ -247,13 +240,10 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
         signer
       );
 
-      console.log('Calling addComplianceModule...');
-      const tx = await tokenContract.addComplianceModule(complianceModule);
-      console.log('Transaction sent:', tx.hash);
-
+            const tx = await tokenContract.addComplianceModule(complianceModule);
+      
       await tx.wait();
-      console.log('✅ Compliance module added on blockchain!');
-
+      
       // Update modules array in MongoDB
       const currentModules = token.complianceModules || [];
       const updatedModules = [...currentModules, complianceModule];
@@ -271,10 +261,8 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       const result = await response.json();
 
       if (!result.success) {
-        console.warn('Failed to update database, but blockchain transaction succeeded');
-      } else {
-        console.log('✅ Database updated with', updatedModules.length, 'modules!');
-      }
+              } else {
+              }
 
       setError(null);
       alert(`✅ Compliance Module Added!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Module Address:\n${complianceModule}\n\n📊 Total Modules: ${updatedModules.length}\n\n📜 Transaction Hash:\n${tx.hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
@@ -282,8 +270,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       // Reload tokens
       await loadTokens();
     } catch (err: any) {
-      console.error('Error adding compliance:', err);
-      
+            
       let errorMsg = '❌ Failed to Add Compliance Module\n\n';
       
       if (err.message?.includes('execution reverted')) {
@@ -321,8 +308,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       setRemovingCompliance(token._id || '');
       setError(null);
 
-      console.log('🗑️ Removing module reference from UI/MongoDB:', moduleAddress);
-
+      
       // Just update MongoDB to remove this module from the array
       const currentModules = token.complianceModules || [];
       const updatedModules = currentModules.filter(m => m.toLowerCase() !== moduleAddress.toLowerCase());
@@ -343,16 +329,14 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
         throw new Error(result.message || 'Failed to update database');
       }
       
-      console.log('✅ UI reference removed! Remaining modules:', updatedModules.length);
-      
+            
       setError(null);
       alert(`✅ Module Hidden from UI\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Hidden Module:\n${moduleAddress}\n\n📊 Remaining Modules: ${updatedModules.length}\n\n⚠️ Note: Module still exists on blockchain\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
       // Reload tokens
       await loadTokens();
     } catch (err: any) {
-      console.error('❌ Error removing module reference:', err);
-      
+            
       const errorMsg = `❌ Failed to Hide Module\n\n⚠️ Database Error\n\n${err instanceof Error ? err.message : 'Failed to remove module'}`;
       setError(errorMsg);
       alert(errorMsg);
@@ -379,8 +363,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       setRemovingClaim(`${token._id}_${claimTopic}`);
       setError(null);
 
-      console.log('🗑️ Removing claim from token:', claimTopic);
-
+      
       // Update MongoDB to remove this claim from the array
       const currentClaims = token.requiredClaims || [];
       const updatedClaims = currentClaims.filter(c => c !== claimTopic);
@@ -401,16 +384,14 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
         throw new Error(result.message || 'Failed to update database');
       }
       
-      console.log('✅ Claim removed! Remaining claims:', updatedClaims.length);
-      
+            
       setError(null);
       alert(`✅ Claim Removed from UI\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🏷️ Removed: ${claimName}\n📊 Remaining Claims: ${updatedClaims.length}\n\n⚠️ Note: This only updates the UI.\nOn-chain requirements may still be enforced.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
       // Reload tokens
       await loadTokens();
     } catch (err: any) {
-      console.error('❌ Error removing claim:', err);
-      
+            
       const errorMsg = `❌ Failed to Remove Claim\n\n⚠️ Database Error\n\n${err instanceof Error ? err.message : 'Failed to remove claim'}`;
       setError(errorMsg);
       alert(errorMsg);
@@ -460,16 +441,10 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
         const tokenUnitsPerToken = BigInt(10) ** BigInt(token.decimals);
         const pricePerUnitWei = pricePerTokenWei / tokenUnitsPerToken;
 
-        console.log(`💰 Setting price on contract:`);
-        console.log(`   Admin input: ${priceValue} ETH per token`);
-        console.log(`   Token decimals: ${token.decimals}`);
-        console.log(`   Storing in contract: ${pricePerUnitWei.toString()} wei per unit`);
-        console.log(`   Formatted: ${ethers.formatEther(pricePerUnitWei * tokenUnitsPerToken)} ETH per token`);
-
+                                        
         const tx = await tokenContract.setPrice(pricePerUnitWei);
         await tx.wait();
-        console.log('✅ Price set on contract:', tx.hash);
-
+        
         // Step 2: Update price in database
         const response = await fetch(`/api/tokens/${token._id}/price`, {
           method: 'POST',
@@ -487,8 +462,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
           throw new Error(result.message || 'Failed to update price in database');
         }
 
-        console.log('✅ Price updated in database:', priceValue, 'ETH');
-
+        
         // Update local price state immediately
         if (token._id) {
           setTokenPrices(prev => ({
@@ -504,8 +478,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
         setEditingPrice(null);
         setNewPrice('');
       } catch (err: any) {
-        console.error('Error updating price:', err);
-        
+                
         const error = err as { reason?: string; message?: string; code?: string; data?: string };
         let errorMsg = '';
         

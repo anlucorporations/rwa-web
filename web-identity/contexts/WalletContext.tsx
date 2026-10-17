@@ -88,8 +88,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           setAccount(accounts[0].address);
         }
       } catch (err) {
-        console.error('Error checking wallet connection:', err);
-      }
+              }
     };
 
     checkConnection();
@@ -103,8 +102,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (!walletProvider) return;
 
     const handleAccountsChanged = (accounts: string[]) => {
-      console.log('🔄 Account changed:', accounts);
-      
+            
       if (accounts.length === 0) {
         // User disconnected
         setProvider(null);
@@ -118,14 +116,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     };
 
     const handleChainChanged = (chainId: string) => {
-      console.log('🔄 Chain changed:', chainId);
-      // Reload the page on chain change (common practice)
+            // Reload the page on chain change (common practice)
       window.location.reload();
     };
 
     const handleDisconnect = () => {
-      console.log('🔌 Wallet disconnected');
-      setProvider(null);
+            setProvider(null);
       setAccount('');
     };
 
@@ -134,10 +130,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       walletProvider.on('accountsChanged', handleAccountsChanged);
       walletProvider.on('chainChanged', handleChainChanged);
       walletProvider.on('disconnect', handleDisconnect);
-      console.log('👂 Event listeners registered for wallet events');
-    } else {
-      console.warn('⚠️ Wallet provider does not support event listeners');
-    }
+          } else {
+          }
 
     return () => {
       if (typeof walletProvider.removeListener === 'function') {
@@ -184,10 +178,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setProvider(browserProvider);
       setAccount(accounts[0]);
       
-      console.log('✅ Wallet connected:', accounts[0]);
-    } catch (err) {
-      console.error('Error connecting wallet:', err);
-      const error = err as Error;
+          } catch (err) {
+            const error = err as Error;
       setError(error.message || 'Failed to connect wallet');
       
       // Clear state on error
@@ -202,8 +194,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setProvider(null);
     setAccount('');
     setError('');
-    console.log('🔌 Wallet disconnected by user');
-  }, []);
+      }, []);
 
   const clearError = useCallback(() => {
     setError('');

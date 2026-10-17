@@ -42,11 +42,7 @@ export default function RequestDetailModal({ request, onClose, identityAddress, 
       setAddingClaim(true);
       setError(null);
 
-      console.log('🔐 Adding claim to identity contract...');
-      console.log('Identity address:', identityAddress);
-      console.log('Claim topic:', request.claimTopic);
-      console.log('Issuer:', request.issuerAddress);
-
+                        
       if (typeof window === 'undefined' || !window.ethereum) {
         throw new Error('MetaMask not available');
       }
@@ -81,10 +77,8 @@ export default function RequestDetailModal({ request, onClose, identityAddress, 
         BigInt(payload.expiresAt),
       );
 
-      console.log('⏳ Transaction sent:', tx.hash);
-      await tx.wait();
-      console.log('✅ Claim added to identity!');
-
+            await tx.wait();
+      
       setClaimAdded(true);
       alert('Claim added to your identity successfully!\n\n✓ You can now use this claim for token investments');
       
@@ -92,8 +86,7 @@ export default function RequestDetailModal({ request, onClose, identityAddress, 
         onClaimAdded();
       }
     } catch (err) {
-      console.error('Error adding claim to identity:', err);
-      setError(err instanceof Error ? err.message : 'Failed to add claim to identity');
+            setError(err instanceof Error ? err.message : 'Failed to add claim to identity');
     } finally {
       setAddingClaim(false);
     }

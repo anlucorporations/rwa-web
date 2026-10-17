@@ -139,8 +139,7 @@ export function debugWallets() {
     };
   }
 
-  console.log('🔍 Wallet Debug Info:', info);
-  return info;
+    return info;
 }
 
 /**
@@ -178,8 +177,7 @@ export async function isAddressRegistered(address: string): Promise<boolean> {
     const result = await registry.isRegistered(address);
     return result;
   } catch (error) {
-    console.error('Error calling isRegistered:', error);
-    // If the contract call fails, assume not registered
+        // If the contract call fails, assume not registered
     return false;
   }
 }
@@ -193,7 +191,6 @@ export async function getIdentityAddress(walletAddress: string): Promise<string>
     const result = await registry.getIdentity(walletAddress);
     return result;
   } catch (error) {
-    console.error('Error calling getIdentity:', error);
-    return ZERO_ADDRESS;
+        return ZERO_ADDRESS;
   }
 }

@@ -73,8 +73,7 @@ export default function TokenFactoryExample() {
 
       setTokens(tokenList);
     } catch (err) {
-      console.error('Error loading tokens:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error occurred');
+            setError(err instanceof Error ? err.message : 'Unknown error occurred');
     } finally {
       setLoading(false);
     }
@@ -103,18 +102,15 @@ export default function TokenFactoryExample() {
         signer
       );
 
-      console.log('Creating token...');
-      const tx = await factory.createToken(
+            const tx = await factory.createToken(
         formData.name,
         formData.symbol,
         parseInt(formData.decimals),
         formData.admin
       );
 
-      console.log('Transaction sent:', tx.hash);
-      const receipt = await tx.wait();
-      console.log('Token created!', receipt);
-
+            const receipt = await tx.wait();
+      
       // Find the TokenCreated event
       const event = receipt.logs.find((log: any) => {
         try {
@@ -141,8 +137,7 @@ export default function TokenFactoryExample() {
         admin: '',
       });
     } catch (err: any) {
-      console.error('Error creating token:', err);
-      setError(err.message || 'Failed to create token');
+            setError(err.message || 'Failed to create token');
       alert('Error creating token: ' + (err.message || 'Unknown error'));
     } finally {
       setCreating(false);
@@ -165,8 +160,7 @@ export default function TokenFactoryExample() {
       
       alert(`Connected: ${address}`);
     } catch (err) {
-      console.error('Error connecting wallet:', err);
-      alert('Failed to connect wallet');
+            alert('Failed to connect wallet');
     }
   };
 

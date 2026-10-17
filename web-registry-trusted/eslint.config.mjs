@@ -13,6 +13,8 @@ const eslintConfig = defineConfig([
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/preserve-manual-memoization": "warn",
       "@typescript-eslint/no-explicit-any": "warn",
+      // RT-W-10/RF-W-16: nada de logs por consola en la app (usa el logger de servidor en rutas)
+      "no-console": "error",
     },
   },
   // Override default ignores of eslint-config-next.

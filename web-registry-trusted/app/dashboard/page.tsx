@@ -57,14 +57,12 @@ export default function Home() {
       // User disconnected their wallet
       setAccount('');
       setIsOwner(false);
-      console.log('Wallet disconnected');
-      alert('Wallet disconnected');
+            alert('Wallet disconnected');
     } else {
       // User switched accounts
       const newAccount = accountsArray[0];
       setAccount(newAccount);
-      console.log('Account changed to:', newAccount);
-      
+            
       // Show notification
       const isNewOwner = newAccount.toLowerCase() === CONTRACT_OWNER.toLowerCase();
       alert(`Account changed to: ${newAccount}\n${isNewOwner ? '✓ You are the contract owner' : '✗ You are not the owner'}`);
@@ -73,16 +71,14 @@ export default function Home() {
 
   const handleChainChanged = useCallback(() => {
     // When the network changes, reload the page
-    console.log('Network changed, reloading page...');
-    window.location.reload();
+        window.location.reload();
   }, []);
 
   const setupAccountListener = useCallback(() => {
     if (typeof window !== 'undefined' && window.ethereum && window.ethereum.on) {
       window.ethereum.on('accountsChanged', handleAccountsChanged);
       window.ethereum.on('chainChanged', handleChainChanged);
-      console.log('Account and chain change listeners setup');
-    }
+          }
   }, [handleAccountsChanged, handleChainChanged]);
 
   useEffect(() => {
@@ -117,8 +113,7 @@ export default function Home() {
       const isTrusted = await contract.isTrustedIssuer(address);
       setIsIssuer(isTrusted);
     } catch (err) {
-      console.error('Error checking issuer status:', err);
-      setIsIssuer(false);
+            setIsIssuer(false);
     }
   };
 
@@ -129,8 +124,7 @@ export default function Home() {
   const disconnectWallet = () => {
     setAccount('');
     setIsOwner(false);
-    console.log('Wallet disconnected manually');
-  };
+      };
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -151,8 +145,7 @@ export default function Home() {
           setAccount(address);
         }
       } catch (err) {
-        console.error('Error checking MetaMask:', err);
-      }
+              }
     }
   };
 
@@ -182,8 +175,7 @@ export default function Home() {
         }
       }
     } catch (err) {
-      console.error('Error connecting wallet:', err);
-      setError(err instanceof Error ? err.message : 'Error connecting wallet');
+            setError(err instanceof Error ? err.message : 'Error connecting wallet');
     }
   };
 
@@ -217,8 +209,7 @@ export default function Home() {
 
       setIssuerDetails(details);
     } catch (err) {
-      console.error('Error loading trusted issuers:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error occurred');
+            setError(err instanceof Error ? err.message : 'Unknown error occurred');
     } finally {
       setLoading(false);
     }
@@ -269,14 +260,11 @@ export default function Home() {
         return;
       }
 
-      console.log('Adding trusted issuer:', newIssuerAddress, 'with claim topics:', claimTopics);
-
-      const tx = await contract.addTrustedIssuer(newIssuerAddress, claimTopics);
-      console.log('Transaction sent:', tx.hash);
       
+      const tx = await contract.addTrustedIssuer(newIssuerAddress, claimTopics);
+            
       await tx.wait();
-      console.log('Transaction confirmed');
-
+      
       alert('Trusted issuer added successfully!');
       
       // Reset form
@@ -286,8 +274,7 @@ export default function Home() {
       // Reload issuers
       await loadTrustedIssuers();
     } catch (err) {
-      console.error('Error adding trusted issuer:', err);
-      setError(err instanceof Error ? err.message : 'Error adding trusted issuer');
+            setError(err instanceof Error ? err.message : 'Error adding trusted issuer');
       alert(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setAddingIssuer(false);

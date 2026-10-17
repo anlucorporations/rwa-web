@@ -35,8 +35,7 @@ export default function LandingPage() {
           setIsConnected(true);
         }
       } catch (err) {
-        console.error('Error checking MetaMask:', err);
-      }
+              }
     }
   };
 
@@ -51,8 +50,7 @@ export default function LandingPage() {
       const count = await contract.getTrustedIssuersCount();
       setIssuersCount(Number(count));
     } catch (err) {
-      console.error('Error loading issuers count:', err);
-    }
+          }
   };
 
   const connectWallet = async () => {
@@ -81,8 +79,7 @@ export default function LandingPage() {
       }
 
     } catch (err) {
-      console.error('Error connecting wallet:', err);
-      alert(err instanceof Error ? err.message : 'Error connecting wallet');
+            alert(err instanceof Error ? err.message : 'Error connecting wallet');
     }
   };
 

@@ -61,12 +61,10 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
       setLoadingIssuers(true);
       setError(null);
 
-      console.log('Loading trusted issuers from contract:', TRUSTED_ISSUERS_REGISTRY_ADDRESS);
-      
+            
       // Use wallet provider if available, otherwise fall back to JsonRpcProvider
       const provider = walletProvider || new ethers.JsonRpcProvider(NETWORK_CONFIG.rpcUrl);
-      console.log('Using provider:', walletProvider ? 'Wallet provider' : `JsonRpcProvider (${NETWORK_CONFIG.rpcUrl})`);
-      const contract = new ethers.Contract(
+            const contract = new ethers.Contract(
         TRUSTED_ISSUERS_REGISTRY_ADDRESS,
         TRUSTED_ISSUERS_REGISTRY_ABI,
         provider
@@ -76,25 +74,20 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
       let issuersCount: bigint;
       try {
         issuersCount = await contract.getTrustedIssuersCount();
-        console.log('Trusted issuers count:', issuersCount.toString());
-      } catch (countError: any) {
-        console.error('Error getting issuers count:', countError);
-        throw new Error(`Failed to connect to TrustedIssuersRegistry contract at ${TRUSTED_ISSUERS_REGISTRY_ADDRESS}. Error: ${countError.message}`);
+              } catch (countError: any) {
+                throw new Error(`Failed to connect to TrustedIssuersRegistry contract at ${TRUSTED_ISSUERS_REGISTRY_ADDRESS}. Error: ${countError.message}`);
       }
 
       if (issuersCount === 0n) {
-        console.warn('No trusted issuers found in the registry');
-        setIssuers([]);
+                setIssuers([]);
         setError('No trusted issuers have been configured in the registry. The contract owner needs to add issuers using addTrustedIssuer().');
         return;
       }
 
       const issuerAddresses = await contract.getTrustedIssuers();
-      console.log('Found issuer addresses:', issuerAddresses);
-      
+            
       if (!issuerAddresses || issuerAddresses.length === 0) {
-        console.warn('getTrustedIssuers returned empty array');
-        setIssuers([]);
+                setIssuers([]);
         setError('No trusted issuers found. The contract may not have any issuers configured.');
         return;
       }
@@ -118,24 +111,21 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
           });
         }
       } catch (nameError) {
-        console.warn('Error loading issuer names from MongoDB:', nameError);
-        // Continue without names if API fails
+                // Continue without names if API fails
       }
       
       const issuersData = await Promise.all(
         issuerAddresses.map(async (address: string) => {
           try {
             const claimTopics = await contract.getIssuerClaimTopics(address);
-            console.log(`Issuer ${address} has topics:`, claimTopics);
-            const name = issuerNamesMap[address.toLowerCase()];
+                        const name = issuerNamesMap[address.toLowerCase()];
             return {
               address,
               claimTopics,
               name,
             };
           } catch (topicError: any) {
-            console.error(`Error loading topics for issuer ${address}:`, topicError);
-            // Return issuer with empty topics array if we can't load them
+                        // Return issuer with empty topics array if we can't load them
             const name = issuerNamesMap[address.toLowerCase()];
             return {
               address,
@@ -146,12 +136,10 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
         })
       );
 
-      console.log('Loaded issuers data:', issuersData);
-      setIssuers(issuersData);
+            setIssuers(issuersData);
       setError(null);
     } catch (err: any) {
-      console.error('Error loading issuers:', err);
-      const errorMessage = err.message || 'Failed to load trusted issuers';
+            const errorMessage = err.message || 'Failed to load trusted issuers';
       setError(errorMessage);
       setIssuers([]);
     } finally {
@@ -197,8 +185,7 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
         size: result.data.size,
       };
     } catch (err) {
-      console.error('Error uploading file:', err);
-      throw err;
+            throw err;
     } finally {
       setUploading(false);
     }
@@ -225,8 +212,7 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
         signature: signature
       };
     } catch (err) {
-      console.error('Error signing message:', err);
-      throw new Error('Failed to sign message. Please approve the signature request in MetaMask.');
+            throw new Error('Failed to sign message. Please approve the signature request in MetaMask.');
     }
   };
 
@@ -302,8 +288,7 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
       alert('Claim request submitted successfully!');
       onSuccess();
     } catch (err) {
-      console.error('Error submitting claim request:', err);
-      setError(err instanceof Error ? err.message : 'Failed to submit claim request');
+            setError(err instanceof Error ? err.message : 'Failed to submit claim request');
     } finally {
       setLoading(false);
     }

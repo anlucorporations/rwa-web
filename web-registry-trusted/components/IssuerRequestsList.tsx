@@ -46,8 +46,7 @@ export default function IssuerRequestsList({ issuerAddress, onSelectRequest }: I
 
       setRequests(result.data);
     } catch (err) {
-      console.error('Error loading requests:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load requests');
+            setError(err instanceof Error ? err.message : 'Failed to load requests');
     } finally {
       setLoading(false);
     }

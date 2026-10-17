@@ -1,7 +1,7 @@
 # Evidencia O3 — Verificabilidad (parcial: 3.1–3.4) · 2026-10-17
 
 > **Ciclo:** O3 (plan §O3) · **Requisitos:** RF-W-15, RNF-W-03, RNF-W-07 · **Decisión:** D-094.
-> **Estado:** O3.1–O3.5 ✅ · O3.6 (tests) · O3.7 (logging) ⏳.
+> **Estado:** O3.1–O3.5 y O3.7 ✅ · O3.6 (tests) ⏳.
 
 ## O3.1 · Repositorio y plantillas de entorno
 
@@ -84,4 +84,19 @@ git check-ignore .env.local              # ignorado
 ✓ CI local en verde
 ```
 
-*Fin de la evidencia parcial — O3.1–O3.5*
+## O3.7 · Logging estructurado y `0 console.*` (RF-W-16, RT-W-10)
+
+- Las **rutas de API ya usaban `logger`** (`pino`) desde O0/O1 (vía `toErrorResponse`); no tenían `console.*`.
+- **224 llamadas `console.*` eliminadas** de componentes, páginas, contextos y libs de las 3 apps
+  (depuración heredada). Reemplazadas por eliminación de la sentencia cuando era aislada y por `void 0`
+  cuando era parte de una expresión, preservando la compilación.
+- **Blindaje**: regla `no-console: error` en los 3 `eslint.config.mjs` → el CI impide reintroducirlos.
+- **Eliminados** `web-token/VERIFY_TOKEN.js` (script de depuración obsoleto con direcciones hardcodeadas),
+  `app/page-new-design.tsx` y `app/landing-page.tsx` (muertos).
+- `console.*` restantes en `app/`, `components/`, `lib/` y `contexts/`: **0**.
+- Avisos residuales (no bloquean): `@typescript-eslint/no-unused-vars` en bloques `catch (error)` cuyo
+  log se eliminó (se limpiarán en O4).
+
+**Gate:** `./scripts/ci_local.sh` → exit 0 (lint 0 errores · tsc 0 · build ×3 · gates).
+
+*Fin de la evidencia parcial — O3.1–O3.5 y O3.7*

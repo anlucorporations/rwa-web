@@ -35,8 +35,7 @@ export default function ClaimRequestsList({ userAddress, refreshTrigger, identit
     }
 
     try {
-      console.log('🔍 Checking which claims are in the identity contract...');
-      const claimsSet = new Set<string>();
+            const claimsSet = new Set<string>();
 
       // Check each approved request
       const approvedRequests = requests.filter(r => r.status === 'approved');
@@ -51,19 +50,15 @@ export default function ClaimRequestsList({ userAddress, refreshTrigger, identit
             if (exists) {
               const claimKey = `${topic}-${issuer.toLowerCase()}`;
               claimsSet.add(claimKey);
-              console.log(`✅ Claim found in contract: Topic ${topic}, Issuer ${issuer}`);
-            }
+                          }
           } catch (err) {
-            console.warn(`Error checking claim for request ${request._id}:`, err);
-          }
+                      }
         })
       );
 
       setClaimsInContract(claimsSet);
-      console.log(`📋 Found ${claimsSet.size} claim(s) in identity contract`);
-    } catch (err) {
-      console.error('Error checking claims in contract:', err);
-    }
+          } catch (err) {
+          }
   }, [requests, identityAddress, provider]);
 
   useEffect(() => {
@@ -99,8 +94,7 @@ export default function ClaimRequestsList({ userAddress, refreshTrigger, identit
 
       setRequests(result.data);
     } catch (err) {
-      console.error('Error loading requests:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load requests');
+            setError(err instanceof Error ? err.message : 'Failed to load requests');
     } finally {
       setLoading(false);
     }

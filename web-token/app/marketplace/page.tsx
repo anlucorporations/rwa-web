@@ -34,8 +34,7 @@ export default function MarketplacePage() {
     // Listen for account changes
     if (typeof window !== 'undefined' && window.ethereum) {
       const handleAccountsChanged = (accounts: string[]) => {
-        console.log('🔄 Account changed:', accounts[0]);
-        if (accounts && accounts.length > 0) {
+                if (accounts && accounts.length > 0) {
           setAccount(accounts[0]);
           setError(null);
           loadBalance(accounts[0]);
@@ -69,8 +68,7 @@ export default function MarketplacePage() {
   // Reload token balances when account changes or when tokens are loaded with account available
   useEffect(() => {
     if (tokens.length > 0) {
-      console.log('🔄 Reloading token balances, account:', account || 'not connected');
-      loadTokenBalances(tokens);
+            loadTokenBalances(tokens);
     }
   }, [account]);
 
@@ -89,8 +87,7 @@ export default function MarketplacePage() {
         setBalance(parseFloat(formattedBalance).toFixed(4));
       }
     } catch (err) {
-      console.error('Error loading balance:', err);
-      setBalance('Error');
+            setBalance('Error');
     }
   };
 
@@ -100,16 +97,14 @@ export default function MarketplacePage() {
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
         if (accounts && accounts.length > 0) {
           setAccount(accounts[0]);
-          console.log('✅ Wallet connected:', accounts[0]);
-          loadBalance(accounts[0]);
+                    loadBalance(accounts[0]);
           // Reload token balances if tokens are already loaded
           if (tokens.length > 0) {
             loadTokenBalances(tokens);
           }
         }
       } catch (err) {
-        console.error('Error checking wallet:', err);
-      }
+              }
     }
   };
 
@@ -120,14 +115,12 @@ export default function MarketplacePage() {
         return;
       }
 
-      console.log('🔗 Requesting wallet connection...');
-      
+            
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       if (accounts && accounts.length > 0) {
         setAccount(accounts[0]);
         setError(null);
-        console.log('✅ Wallet connected:', accounts[0]);
-        loadBalance(accounts[0]);
+                loadBalance(accounts[0]);
         // Reload token balances when wallet connects
         if (tokens.length > 0) {
           loadTokenBalances(tokens);
@@ -136,8 +129,7 @@ export default function MarketplacePage() {
         alert(`✅ Wallet Connected!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🔐 Account:\n${accounts[0]}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       }
     } catch (err: any) {
-      console.error('Error connecting wallet:', err);
-      
+            
       if (err.code === 4001) {
         setError('🚫 Connection Cancelled\n\nYou rejected the connection request in MetaMask');
       } else {
@@ -153,8 +145,7 @@ export default function MarketplacePage() {
         return;
       }
 
-      console.log('🔄 Requesting account switch...');
-
+      
       // Request to switch account
       await window.ethereum.request({
         method: 'wallet_requestPermissions',
@@ -166,8 +157,7 @@ export default function MarketplacePage() {
       if (accounts && accounts.length > 0) {
         setAccount(accounts[0]);
         setError(null);
-        console.log('✅ Switched to:', accounts[0]);
-        loadBalance(accounts[0]);
+                loadBalance(accounts[0]);
         // Reload token balances when account switches
         if (tokens.length > 0) {
           loadTokenBalances(tokens);
@@ -177,12 +167,10 @@ export default function MarketplacePage() {
         alert(`✅ Account Switched!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🔄 New Account:\n${accounts[0]}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       }
     } catch (err: any) {
-      console.error('Error switching account:', err);
-      
+            
       if (err.code === 4001) {
         // User rejected
-        console.log('User cancelled account switch');
-      } else {
+              } else {
         setError(`❌ Failed to Switch Account\n\n${err.message || 'Unknown error occurred'}`);
       }
     }
@@ -208,8 +196,7 @@ export default function MarketplacePage() {
         loadTokenPrices(result.data);
       }
     } catch (err) {
-      console.error('Error loading tokens:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load tokens');
+            setError(err instanceof Error ? err.message : 'Failed to load tokens');
     } finally {
       setLoading(false);
     }
@@ -254,13 +241,10 @@ export default function MarketplacePage() {
             try {
               const userBalance = await tokenContract.balanceOf(account);
               userBalanceFormatted = ethers.formatUnits(userBalance, tokenDecimals);
-              console.log(`💰 User balance for ${token.symbol} (${token._id}): ${userBalanceFormatted} (raw: ${userBalance.toString()})`);
-            } catch (err) {
-              console.error(`Error loading user balance for token ${token._id}:`, err);
-            }
+                          } catch (err) {
+                          }
           } else {
-            console.log(`⚠️ No account connected, skipping user balance for token ${token.symbol}`);
-          }
+                      }
 
           // Format balances respecting token decimals
           // Show up to the number of decimals the token has, but at least 4 decimal places
@@ -285,8 +269,7 @@ export default function MarketplacePage() {
             userBalance: formatBalance(userBalanceNum)
           };
         } catch (err) {
-          console.error(`Error loading balances for token ${token._id}:`, err);
-          balances[token._id || ''] = {
+                    balances[token._id || ''] = {
             adminBalance: 'Error',
             userBalance: 'Error'
           };
@@ -295,8 +278,7 @@ export default function MarketplacePage() {
 
       setTokenBalances(balances);
     } catch (err) {
-      console.error('Error loading token balances:', err);
-    }
+          }
   };
 
   const loadTokenPrices = async (tokensList: Token[]) => {
@@ -334,17 +316,14 @@ export default function MarketplacePage() {
           const priceEth = parseFloat(ethers.formatEther(priceWei));
           
           prices[token._id || ''] = priceEth;
-          console.log(`💰 Token ${token.symbol} price from contract: ${priceEth} ETH per token`);
-        } catch (err) {
-          console.error(`Error loading price for token ${token._id}:`, err);
-          // If price can't be loaded, set to undefined (will show "Price not set")
+                  } catch (err) {
+                    // If price can't be loaded, set to undefined (will show "Price not set")
         }
       }
 
       setTokenPrices(prices);
     } catch (err) {
-      console.error('Error loading token prices:', err);
-    }
+          }
   };
 
   const buyToken = async (token: Token, amount: string) => {
@@ -386,10 +365,7 @@ export default function MarketplacePage() {
       // This is stored as: wei per smallest unit of token
       const priceWeiPerUnit = await tokenContractReadOnly.pricePerToken();
 
-      console.log(`📍 Price Debug:`);
-      console.log(`   Raw from contract: ${priceWeiPerUnit.toString()}`);
-      console.log(`   Formatted as ETH per token: ${ethers.formatEther(priceWeiPerUnit * (BigInt(10) ** BigInt(token.decimals)))}`);
-
+                  
       if (priceWeiPerUnit === 0n) {
         setError(`❌ Price Not Set\n\nThe token "${token.symbol}" doesn't have a price configured in the contract.\n\nContact the token admin to set a price.`);
         setBuying(null);
@@ -421,15 +397,7 @@ export default function MarketplacePage() {
       const pricePerTokenEth = parseFloat(ethers.formatEther(pricePerTokenWei));
       const totalPriceEth = amountNum * pricePerTokenEth;
 
-      console.log(`\n💰 PURCHASE DETAILS:`);
-      console.log(`   Amount: ${amountNum} ${token.symbol}`);
-      console.log(`   Amount in units: ${purchaseAmountInUnits.toString()}`);
-      console.log(`   Price per unit (from contract): ${priceWeiPerUnit.toString()} wei`);
-      console.log(`   Calculation: ${priceWeiPerUnit.toString()} * ${purchaseAmountInUnits.toString()} = ${totalPriceWei.toString()}`);
-      console.log(`   Total price in wei: ${totalPriceWei.toString()}`);
-      console.log(`   Total price in ETH: ${ethers.formatEther(totalPriceWei)}`);
-      console.log(`   User will send: value = ${totalPriceWei.toString()} wei\n`);
-      
+                                                      
       // Pre-flight checks before attempting transaction
       try {
         // Check if token is paused
@@ -458,8 +426,7 @@ export default function MarketplacePage() {
         // Re-throw preflight errors with better context
         throw preflightError;
       }
-      console.log('totalPriceWei', totalPriceWei);
-      // Use buyToken contract method - it handles token transfer and ETH payment
+            // Use buyToken contract method - it handles token transfer and ETH payment
       const tx = await tokenContract.buyToken(purchaseAmountInUnits, { value: totalPriceWei });
       
       await tx.wait();
@@ -473,8 +440,7 @@ export default function MarketplacePage() {
       setError(null);
       alert(`✅ Purchase Successful!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Tokens Received: ${amountNum} ${token.symbol}\n💰 Total Price: ${ethers.formatEther(totalPriceWei)} ETH\n\n📜 Transaction Hash:\n${tx.hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     } catch (err) {
-      console.error('Error buying token:', err);
-      
+            
       const error = err as { reason?: string; message?: string; code?: string; data?: string };
       let errorMsg = '';
       
@@ -604,8 +570,7 @@ export default function MarketplacePage() {
         provider
       );
 
-      console.log('🔍 Checking compliance for:', userAddress);
-
+      
       let diagnostic = '🔍 Compliance Diagnostic Report\n\n';
       diagnostic += '━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
       diagnostic += `📍 Your Address: ${userAddress}\n`;
@@ -774,8 +739,7 @@ export default function MarketplacePage() {
 
       setError(diagnostic);
     } catch (err: any) {
-      console.error('Error checking compliance:', err);
-      setError(`❌ Error Checking Compliance\n\n${err.message || 'Unknown error occurred'}`);
+            setError(`❌ Error Checking Compliance\n\n${err.message || 'Unknown error occurred'}`);
     } finally {
       setCheckingCompliance(null);
     }
@@ -828,8 +792,7 @@ export default function MarketplacePage() {
         signer
       );
 
-      console.log(`📤 Transferring ${amountNum} ${token.symbol} to ${recipient}`);
-      
+            
       const tx = await tokenContract.transfer(recipient, ethers.parseUnits(amountNum.toString(), token.decimals));
       
       await tx.wait();
@@ -842,8 +805,7 @@ export default function MarketplacePage() {
       setError(null);
       alert(`✅ Transfer Successful!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Amount: ${amountNum} ${token.symbol}\n📫 To: ${recipient.substring(0, 10)}...${recipient.substring(recipient.length - 8)}\n\n📜 Transaction Hash:\n${tx.hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     } catch (err: any) {
-      console.error('Error transferring token:', err);
-      
+            
       let errorMsg = '❌ Transfer Failed\n\n';
       
       // Check for specific error messages

@@ -74,8 +74,7 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
       
       // Step 1: Create token
       setCurrentStep('Creating token on blockchain...');
-      console.log('🏭 Creating token with factory...');
-      
+            
       if (typeof window === 'undefined' || !window.ethereum) {
         throw new Error('MetaMask not available');
       }
@@ -116,8 +115,7 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
           (typeof ensError === 'object' && ensError !== null && 'code' in ensError && ensError.code === 'UNSUPPORTED_OPERATION');
         
         if (isEnsError) {
-          console.warn('⚠️ ENS error detected, creating provider without network config:', ensError);
-          // Fallback: create provider without network config
+                    // Fallback: create provider without network config
           // This may still trigger ENS errors, but we'll handle them in the main catch block
           provider = new ethers.BrowserProvider(window.ethereum);
           signer = await provider.getSigner();
@@ -134,11 +132,7 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
 
       // Use createTokenWithRegistries to configure IdentityRegistry and TrustedIssuersRegistry
       // For ClaimTopicsRegistry, we'll set it to address(0) for now (can be configured later per token)
-      console.log('📋 Creating token with registries...');
-      console.log('  Identity Registry:', IDENTITY_REGISTRY_ADDRESS);
-      console.log('  Trusted Issuers Registry:', TRUSTED_ISSUERS_REGISTRY_ADDRESS);
-      console.log('  Initial Supply (maxTotalSupply):', initialSupply);
-      
+                              
       // Tope de suministro en wei (0 = sin tope, D-022). Se fija tras crear el token.
       const maxSupplyWei = initialSupply ? ethers.parseUnits(initialSupply, parseInt(decimals)) : BigInt(0);
 
@@ -154,28 +148,19 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
         ZERO_ADDRESS
       );
       
-      console.log('📝 Transaction sent:', tx.hash);
-      setCurrentStep('Waiting for confirmation...');
+            setCurrentStep('Waiting for confirmation...');
       // After creating the token, fetch and log the admin's token balance
     
       const receipt = await tx.wait();
-      console.log('✅ Token created! Receipt:', receipt);
-      console.log('📊 Total logs in receipt:', receipt?.logs?.length || 0);
-      
+                  
       // Method 1: Try to get token address from event logs
       let tokenAddress: string | null = null;
       
       if (receipt && receipt.logs) {
-        console.log('🔍 Searching for TokenCreated event in logs...');
-        
+                
         for (let i = 0; i < receipt.logs.length; i++) {
           const log = receipt.logs[i];
-          console.log(`Log ${i}:`, {
-            address: log.address,
-            topics: log.topics,
-            data: log.data
-          });
-          
+                    
           try {
             // Try to parse the log
             const parsed = factory.interface.parseLog({
@@ -183,37 +168,30 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
               data: log.data,
             });
             
-            console.log(`✅ Parsed log ${i}:`, parsed?.name, parsed?.args);
-            
+                        
             if (parsed && parsed.name === 'TokenCreated') {
               tokenAddress = parsed.args.token;
-              console.log('🎉 Token address found from event:', tokenAddress);
-              break;
+                            break;
             }
           } catch (error) {
             // This log is not from our contract or not a TokenCreated event
-            console.log(`⚠️ Could not parse log ${i}:`, error);
-            continue;
+                        continue;
           }
         }
       }
 
       // Method 2: If not found in logs, query the contract directly
       if (!tokenAddress) {
-        console.log('⚠️ Event not found in logs, trying to query contract...');
-        try {
+                try {
           const totalTokens = await factory.getTotalTokens();
-          console.log('Total tokens in factory:', totalTokens.toString());
-          
+                    
           if (totalTokens > 0) {
             // Get the last token created (most recent)
             const lastIndex = Number(totalTokens) - 1;
             tokenAddress = await factory.getTokenAt(lastIndex);
-            console.log('🎉 Token address from contract query:', tokenAddress);
-          }
+                      }
         } catch (queryError) {
-          console.error('❌ Failed to query contract:', queryError);
-        }
+                  }
       }
 
       // Try to fetch admin balance after getting token address
@@ -231,22 +209,16 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
           const tokenDecimals = await tokenContract.decimals();
           const tokenSymbol = await tokenContract.symbol();
           const formatBalance = ethers.formatUnits(balance, tokenDecimals);
-          console.log(`💰 BALANCE for user (${userAddress}): ${formatBalance} ${tokenSymbol}`);
-        } else {
-          console.log('⚠️ Could not determine the created token address to fetch balance.');
-        }
+                  } else {
+                  }
       } catch (err) {
-        console.error('❌ Error fetching admin balance after creation:', err);
-      }
+              }
 
       if (!tokenAddress) {
         throw new Error('Could not retrieve token address. Please check the transaction on the block explorer.');
       }
 
-      console.log('✅ Token created with registries configured:');
-      console.log('  Identity Registry:', IDENTITY_REGISTRY_ADDRESS);
-      console.log('  Trusted Issuers Registry:', TRUSTED_ISSUERS_REGISTRY_ADDRESS);
-
+                  
       // Step 2 (O2.4): crear el ClaimTopicsRegistry del token y asignarlo. RF-W-11 fail-closed:
       // un token sin claimTopicsRegistry no verifica a nadie.
       if (selectedClaims.length === 0) {
@@ -291,30 +263,23 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
       if (addCompliance) {
         try {
           setCurrentStep('Setting compliance contract...');
-          console.log('🔒 Setting compliance aggregator...');
-          
+                    
           // `tokenContract` (TokenCloneableAbi) ya se creó al asignar el ClaimTopicsRegistry
           const complianceTx = await tokenContract.addComplianceModule(COMPLIANCE_AGGREGATOR_ADDRESS);
-          console.log('📝 Compliance transaction sent:', complianceTx.hash);
-          
+                    
           setCurrentStep('Waiting for compliance confirmation...');
           await complianceTx.wait();
-          console.log('✅ Compliance module added!');
-          
+                    
           complianceAddress = COMPLIANCE_AGGREGATOR_ADDRESS;
         } catch (complianceError) {
-          console.warn('⚠️ Failed to add compliance module (this is optional):', complianceError);
-          console.warn('Token was created successfully, but compliance was not added.');
-          console.warn('You can add it manually later using the button in the token card.');
-          // Don't throw - token was created successfully
+                                        // Don't throw - token was created successfully
           complianceAddress = ''; // Clear compliance address since it wasn't set
         }
       }
 
       // Step 5: Save to MongoDB
       setCurrentStep('Saving to database...');
-      console.log('💾 Saving token to MongoDB...');
-      
+            
       const saveResponse = await fetch('/api/tokens', {
         method: 'POST',
         headers: {
@@ -341,15 +306,12 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
 
       const saveResult = await saveResponse.json();
       
-      console.log('💾 MongoDB save result:', saveResult);
-
+      
       if (!saveResult.success) {
-        console.error('❌ Failed to save to MongoDB:', saveResult);
-        throw new Error(`Token created on blockchain but failed to save to database: ${saveResult.message || saveResult.error}`);
+                throw new Error(`Token created on blockchain but failed to save to database: ${saveResult.message || saveResult.error}`);
       }
 
-      console.log('✅ Token saved to MongoDB successfully!');
-      
+            
       const registriesMessage = `\n✓ Identity Registry configured\n✓ Trusted Issuers Registry configured`;
       
       const complianceMessage = complianceAddress 
@@ -381,8 +343,7 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
       
       onSuccess();
     } catch (err: unknown) {
-      console.error('Error creating token:', err);
-      
+            
       let errorMsg = '❌ Failed to Create Token\n\n';
       
       // Type guard helper
@@ -399,8 +360,7 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
       if (errorCode === 'UNSUPPORTED_OPERATION' && errorMessage.includes('ENS')) {
         // Ignore ENS errors on local networks - this is not a real error
         // Just log it and continue with the actual error if there is one
-        console.warn('⚠️ ENS not supported on local network (this is expected):', errorMessage);
-        // Don't show this as an error to the user - it's expected on local networks
+                // Don't show this as an error to the user - it's expected on local networks
         // Reset state and return silently
         setCreating(false);
         setCurrentStep('');
@@ -429,8 +389,7 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
               const abiCoder = AbiCoder.defaultAbiCoder();
               revertReason = abiCoder.decode(['string'], errorData)[0];
             } catch (decodeErr) {
-              console.warn('Could not decode error data:', decodeErr);
-            }
+                          }
           }
         }
         
@@ -456,16 +415,8 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
       
       // Log detailed error information for debugging
       if (isErrorWithCode(err)) {
-        console.error('Detailed error information:', {
-          code: err.code,
-          message: err.message,
-          reason: err.reason,
-          data: err.data,
-          error: err.error
-        });
-      } else {
-        console.error('Error is not an object:', err);
-      }
+              } else {
+              }
       
       setError(errorMsg);
       setCurrentStep('');
