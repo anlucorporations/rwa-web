@@ -6,7 +6,7 @@
 #   ./scripts/smoke_app_o0.sh
 #
 # Requiere que las apps estén construidas (`pnpm --filter <app> build`).
-# Levanta web-identity y web-token con el entorno real de GCP y comprueba que
+# Levanta apps/identity y apps/token con el entorno real de GCP y comprueba que
 # sus rutas de API responden 200 sirviendo datos desde PostgreSQL (nada de Mongo).
 # =============================================================================
 set -uo pipefail
@@ -73,17 +73,17 @@ start_app() {
   return 0
 }
 
-echo "[smoke-app-o0] Levantando web-identity (4101) y web-token (4103)…"
-start_app web-identity 4101
-start_app web-token 4103
+echo "[smoke-app-o0] Levantando apps/identity (4101) y apps/token (4103)…"
+start_app apps/identity 4101
+start_app apps/token 4103
 sleep 3
 
-probe web-identity 4101 /api/claim-requests '"success":true'
-probe web-identity 4101 /api/test-gridfs '"success":true'
-probe web-identity 4101 /api/health '"chainId":31337'
-probe web-token 4103 /api/tokens '"success":true'
-probe web-token 4103 /api/test-db '"database":"rwa"'
-probe web-token 4103 /api/health '"database":"ok"'
+probe apps/identity 4101 /api/claim-requests '"success":true'
+probe apps/identity 4101 /api/test-gridfs '"success":true'
+probe apps/identity 4101 /api/health '"chainId":31337'
+probe apps/token 4103 /api/tokens '"success":true'
+probe apps/token 4103 /api/test-db '"database":"rwa"'
+probe apps/token 4103 /api/health '"database":"ok"'
 
 echo
 if [ "$fail" -eq 0 ]; then

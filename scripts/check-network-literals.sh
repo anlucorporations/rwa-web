@@ -21,9 +21,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 TARGETS=(
-  web-identity/app web-identity/components web-identity/contexts web-identity/lib web-identity/contracts
-  web-registry-trusted/app web-registry-trusted/components web-registry-trusted/contexts web-registry-trusted/lib
-  web-token/app web-token/components web-token/contexts web-token/lib
+  apps/identity/app apps/identity/components apps/identity/contexts apps/identity/lib apps/identity/contracts
+  apps/issuer/app apps/issuer/components apps/issuer/contexts apps/issuer/lib
+  apps/token/app apps/token/components apps/token/contexts apps/token/lib
   packages/shared/src
 )
 

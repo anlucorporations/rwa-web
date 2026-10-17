@@ -109,9 +109,9 @@ login() {
     -d "$(jq -nc --arg m "$msg" --arg s "$sig" '{message:$m,signature:$s}')"
 }
 
-echo "[test-review-o1] Levantando web-identity (4111) y web-registry-trusted (4112)…"
-start_app web-identity $ID
-start_app web-registry-trusted $REG
+echo "[test-review-o1] Levantando apps/identity (4111) y apps/issuer (4112)…"
+start_app apps/identity $ID
+start_app apps/issuer $REG
 for _ in $(seq 1 40); do curl -s --max-time 2 -o /dev/null "http://localhost:$ID/api/health" && curl -s --max-time 2 -o /dev/null "http://localhost:$REG/api/health" && break; sleep 1; done
 
 ID_BASE="http://localhost:$ID"

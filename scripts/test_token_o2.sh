@@ -3,7 +3,7 @@
 # test_token_o2.sh — Gate de la API de alta de token (O2.4, RF-W-11)
 # =============================================================================
 # Uso:
-#   pnpm --filter web-identity --filter web-token build
+#   pnpm --filter apps/identity --filter apps/token build
 #   ./scripts/test_token_o2.sh
 #
 # Comprueba, con sesión SIWE real:
@@ -62,9 +62,9 @@ start_app() { local app=$1 port=$2; free_port "$port"; ( cd "$ROOT/$app" && exec
 code() { curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$@"; }
 check() { if [ "$3" = "$2" ]; then echo "✓ $1 → $3"; else echo "✗ $1 → $3 (esperado $2)"; FAIL=$((FAIL + 1)); fi; }
 
-echo "[test-token-o2] Levantando web-identity (4121) y web-token (4123)…"
-start_app web-identity $ID_PORT
-start_app web-token $TOK_PORT
+echo "[test-token-o2] Levantando apps/identity (4121) y apps/token (4123)…"
+start_app apps/identity $ID_PORT
+start_app apps/token $TOK_PORT
 for _ in $(seq 1 40); do curl -s --max-time 2 -o /dev/null "http://localhost:$ID_PORT/api/health" && curl -s --max-time 2 -o /dev/null "http://localhost:$TOK_PORT/api/health" && break; sleep 1; done
 
 BASE_TOK="http://localhost:$TOK_PORT"

@@ -3,7 +3,7 @@
 # test_e2e_o2.sh — E2E del flujo completo contra el Anvil de GCP (O2.7)
 # =============================================================================
 # Uso:
-#   pnpm --filter web-identity --filter web-registry-trusted build
+#   pnpm --filter apps/identity --filter apps/issuer build
 #   ./scripts/test_e2e_o2.sh
 #
 # Flujo real (sin mocks):
@@ -127,8 +127,8 @@ echo "  ✓ CLAIM_TYPEHASH on-chain alineado con el código (uriHash incluido)"
 
 echo
 echo "[1] El inversor crea la solicitud (sesión SIWE + API)"
-start_app web-identity $ID_PORT
-start_app web-registry-trusted $REG_PORT
+start_app apps/identity $ID_PORT
+start_app apps/issuer $REG_PORT
 for _ in $(seq 1 40); do curl -s --max-time 2 -o /dev/null "http://localhost:$ID_PORT/api/health" && curl -s --max-time 2 -o /dev/null "http://localhost:$REG_PORT/api/health" && break; sleep 1; done
 login "http://localhost:$ID_PORT" "$REQUESTER" "$REQUESTER_KEY" /tmp/e2e_jar_req.txt || { echo "✗ login inversor"; exit 1; }
 CREATE="$(curl -s --max-time 20 -b /tmp/e2e_jar_req.txt -X POST "http://localhost:$ID_PORT/api/claim-requests" -H 'Content-Type: application/json' \

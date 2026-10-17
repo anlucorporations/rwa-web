@@ -3,11 +3,11 @@
 # test_auth_o1.sh — Suite de autorización del ciclo O1 (O1.7)
 # =============================================================================
 # Uso:
-#   pnpm -r --filter web-identity --filter web-registry-trusted --filter web-token build
+#   pnpm -r --filter apps/identity --filter apps/issuer --filter apps/token build
 #   ./scripts/test_auth_o1.sh
 #
-# Requiere las 3 apps construidas (usa `next start`). Levanta web-identity (4111),
-# web-registry-trusted (4112) y web-token (4113) con el entorno real de GCP y:
+# Requiere las 3 apps construidas (usa `next start`). Levanta apps/identity (4111),
+# apps/issuer (4112) y apps/token (4113) con el entorno real de GCP y:
 #   1. Comprueba que TODA mutación/protección responde 401 sin cookie.
 #   2. Comprueba que /api/test-* responde 404 sin ALLOW_DEBUG_ENDPOINTS=1 (RF-W-07).
 #   3. Comprueba que el marketplace (GET /api/tokens) y /api/health siguen públicos.
@@ -70,9 +70,9 @@ check() { # nombre esperado real
 }
 
 echo "[test-auth-o1] Levantando las 3 apps…"
-start_app web-identity 4111
-start_app web-registry-trusted 4112
-start_app web-token 4113
+start_app apps/identity 4111
+start_app apps/issuer 4112
+start_app apps/token 4113
 
 for _ in $(seq 1 40); do
   if curl -s --max-time 2 -o /dev/null http://localhost:4111/api/health \
@@ -90,7 +90,7 @@ check "GET /api/health (token)" 200 "$(code http://localhost:4113/api/health)"
 check "GET /api/tokens (marketplace público)" 200 "$(code http://localhost:4113/api/tokens)"
 
 echo
-echo "— web-identity: rechazo anónimo (401) —"
+echo "— apps/identity: rechazo anónimo (401) —"
 check "GET /api/claim-requests" 401 "$(code http://localhost:4111/api/claim-requests)"
 check "POST /api/claim-requests" 401 "$(code -X POST -H 'Content-Type: application/json' -d '{}' http://localhost:4111/api/claim-requests)"
 check "POST /api/upload" 401 "$(code -X POST http://localhost:4111/api/upload)"
@@ -100,7 +100,7 @@ check "GET /api/auth/session sin cookie" 401 "$(code http://localhost:4111/api/a
 check "GET /api/auth/session cookie falsificada" 401 "$(code -H 'Cookie: rwa_session=abc.def' http://localhost:4111/api/auth/session)"
 
 echo
-echo "— web-registry-trusted: rechazo anónimo (401) —"
+echo "— apps/issuer: rechazo anónimo (401) —"
 check "GET /api/issuer-requests" 401 "$(code 'http://localhost:4112/api/issuer-requests?issuerAddress=0x0000000000000000000000000000000000000000')"
 check "GET /api/issuers" 401 "$(code 'http://localhost:4112/api/issuers?address=0x0000000000000000000000000000000000000000')"
 check "POST /api/issuers" 401 "$(code -X POST -H 'Content-Type: application/json' -d '{}' http://localhost:4112/api/issuers)"
@@ -108,7 +108,7 @@ check "POST /api/update-request" 401 "$(code -X POST -H 'Content-Type: applicati
 check "GET /api/download/[fileId]" 401 "$(code "http://localhost:4112/api/download/$NULL_UUID")"
 
 echo
-echo "— web-token: rechazo anónimo (401) —"
+echo "— apps/token: rechazo anónimo (401) —"
 check "POST /api/tokens" 401 "$(code -X POST -H 'Content-Type: application/json' -d '{}' http://localhost:4113/api/tokens)"
 for sub in claims compliance modules price; do
   check "POST /api/tokens/[id]/$sub" 401 "$(code -X POST -H 'Content-Type: application/json' -d '{}' "http://localhost:4113/api/tokens/$NULL_UUID/$sub")"

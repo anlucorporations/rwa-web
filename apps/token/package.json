@@ -1,5 +1,5 @@
 {
-  "name": "web-token",
+  "name": "@rwa/token",
   "version": "0.1.0",
   "private": true,
   "scripts": {
