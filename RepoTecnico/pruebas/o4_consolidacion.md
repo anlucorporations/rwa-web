@@ -1,7 +1,7 @@
 # Evidencia O4 — Consolidación en monorepo (parcial: 4.1, 4.4, 4.5) · 2026-10-17
 
 > **Ciclo:** O4 (plan §O4) · **Requisitos:** RF-W-14, RF-W-18, RT-W-05 · **Decisión:** D-089.
-> **Estado:** O4.1 ✅ · O4.2 ✅ (validación + cliente API; `packages/{ui,config}` diferido con O4.3) · O4.3 (parcial) · O4.4 ✅ · O4.5 ✅ · O4.6/O4.7 ⏳.
+> **Estado:** O4.1 ✅ · O4.2 ✅ · O4.3 (parcial) · O4.4 ✅ · O4.5 ✅ · O4.6 **parcial (fundación wagmi+viem)** · O4.7 ⏳.
 
 ## O4.1 · Estructura del monorepo
 
@@ -93,3 +93,37 @@ los componentes migren en O4.7 (TanStack Query).
 `test_token_o2.sh` **5/5** · `./scripts/ci_local.sh` **exit 0** (builds + 35 tests).
 
 *Fin de la evidencia — O4.2*
+
+
+## O4.6 · Stack web3 único (parcial: fundación)
+
+### Configuración compartida — `@rwa/shared/web3`
+- `anvilGcpChain` (viem `defineChain`) con `id = CANONICAL_CHAIN_ID` y RPC inyectado por `NEXT_PUBLIC_RPC_URL` (sin literales).
+- `createWagmiConfig()`: `createConfig` con conector `injected()`, transporte HTTP y `ssr: true`.
+
+### Providers en las 3 apps
+`apps/*/components/Web3Providers.tsx` (`'use client'`): `WagmiProvider` + `QueryClientProvider`
+(**base ya lista para O4.7**) y cableado en los 3 `layout.tsx` (en identidad, envolviendo al
+`WalletProvider` existente).
+
+### Capa de wallet migrada (identidad)
+`apps/identity/contexts/WalletContext.tsx` deja de usar `window.ethereum` directo y pasa a
+`useAccount`/`useConnect`/`useDisconnect`/`useSwitchChain` de wagmi (conector inyectado, switch a la
+cadena canónica). Conserva la API pública que consumen los componentes, incluido un
+`ethers.BrowserProvider` derivado del conector mientras dure la migración de los contratos a viem.
+
+### Verificación
+`tsc --noEmit` 0 errores en las 3 apps · `./scripts/ci_local.sh` **exit 0** (build ×3 con SSR de
+providers + 35 tests) · `test_auth_o1.sh` **30/30** · gate de literales 0.
+
+### Pendiente (siguientes rondas)
+| Ámbito | `window.ethereum` restantes |
+|---|---|
+| `apps/token` | 42 (marketplace 24, TokensList 8, CreateTokenForm 4, factory 2, ejemplo 4) |
+| `apps/issuer` | 22 (dashboard 13, page 5, RequestDetailModal 4) |
+| `apps/identity` | 14 (lib/contracts 9, ClaimRequestForm 2, RequestDetailModal 2, …) |
+
+Migrar esos componentes de `ethers.Contract` a hooks `useReadContract`/`useWriteContract`/`useSignTypedData`
+de wagmi+viem, y retirar `ethers` cuando no queden usos.
+
+*Fin de la evidencia — O4.6 (fundación)*

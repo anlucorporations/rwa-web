@@ -12,7 +12,8 @@
     "./contracts": "./src/contracts/index.ts",
     "./network": "./src/network/index.ts",
     "./claims": "./src/claims/eip712.ts",
-    "./validation": "./src/validation/index.ts"
+    "./validation": "./src/validation/index.ts",
+    "./web3": "./src/web3/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -25,7 +26,8 @@
     "pg": "^8.13.0",
     "pino": "^9.5.0",
     "viem": "^2.57.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "wagmi": "^2.14.0"
   },
   "devDependencies": {
     "@types/node": "^20",

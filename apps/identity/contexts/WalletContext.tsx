@@ -1,24 +1,25 @@
-"use client";
+'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { ethers } from 'ethers';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { ethers, type Eip1193Provider } from 'ethers';
+import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
+
 import { CANONICAL_CHAIN_ID } from '@rwa/shared/network';
-import { 
-  setupBesuNetwork, 
-  getWalletName,
-  debugWallets 
-} from '@/lib/contracts';
 
+/**
+ * Capa de wallet de la app de identidad (O4.6).
+ *
+ * Se apoya en **wagmi** (conector inyectado) en lugar de `window.ethereum` directo.
+ * Mantiene la misma API pública que consumían los componentes, incluido el
+ * `ethers.BrowserProvider` mientras dure la migración de los contratos a viem.
+ */
 interface WalletContextType {
-  // State
   provider: ethers.BrowserProvider | null;
   account: string;
   walletName: string;
   isConnected: boolean;
   isConnecting: boolean;
   error: string;
-  
-  // Actions
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
   clearError: () => void;
@@ -26,186 +27,71 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-// Helper to get the preferred wallet provider
-function getPreferredProvider() {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  // Use window.ethereum (MetaMask or other compatible wallet)
-  if (window.ethereum) {
-    return window.ethereum;
-  }
-
-  return null;
-}
-
 export function WalletProvider({ children }: { children: ReactNode }) {
+  const { address, isConnected, connector } = useAccount();
+  const { connectAsync, connectors, isPending, error: connectError } = useConnect();
+  const { disconnect } = useDisconnect();
+  const { switchChainAsync } = useSwitchChain();
+
   const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
-  const [account, setAccount] = useState<string>('');
-  const [walletName, setWalletName] = useState<string>('');
-  const [isConnecting, setIsConnecting] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState('');
 
-  const isConnected = !!account && !!provider;
-
-  // Create a BrowserProvider from the wallet
-  const createBrowserProvider = useCallback(() => {
-    const walletProvider = getPreferredProvider();
-    if (!walletProvider) {
-      return null;
+  // Deriva un BrowserProvider de ethers a partir del proveedor del conector wagmi.
+  useEffect(() => {
+    let cancelled = false;
+    if (!connector) {
+      setProvider(null);
+      return;
     }
-
-    // Create a custom network for the canonical chain to avoid unnecessary RPC calls
-    const canonicalNetwork = {
-      chainId: CANONICAL_CHAIN_ID,
-      name: 'canonical',
-    };
-
-    return new ethers.BrowserProvider(walletProvider, canonicalNetwork);
-  }, []);
-
-  // Check if wallet is already connected on mount
-  useEffect(() => {
-    const checkConnection = async () => {
+    void (async () => {
       try {
-        debugWallets();
-        const name = getWalletName();
-        setWalletName(name);
-
-        if (name === 'None') {
-          return;
-        }
-
-        const browserProvider = createBrowserProvider();
-        if (!browserProvider) {
-          return;
-        }
-
-        const accounts = await browserProvider.listAccounts();
-        if (accounts.length > 0) {
-          setProvider(browserProvider);
-          setAccount(accounts[0].address);
-        }
-      } catch (err) {
-              }
-    };
-
-    checkConnection();
-  }, [createBrowserProvider]);
-
-  // Listen for account changes
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const walletProvider = window.ethereum;
-    if (!walletProvider) return;
-
-    const handleAccountsChanged = (accounts: string[]) => {
-            
-      if (accounts.length === 0) {
-        // User disconnected
-        setProvider(null);
-        setAccount('');
-      } else {
-        // Account switched - recreate provider with new account
-        const newProvider = createBrowserProvider();
-        setProvider(newProvider);
-        setAccount(accounts[0]);
+        const eip1193 = (await connector.getProvider()) as Eip1193Provider;
+        if (!cancelled) setProvider(new ethers.BrowserProvider(eip1193));
+      } catch {
+        if (!cancelled) setProvider(null);
       }
-    };
-
-    const handleChainChanged = (chainId: string) => {
-            // Reload the page on chain change (common practice)
-      window.location.reload();
-    };
-
-    const handleDisconnect = () => {
-            setProvider(null);
-      setAccount('');
-    };
-
-    // Support both 'on' and 'addEventListener' patterns
-    if (typeof walletProvider.on === 'function') {
-      walletProvider.on('accountsChanged', handleAccountsChanged);
-      walletProvider.on('chainChanged', handleChainChanged);
-      walletProvider.on('disconnect', handleDisconnect);
-          } else {
-          }
-
+    })();
     return () => {
-      if (typeof walletProvider.removeListener === 'function') {
-        walletProvider.removeListener('accountsChanged', handleAccountsChanged);
-        walletProvider.removeListener('chainChanged', handleChainChanged);
-        walletProvider.removeListener('disconnect', handleDisconnect);
-      } else if (typeof walletProvider.removeAllListeners === 'function') {
-        walletProvider.removeAllListeners('accountsChanged');
-        walletProvider.removeAllListeners('chainChanged');
-        walletProvider.removeAllListeners('disconnect');
-      }
+      cancelled = true;
     };
-  }, [createBrowserProvider]);
+  }, [connector, address]);
+
+  useEffect(() => {
+    if (connectError) setError(connectError.message);
+  }, [connectError]);
 
   const connectWallet = useCallback(async () => {
-    setIsConnecting(true);
     setError('');
-
     try {
-      if (typeof window === 'undefined' || !window.ethereum) {
-        throw new Error('No crypto wallet detected. Please install MetaMask or a compatible wallet.');
+      const target = connectors.find((item) => item.id === 'injected') ?? connectors[0];
+      if (!target) {
+        throw new Error('No se detectó una wallet. Instala MetaMask o una compatible.');
       }
-
-      const name = getWalletName();
-      setWalletName(name);
-
-      // Create provider
-      const browserProvider = createBrowserProvider();
-      if (!browserProvider) {
-        throw new Error('Failed to create wallet provider');
+      await connectAsync({ connector: target });
+      try {
+        await switchChainAsync({ chainId: CANONICAL_CHAIN_ID });
+      } catch {
+        // La wallet puede no soportar cambio de cadena; la UI lo refleja con el chainId.
       }
-
-      // Request accounts from the wallet
-      const accounts = await browserProvider.send('eth_requestAccounts', []);
-      
-      if (accounts.length === 0) {
-        throw new Error('No accounts found. Please create an account in your wallet.');
-      }
-
-      // Setup/switch to the canonical network
-      await setupBesuNetwork();
-
-      // Set state
-      setProvider(browserProvider);
-      setAccount(accounts[0]);
-      
-          } catch (err) {
-            const error = err as Error;
-      setError(error.message || 'Failed to connect wallet');
-      
-      // Clear state on error
-      setProvider(null);
-      setAccount('');
-    } finally {
-      setIsConnecting(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo conectar la wallet');
     }
-  }, [createBrowserProvider]);
+  }, [connectAsync, connectors, switchChainAsync]);
 
   const disconnectWallet = useCallback(() => {
+    disconnect();
     setProvider(null);
-    setAccount('');
     setError('');
-      }, []);
+  }, [disconnect]);
 
-  const clearError = useCallback(() => {
-    setError('');
-  }, []);
+  const clearError = useCallback(() => setError(''), []);
 
   const value: WalletContextType = {
     provider,
-    account,
-    walletName,
+    account: address ?? '',
+    walletName: connector?.name ?? '',
     isConnected,
-    isConnecting,
+    isConnecting: isPending,
     error,
     connectWallet,
     disconnectWallet,
@@ -215,11 +101,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }
 
-export function useWallet() {
+export function useWallet(): WalletContextType {
   const context = useContext(WalletContext);
   if (context === undefined) {
     throw new Error('useWallet must be used within a WalletProvider');
   }
   return context;
 }
-
