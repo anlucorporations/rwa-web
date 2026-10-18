@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useAccount } from 'wagmi';
 import { ethers } from 'ethers';
 import Link from 'next/link';
 import Header from '@/components/Header';
@@ -9,6 +10,7 @@ import { Token } from '@/types/token';
 import { CLAIM_DESCRIPTIONS } from '@/types/token';
 import { TOKEN_CLONE_FACTORY_ADDRESS } from '@/lib/contracts';
 import { ZERO_ADDRESS } from '@rwa/shared/network';
+import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
 import {
   ClaimTopicsRegistryAbi,
   IdentityCloneableAbi,
@@ -16,6 +18,7 @@ import {
 } from '@rwa/shared/contracts';
 
 export default function MarketplacePage() {
+  const { address: wagmiAddress } = useAccount();
   const [tokens, setTokens] = useState<Token[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,40 +33,30 @@ export default function MarketplacePage() {
   useEffect(() => {
     loadTokens();
     checkWallet();
-    
-    // Listen for account changes
-    if (typeof window !== 'undefined' && window.ethereum) {
-      const handleAccountsChanged = (accounts: string[]) => {
-                if (accounts && accounts.length > 0) {
-          setAccount(accounts[0]);
-          setError(null);
-          loadBalance(accounts[0]);
-          // Reload token balances when account changes
-          if (tokens.length > 0) {
-            loadTokenBalances(tokens);
-          }
-        } else {
-          setAccount('');
-          setBalance('');
-          // Clear user balances when disconnected
-          setTokenBalances(prev => {
-            const updated = { ...prev };
-            Object.keys(updated).forEach(key => {
-              updated[key] = { ...updated[key], userBalance: '0' };
-            });
-            return updated;
-          });
-        }
-      };
-
-      window.ethereum.on('accountsChanged', handleAccountsChanged);
-
-      // Cleanup
-      return () => {
-        window.ethereum?.removeListener('accountsChanged', handleAccountsChanged);
-      };
-    }
   }, []);
+
+  // Sincroniza la cuenta con wagmi (sustituye a los listeners del proveedor inyectado).
+  useEffect(() => {
+    if (wagmiAddress) {
+      setAccount(wagmiAddress);
+      void loadBalance(wagmiAddress);
+      if (tokens.length > 0) {
+        void loadTokenBalances(tokens);
+      }
+    } else {
+      setAccount('');
+      setBalance('');
+      // Limpia los saldos de usuario al desconectar
+      setTokenBalances((prev) => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach((key) => {
+          updated[key] = { ...updated[key], userBalance: '0' };
+        });
+        return updated;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wagmiAddress]);
 
   // Reload token balances when account changes or when tokens are loaded with account available
   useEffect(() => {
@@ -80,8 +73,11 @@ export default function MarketplacePage() {
     
     try {
       const { ethers } = await import('ethers');
-      if (typeof window !== 'undefined' && window.ethereum) {
-        const provider = new ethers.BrowserProvider(window.ethereum);
+      const eip1193 = await getInjectedEip1193();
+      if (eip1193) {
+        const provider = new ethers.BrowserProvider(
+          eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
+        );
         const balance = await provider.getBalance(address);
         const formattedBalance = ethers.formatEther(balance);
         setBalance(parseFloat(formattedBalance).toFixed(4));
@@ -92,12 +88,14 @@ export default function MarketplacePage() {
   };
 
   const checkWallet = async () => {
-    if (typeof window !== 'undefined' && window.ethereum) {
+    if (isInjectedWalletAvailable()) {
       try {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        const eip1193 = await getInjectedEip1193();
+        if (!eip1193) return;
+        const accounts = (await eip1193.request({ method: 'eth_accounts' })) as string[];
         if (accounts && accounts.length > 0) {
           setAccount(accounts[0]);
-                    loadBalance(accounts[0]);
+          loadBalance(accounts[0]);
           // Reload token balances if tokens are already loaded
           if (tokens.length > 0) {
             loadTokenBalances(tokens);
@@ -110,13 +108,17 @@ export default function MarketplacePage() {
 
   const connectWallet = async () => {
     try {
-      if (typeof window === 'undefined' || !window.ethereum) {
+      if (!isInjectedWalletAvailable()) {
         setError('❌ MetaMask Not Installed\n\nPlease install the MetaMask extension:\nhttps://metamask.io/download/');
         return;
       }
 
-            
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const eip1193 = await getInjectedEip1193();
+      if (!eip1193) {
+        setError('❌ MetaMask Not Installed\n\nPlease install the MetaMask extension:\nhttps://metamask.io/download/');
+        return;
+      }
+      const accounts = (await eip1193.request({ method: 'eth_requestAccounts' })) as string[];
       if (accounts && accounts.length > 0) {
         setAccount(accounts[0]);
         setError(null);
@@ -140,20 +142,25 @@ export default function MarketplacePage() {
 
   const switchAccount = async () => {
     try {
-      if (typeof window === 'undefined' || !window.ethereum) {
+      if (!isInjectedWalletAvailable()) {
         setError('❌ MetaMask Not Installed\n\nPlease install MetaMask extension to use this feature.');
         return;
       }
 
-      
+      const eip1193 = await getInjectedEip1193();
+      if (!eip1193) {
+        setError('❌ MetaMask Not Installed\n\nPlease install MetaMask extension to use this feature.');
+        return;
+      }
+
       // Request to switch account
-      await window.ethereum.request({
+      await eip1193.request({
         method: 'wallet_requestPermissions',
         params: [{ eth_accounts: {} }],
       });
 
-      // Get new account (this will trigger accountsChanged event)
-      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+      // Get new account
+      const accounts = (await eip1193.request({ method: 'eth_accounts' })) as string[];
       if (accounts && accounts.length > 0) {
         setAccount(accounts[0]);
         setError(null);
@@ -212,8 +219,11 @@ export default function MarketplacePage() {
       const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
 
       let provider: any = null;
-      if (typeof window !== 'undefined' && window.ethereum) {
-        provider = new ethers.BrowserProvider(window.ethereum);
+      const eip1193 = await getInjectedEip1193();
+      if (eip1193) {
+        provider = new ethers.BrowserProvider(
+          eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
+        );
       } else {
         // If no wallet, we can still load admin balances using a read-only provider
         const { NETWORK_CONFIG } = await import('@/lib/contracts');
@@ -291,8 +301,11 @@ export default function MarketplacePage() {
       const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
 
       let provider: any = null;
-      if (typeof window !== 'undefined' && window.ethereum) {
-        provider = new ethers.BrowserProvider(window.ethereum);
+      const eip1193 = await getInjectedEip1193();
+      if (eip1193) {
+        provider = new ethers.BrowserProvider(
+          eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
+        );
       } else {
         // Use read-only provider
         const { NETWORK_CONFIG } = await import('@/lib/contracts');
@@ -343,14 +356,20 @@ export default function MarketplacePage() {
       setBuying(token._id);
       setError(null);
 
-      if (typeof window === 'undefined' || !window.ethereum) {
+      if (!isInjectedWalletAvailable()) {
         throw new Error('MetaMask is not installed.\n\nPlease install MetaMask to buy tokens.');
       }
 
       const { ethers } = await import('ethers');
       const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const eip1193 = await getInjectedEip1193();
+      if (!eip1193) {
+        throw new Error('No se pudo acceder a la wallet');
+      }
+      const provider = new ethers.BrowserProvider(
+        eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
+      );
       const signer = await provider.getSigner();
       const buyerAddress = await signer.getAddress();
 
@@ -553,14 +572,20 @@ export default function MarketplacePage() {
       setCheckingCompliance(token._id || '');
       setError(null);
 
-      if (typeof window === 'undefined' || !window.ethereum) {
+      if (!isInjectedWalletAvailable()) {
         throw new Error('MetaMask is not installed');
       }
 
       const { ethers } = await import('ethers');
       const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const eip1193 = await getInjectedEip1193();
+      if (!eip1193) {
+        throw new Error('No se pudo acceder a la wallet');
+      }
+      const provider = new ethers.BrowserProvider(
+        eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
+      );
       const signer = await provider.getSigner();
       const userAddress = await signer.getAddress();
 
@@ -777,13 +802,19 @@ export default function MarketplacePage() {
       setTransferring(token._id || '');
       setError(null);
 
-      if (typeof window === 'undefined' || !window.ethereum) {
+      if (!isInjectedWalletAvailable()) {
         throw new Error('MetaMask is not installed.\n\nPlease install MetaMask to transfer tokens.');
       }
 
       const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
 
-      provider = new ethers.BrowserProvider(window.ethereum);
+      const eip1193 = await getInjectedEip1193();
+      if (!eip1193) {
+        throw new Error('No se pudo acceder a la wallet');
+      }
+      provider = new ethers.BrowserProvider(
+        eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
+      );
       signer = await provider.getSigner();
 
       tokenContract = new ethers.Contract(
@@ -816,9 +847,12 @@ export default function MarketplacePage() {
         try {
           // Recreate provider/signer/contract if not available
           if (!provider || !signer || !tokenContract) {
-            if (typeof window !== 'undefined' && window.ethereum) {
+            const eip1193 = await getInjectedEip1193();
+            if (eip1193) {
               const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
-              provider = new ethers.BrowserProvider(window.ethereum);
+              provider = new ethers.BrowserProvider(
+                eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
+              );
               signer = await provider.getSigner();
               tokenContract = new ethers.Contract(
                 token.tokenAddress,

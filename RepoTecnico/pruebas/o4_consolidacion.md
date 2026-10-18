@@ -120,10 +120,15 @@ providers + 35 tests) · `test_auth_o1.sh` **30/30** · gate de literales 0.
 - `@rwa/shared/web3`: singleton `getWagmiConfig()` (los providers usan la misma instancia), `isInjectedWalletAvailable()` y `getInjectedEip1193()` (sustituyen a `window.ethereum`).
 - `apps/token`: migrados `CreateTokenForm`, `app/factory` y `TokensList` al helper del conector; eliminado `lib/examples/TokenFactoryExample.tsx` (muerto). **42 → 24** usos (solo queda `app/marketplace/page.tsx`, 24).
 
+### Ronda 3 · `apps/token` completa
+`app/marketplace/page.tsx` migrado: listeners manuales sustituidos por `useAccount` de wagmi (sincroniza la
+cuenta), y todos los proveedores/signers derivan del conector inyectado (`getInjectedEip1193`).
+**`apps/token`: 42 → 0 usos de `window.ethereum`.**
+
 ### Pendiente (siguientes rondas)
 | Ámbito | `window.ethereum` restantes |
 |---|---|
-| `apps/token` | **24** (solo marketplace) |
+| `apps/token` | **0** ✅ (ronda 3: marketplace migrado) |
 | `apps/issuer` | 22 (dashboard 13, page 5, RequestDetailModal 4) |
 | `apps/identity` | 14 (lib/contracts 9, ClaimRequestForm 2, RequestDetailModal 2, …) |
 
