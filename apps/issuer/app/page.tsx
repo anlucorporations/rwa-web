@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ethers, BrowserProvider } from 'ethers';
+import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
 import Header from '@/components/Header';
 import HeroSection from '@/components/HeroSection';
 import FeaturesSection from '@/components/FeaturesSection';
@@ -24,9 +25,13 @@ export default function LandingPage() {
   }, []);
 
   const checkMetaMask = async () => {
-    if (typeof window !== 'undefined' && typeof window.ethereum !== 'undefined') {
+    if (isInjectedWalletAvailable()) {
       try {
-        const provider = new BrowserProvider(window.ethereum);
+        const eip1193 = await getInjectedEip1193();
+        if (!eip1193) return;
+        const provider = new BrowserProvider(
+          eip1193 as unknown as ConstructorParameters<typeof BrowserProvider>[0],
+        );
         const accounts = await provider.listAccounts();
         if (accounts.length > 0) {
           const signer = await provider.getSigner();
@@ -54,13 +59,20 @@ export default function LandingPage() {
   };
 
   const connectWallet = async () => {
-    if (typeof window === 'undefined' || typeof window.ethereum === 'undefined') {
+    if (!isInjectedWalletAvailable()) {
       alert('Please install MetaMask to interact with this application');
       return;
     }
 
     try {
-      const provider = new BrowserProvider(window.ethereum);
+      const eip1193 = await getInjectedEip1193();
+      if (!eip1193) {
+        alert('Please install MetaMask to interact with this application');
+        return;
+      }
+      const provider = new BrowserProvider(
+        eip1193 as unknown as ConstructorParameters<typeof BrowserProvider>[0],
+      );
       await provider.send('eth_requestAccounts', []);
       const signer = await provider.getSigner();
       const address = await signer.getAddress();
@@ -68,7 +80,7 @@ export default function LandingPage() {
       setIsConnected(true);
 
       try {
-        await window.ethereum.request({
+        await eip1193.request({
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: `0x${NETWORK_CONFIG.chainId.toString(16)}` }],
         });

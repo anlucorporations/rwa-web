@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { ethers, BrowserProvider } from 'ethers';
+import { useAccount } from 'wagmi';
+import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
 import {
   TRUSTED_ISSUERS_REGISTRY_ADDRESS,
   TRUSTED_ISSUERS_REGISTRY_ABI,
@@ -33,6 +35,7 @@ function getRpcUrlForDisplay(): string {
 }
 
 export default function Home() {
+  const { address: wagmiAddress } = useAccount();
   const [issuers, setIssuers] = useState<string[]>([]);
   const [issuerDetails, setIssuerDetails] = useState<IssuerData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,49 +54,21 @@ export default function Home() {
   const [selectedRequest, setSelectedRequest] = useState<ClaimRequest | null>(null);
   const [requestsRefreshTrigger, setRequestsRefreshTrigger] = useState(0);
 
-  const handleAccountsChanged = useCallback((accounts: unknown) => {
-    const accountsArray = accounts as string[];
-    if (accountsArray.length === 0) {
-      // User disconnected their wallet
-      setAccount('');
-      setIsOwner(false);
-            alert('Wallet disconnected');
-    } else {
-      // User switched accounts
-      const newAccount = accountsArray[0];
-      setAccount(newAccount);
-            
-      // Show notification
-      const isNewOwner = newAccount.toLowerCase() === CONTRACT_OWNER.toLowerCase();
-      alert(`Account changed to: ${newAccount}\n${isNewOwner ? '✓ You are the contract owner' : '✗ You are not the owner'}`);
-    }
-  }, []);
-
-  const handleChainChanged = useCallback(() => {
-    // When the network changes, reload the page
-        window.location.reload();
-  }, []);
-
-  const setupAccountListener = useCallback(() => {
-    if (typeof window !== 'undefined' && window.ethereum && window.ethereum.on) {
-      window.ethereum.on('accountsChanged', handleAccountsChanged);
-      window.ethereum.on('chainChanged', handleChainChanged);
-          }
-  }, [handleAccountsChanged, handleChainChanged]);
-
   useEffect(() => {
     loadTrustedIssuers();
     checkMetaMask();
-    setupAccountListener();
-    
-    // Cleanup function
-    return () => {
-      if (typeof window !== 'undefined' && window.ethereum && window.ethereum.removeListener) {
-        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-        window.ethereum.removeListener('chainChanged', handleChainChanged);
-      }
-    };
-  }, [setupAccountListener, handleAccountsChanged, handleChainChanged]);
+  }, []);
+
+  // Sincroniza la cuenta con wagmi (sustituye a los listeners del proveedor inyectado).
+  useEffect(() => {
+    if (wagmiAddress) {
+      setAccount(wagmiAddress);
+    } else {
+      setAccount('');
+      setIsOwner(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wagmiAddress]);
 
   useEffect(() => {
     if (account) {
@@ -135,9 +110,13 @@ export default function Home() {
   };
 
   const checkMetaMask = async () => {
-    if (typeof window !== 'undefined' && typeof window.ethereum !== 'undefined') {
+    if (isInjectedWalletAvailable()) {
       try {
-        const provider = new BrowserProvider(window.ethereum);
+        const eip1193 = await getInjectedEip1193();
+        if (!eip1193) return;
+        const provider = new BrowserProvider(
+          eip1193 as unknown as ConstructorParameters<typeof BrowserProvider>[0],
+        );
         const accounts = await provider.listAccounts();
         if (accounts.length > 0) {
           const signer = await provider.getSigner();
@@ -150,13 +129,20 @@ export default function Home() {
   };
 
   const connectWallet = async () => {
-    if (typeof window === 'undefined' || typeof window.ethereum === 'undefined') {
+    if (!isInjectedWalletAvailable()) {
       alert('Please install MetaMask to interact with this application');
       return;
     }
 
     try {
-      const provider = new BrowserProvider(window.ethereum);
+      const eip1193 = await getInjectedEip1193();
+      if (!eip1193) {
+        alert('Please install MetaMask to interact with this application');
+        return;
+      }
+      const provider = new BrowserProvider(
+        eip1193 as unknown as ConstructorParameters<typeof BrowserProvider>[0],
+      );
       await provider.send('eth_requestAccounts', []);
       const signer = await provider.getSigner();
       const address = await signer.getAddress();
@@ -164,7 +150,7 @@ export default function Home() {
 
       // Switch to the correct network
       try {
-        await window.ethereum.request({
+        await eip1193.request({
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: `0x${NETWORK_CONFIG.chainId.toString(16)}` }],
         });
@@ -237,10 +223,16 @@ export default function Home() {
       setAddingIssuer(true);
       setError(null);
 
-      if (typeof window.ethereum === 'undefined') {
+      if (!isInjectedWalletAvailable()) {
         throw new Error('MetaMask no disponible');
       }
-      const provider = new BrowserProvider(window.ethereum);
+      const eip1193 = await getInjectedEip1193();
+      if (!eip1193) {
+        throw new Error('No se pudo acceder a la wallet');
+      }
+      const provider = new BrowserProvider(
+        eip1193 as unknown as ConstructorParameters<typeof BrowserProvider>[0],
+      );
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(
         TRUSTED_ISSUERS_REGISTRY_ADDRESS,

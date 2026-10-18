@@ -15,6 +15,7 @@ import {
 } from '@rwa/shared/contracts';
 import { buildClaimTypedData, type ClaimPayload } from '@rwa/shared/claims';
 import { CANONICAL_CHAIN_ID, ZERO_ADDRESS, assertCanonicalChain, getRpcUrl } from '@rwa/shared/network';
+import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
 
 interface RequestDetailModalProps {
   request: ClaimRequest;
@@ -34,12 +35,18 @@ export default function RequestDetailModal({ request, onClose, onUpdate, issuerA
 
   const signReviewDecision = async (status: 'approved' | 'rejected'): Promise<{ signedMessage: string; signature: string }> => {
     try {
-      if (typeof window === 'undefined' || !window.ethereum) {
+      if (!isInjectedWalletAvailable()) {
         throw new Error('MetaMask not available');
       }
 
       const { ethers } = await import('ethers');
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const eip1193 = await getInjectedEip1193();
+      if (!eip1193) {
+        throw new Error('No se pudo acceder a la wallet');
+      }
+      const provider = new ethers.BrowserProvider(
+        eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
+      );
       const signer = await provider.getSigner();
       
       // Create message with review decision
@@ -76,11 +83,17 @@ I hereby ${status === 'approved' ? 'APPROVE' : 'REJECT'} this claim request with
    * después `addClaim` con esta firma.
    */
   const signClaim = async (): Promise<{ payload: ClaimPayload; signature: string }> => {
-    if (typeof window === 'undefined' || !window.ethereum) {
+    if (!isInjectedWalletAvailable()) {
       throw new Error('MetaMask not available');
     }
     const { ethers } = await import('ethers');
-    const browserProvider = new ethers.BrowserProvider(window.ethereum);
+    const eip1193 = await getInjectedEip1193();
+    if (!eip1193) {
+      throw new Error('No se pudo acceder a la wallet');
+    }
+    const browserProvider = new ethers.BrowserProvider(
+      eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
+    );
     const signer = await browserProvider.getSigner();
     const network = await browserProvider.getNetwork();
     const chainId = Number(network.chainId);

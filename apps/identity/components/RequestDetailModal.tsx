@@ -11,6 +11,7 @@ import { ClaimRequest } from '@/types/claim-request';
 import { IdentityCloneableAbi } from '@rwa/shared/contracts';
 import { ZERO_ADDRESS } from '@rwa/shared/network';
 
+import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
 interface RequestDetailModalProps {
   request: ClaimRequest;
   onClose: () => void;
@@ -43,14 +44,20 @@ export default function RequestDetailModal({ request, onClose, identityAddress, 
       setError(null);
 
                         
-      if (typeof window === 'undefined' || !window.ethereum) {
+      if (!isInjectedWalletAvailable()) {
         throw new Error('MetaMask not available');
+      }
+      const eip1193 = await getInjectedEip1193();
+      if (!eip1193) {
+        throw new Error('No se pudo acceder a la wallet');
       }
 
       // Dynamic import of ethers
       const { ethers } = await import('ethers');
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new ethers.BrowserProvider(
+        eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
+      );
       const signer = await provider.getSigner();
 
       const identityContract = new ethers.Contract(identityAddress, IdentityCloneableAbi, signer);

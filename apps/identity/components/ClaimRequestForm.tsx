@@ -9,6 +9,7 @@
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useWallet } from '@/contexts/WalletContext';
+import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
 import {
   TRUSTED_ISSUERS_REGISTRY_ADDRESS,
   TRUSTED_ISSUERS_REGISTRY_ABI,
@@ -193,11 +194,17 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
 
   const signMessage = async (): Promise<{ signedMessage: string; signature: string }> => {
     try {
-      if (typeof window === 'undefined' || !window.ethereum) {
+      if (!isInjectedWalletAvailable()) {
         throw new Error('MetaMask not available');
       }
+      const eip1193 = await getInjectedEip1193();
+      if (!eip1193) {
+        throw new Error('No se pudo acceder a la wallet');
+      }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new ethers.BrowserProvider(
+        eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
+      );
       const signer = await provider.getSigner();
       
       // Create message with requester address + timestamp

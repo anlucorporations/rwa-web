@@ -9,7 +9,7 @@ import { CANONICAL_CHAIN_ID } from '@rwa/shared/network';
 /**
  * Capa de wallet de la app de identidad (O4.6).
  *
- * Se apoya en **wagmi** (conector inyectado) en lugar de `window.ethereum` directo.
+ * Se apoya en **wagmi** (conector inyectado) en lugar del proveedor inyectado directo.
  * Mantiene la misma API pública que consumían los componentes, incluido el
  * `ethers.BrowserProvider` mientras dure la migración de los contratos a viem.
  */

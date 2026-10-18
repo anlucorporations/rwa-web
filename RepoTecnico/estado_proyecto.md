@@ -2,7 +2,7 @@
 
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
 > **Línea:** `@web` (`rwa-web/`) — separada de `@sc` (`rwa-sc/`) por D-102
-> **Versión:** v1.9 · 2026-10-18 · **Fase 3 — O0, O1 y O3 cerrados; O2 pendiente de redespliegue de GCP; O4 en curso (4.1/4.2/4.4/4.5 hechos; 4.3 y 4.6 parciales)**
+> **Versión:** v2.0 · 2026-10-18 · **Fase 3 — O0, O1 y O3 cerrados; O2 pendiente de redespliegue de GCP; O4: 4.1/4.2/4.4/4.5 hechos, 4.6 casi completo (0 `window.ethereum`), 4.3 parcial**
 >
 > **Memoria de trabajo de la etapa.** El registro global del proyecto (contratos + etapa web)
 > sigue en `rwa-sc/RepoTecnico/estado_proyecto.md`; este archivo gobierna el día a día de `@web`.
@@ -138,7 +138,7 @@ el E2E off-chain está en verde, pero el on-chain está bloqueado por el desplie
 | O4.3 | Eliminar duplicados | 🟡 `TrustedIssuersRegistry` y tipos comunes consolidados; queda `RequestDetailModal` ×2 (requiere `packages/ui`) | `o4_consolidacion.md` |
 | O4.4 | Destino de `web-registry-trusted2` | ✅ **Retirada** (duplicado experimental) | `o4_consolidacion.md` |
 | O4.5 | Destino de `web-rwa` | ✅ **Retirada** (landing fuera del objetivo de 3 apps) | `o4_consolidacion.md` |
-| O4.6 | Unificar web3 en `wagmi`+`viem`; 0 `window.ethereum` | 🟡 **Fundación hecha** (`@rwa/shared/web3`, providers en 3 layouts, WalletContext migrado); quedan 78 usos en componentes | `o4_consolidacion.md` |
+| O4.6 | Unificar web3 en `wagmi`+`viem`; 0 `window.ethereum` | 🟡 **`window.ethereum` = 0** en todo el monorepo (82→0). Queda retirar `ethers` de las llamadas a contratos (paso a viem) | `o4_consolidacion.md` |
 | O4.7 | Estado de datos con TanStack Query | ⏳ | — |
 
 **Gate del ciclo:** `pnpm -r build && pnpm -r test` en verde + conteo de duplicados = 0. *(Parcial: builds/tests en verde; quedan O4.2/O4.6/O4.7 y el `RequestDetailModal`.)*
@@ -201,4 +201,4 @@ los espejos deben ser idénticos byte a byte (gate `check_sincronizacion_datos.s
 
 ---
 
-*Fin del documento — estado_proyecto.md (etapa `@web`) v1.9*
+*Fin del documento — estado_proyecto.md (etapa `@web`) v2.0*

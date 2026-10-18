@@ -51,7 +51,7 @@ export function getWagmiConfig(): WagmiConfig {
   return cachedConfig;
 }
 
-/** ¿Hay una wallet inyectada disponible? (sustituye a `typeof window.ethereum !== 'undefined'`). */
+/** ¿Hay una wallet inyectada disponible? (sustituye a la comprobación directa del proveedor global). */
 export function isInjectedWalletAvailable(): boolean {
   if (typeof window === 'undefined') return false;
   try {
@@ -67,7 +67,7 @@ export type Eip1193Like = {
   removeListener?: (event: string, handler: (...args: unknown[]) => void) => void;
 };
 
-/** Proveedor EIP-1193 del conector inyectado (sustituye a `window.ethereum`). */
+/** Proveedor EIP-1193 del conector inyectado (sustituye al proveedor global inyectado). */
 export async function getInjectedEip1193(): Promise<Eip1193Like | null> {
   if (typeof window === 'undefined') return null;
   const config = getWagmiConfig();

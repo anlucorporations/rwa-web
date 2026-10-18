@@ -1,7 +1,7 @@
 # Evidencia O4 — Consolidación en monorepo (parcial: 4.1, 4.4, 4.5) · 2026-10-17
 
 > **Ciclo:** O4 (plan §O4) · **Requisitos:** RF-W-14, RF-W-18, RT-W-05 · **Decisión:** D-089.
-> **Estado:** O4.1 ✅ · O4.2 ✅ · O4.3 (parcial) · O4.4 ✅ · O4.5 ✅ · O4.6 **parcial (fundación wagmi+viem)** · O4.7 ⏳.
+> **Estado:** O4.1 ✅ · O4.2 ✅ · O4.3 (parcial) · O4.4 ✅ · O4.5 ✅ · O4.6 **casi completo: 0 `window.ethereum`** (queda retirar `ethers` de los contratos) · O4.7 ⏳.
 
 ## O4.1 · Estructura del monorepo
 
@@ -120,7 +120,15 @@ providers + 35 tests) · `test_auth_o1.sh` **30/30** · gate de literales 0.
 - `@rwa/shared/web3`: singleton `getWagmiConfig()` (los providers usan la misma instancia), `isInjectedWalletAvailable()` y `getInjectedEip1193()` (sustituyen a `window.ethereum`).
 - `apps/token`: migrados `CreateTokenForm`, `app/factory` y `TokensList` al helper del conector; eliminado `lib/examples/TokenFactoryExample.tsx` (muerto). **42 → 24** usos (solo queda `app/marketplace/page.tsx`, 24).
 
-### Ronda 3 · `apps/token` completa
+### Rondas 4–5 · `apps/issuer` y `apps/identity` completas
+- **issuer**: `dashboard`/`page` sustituyen listeners manuales por `useAccount` de wagmi; `dashboard`, `page`
+  y `RequestDetailModal` derivan provider/signer del conector inyectado.
+- **identity**: `lib/contracts.ts` elimina los helpers de wallet muertos (`getPreferredProvider`,
+  `setupBesuNetwork`, `getWalletName`, `debugWallets`); `ClaimRequestForm` y `RequestDetailModal` usan el
+  helper del conector; `WalletContext` ya estaba migrado.
+- **`window.ethereum` en todo el monorepo: 82 → 0.** ✅ (RT-W-02, primer criterio)
+
+## Ronda 3 · `apps/token` completa
 `app/marketplace/page.tsx` migrado: listeners manuales sustituidos por `useAccount` de wagmi (sincroniza la
 cuenta), y todos los proveedores/signers derivan del conector inyectado (`getInjectedEip1193`).
 **`apps/token`: 42 → 0 usos de `window.ethereum`.**
@@ -129,10 +137,11 @@ cuenta), y todos los proveedores/signers derivan del conector inyectado (`getInj
 | Ámbito | `window.ethereum` restantes |
 |---|---|
 | `apps/token` | **0** ✅ (ronda 3: marketplace migrado) |
-| `apps/issuer` | 22 (dashboard 13, page 5, RequestDetailModal 4) |
-| `apps/identity` | 14 (lib/contracts 9, ClaimRequestForm 2, RequestDetailModal 2, …) |
+| `apps/issuer` | **0** ✅ |
+| `apps/identity` | **0** ✅ |
 
-Migrar esos componentes de `ethers.Contract` a hooks `useReadContract`/`useWriteContract`/`useSignTypedData`
-de wagmi+viem, y retirar `ethers` cuando no queden usos.
+**Siguiente paso de O4.6:** quedan **12 ficheros que aún usan `ethers`** para llamadas a contratos. Migrarlos a
+hooks `useReadContract`/`useWriteContract`/`useSignTypedData` (o `readContract`/`writeContract` de viem actions)
+y desinstalar `ethers`. Después, O4.7 (TanStack Query).
 
 *Fin de la evidencia — O4.6 (fundación)*
