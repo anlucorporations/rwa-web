@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ethers, BrowserProvider } from 'ethers';
-import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
+import { useAccount, useConnect, useDisconnect, useReadContract } from 'wagmi';
+
 import Header from '@/components/Header';
 import HeroSection from '@/components/HeroSection';
 import FeaturesSection from '@/components/FeaturesSection';
@@ -11,100 +10,46 @@ import Footer from '@/components/Footer';
 import {
   TRUSTED_ISSUERS_REGISTRY_ADDRESS,
   TRUSTED_ISSUERS_REGISTRY_ABI,
-  NETWORK_CONFIG,
 } from '@/lib/contracts';
 
+/**
+ * Landing de la app de emisor. Migrada a wagmi+viem (O4.6): cuenta y conexión
+ * vienen de los hooks y el contador de emisores es una lectura tipada.
+ */
 export default function LandingPage() {
-  const [account, setAccount] = useState<string>('');
-  const [isConnected, setIsConnected] = useState(false);
-  const [issuersCount, setIssuersCount] = useState(0);
+  const { address, isConnected } = useAccount();
+  const { connectAsync, connectors } = useConnect();
+  const { disconnect } = useDisconnect();
 
-  useEffect(() => {
-    checkMetaMask();
-    loadIssuersCount();
-  }, []);
+  const { data: issuersCountRaw } = useReadContract({
+    address: TRUSTED_ISSUERS_REGISTRY_ADDRESS,
+    abi: TRUSTED_ISSUERS_REGISTRY_ABI,
+    functionName: 'getTrustedIssuersCount',
+  });
 
-  const checkMetaMask = async () => {
-    if (isInjectedWalletAvailable()) {
-      try {
-        const eip1193 = await getInjectedEip1193();
-        if (!eip1193) return;
-        const provider = new BrowserProvider(
-          eip1193 as unknown as ConstructorParameters<typeof BrowserProvider>[0],
-        );
-        const accounts = await provider.listAccounts();
-        if (accounts.length > 0) {
-          const signer = await provider.getSigner();
-          const address = await signer.getAddress();
-          setAccount(address);
-          setIsConnected(true);
-        }
-      } catch (err) {
-              }
-    }
-  };
-
-  const loadIssuersCount = async () => {
-    try {
-      const provider = new ethers.JsonRpcProvider(NETWORK_CONFIG.rpcUrl);
-      const contract = new ethers.Contract(
-        TRUSTED_ISSUERS_REGISTRY_ADDRESS,
-        TRUSTED_ISSUERS_REGISTRY_ABI,
-        provider
-      );
-      const count = await contract.getTrustedIssuersCount();
-      setIssuersCount(Number(count));
-    } catch (err) {
-          }
-  };
+  const issuersCount = issuersCountRaw ? Number(issuersCountRaw) : 0;
 
   const connectWallet = async () => {
-    if (!isInjectedWalletAvailable()) {
-      alert('Please install MetaMask to interact with this application');
-      return;
-    }
-
     try {
-      const eip1193 = await getInjectedEip1193();
-      if (!eip1193) {
-        alert('Please install MetaMask to interact with this application');
-        return;
+      const target = connectors.find((connector) => connector.id === 'injected') ?? connectors[0];
+      if (!target) {
+        throw new Error('Please install MetaMask to interact with this application');
       }
-      const provider = new BrowserProvider(
-        eip1193 as unknown as ConstructorParameters<typeof BrowserProvider>[0],
-      );
-      await provider.send('eth_requestAccounts', []);
-      const signer = await provider.getSigner();
-      const address = await signer.getAddress();
-      setAccount(address);
-      setIsConnected(true);
-
-      try {
-        await eip1193.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: `0x${NETWORK_CONFIG.chainId.toString(16)}` }],
-        });
-      } catch (switchError: unknown) {
-        if ((switchError as { code?: number }).code === 4902) {
-          alert(`Please add network ${NETWORK_CONFIG.chainName} to MetaMask manually`);
-        }
-      }
-
+      await connectAsync({ connector: target });
     } catch (err) {
-            alert(err instanceof Error ? err.message : 'Error connecting wallet');
+      alert(err instanceof Error ? err.message : 'Error connecting wallet');
     }
   };
 
   const disconnectWallet = () => {
-    setAccount('');
-    setIsConnected(false);
+    disconnect();
   };
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 flex flex-col">
       {/* Header */}
       <Header
-        account={account}
+        account={address ?? ''}
         isConnected={isConnected}
         onConnectWallet={connectWallet}
         onDisconnect={disconnectWallet}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ethers } from 'ethers';
+import { useAccount, useConnect } from 'wagmi';
 import {
   TOKEN_CLONE_FACTORY_ADDRESS,
   NETWORK_CONFIG,
@@ -12,35 +12,25 @@ import TokensList from '@/components/TokensList';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
-
-import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
 export default function FactoryPage() {
-  const [connected, setConnected] = useState(false);
-  const [userAddress, setUserAddress] = useState('');
+  const { address, isConnected: connected } = useAccount();
+  const { connectAsync, connectors } = useConnect();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const userAddress = address ?? '';
 
   const handleTokenCreated = () => {
     setRefreshTrigger(prev => prev + 1);
   };
 
   const connectWallet = async () => {
-    if (!isInjectedWalletAvailable()) {
-      alert('Por favor instala MetaMask para continuar!');
-      return;
-    }
-
     try {
-      const eip1193 = await getInjectedEip1193();
-      if (!eip1193) throw new Error('Wallet no disponible');
-      const provider = new ethers.BrowserProvider(eip1193 as ethers.Eip1193Provider);
-      const signer = await provider.getSigner();
-      const address = await signer.getAddress();
-
-      setUserAddress(address);
-      setConnected(true);
-
-          } catch (err) {
-            alert('Error al conectar la wallet');
+      const target = connectors.find((connector) => connector.id === 'injected') ?? connectors[0];
+      if (!target) {
+        throw new Error('Por favor instala MetaMask para continuar!');
+      }
+      await connectAsync({ connector: target });
+    } catch {
+      alert('Error al conectar la wallet');
     }
   };
 
@@ -148,7 +138,7 @@ export default function FactoryPage() {
               <li>Automated compliance verification</li>
               <li>Investor claim requirements (KYC, Accreditation, Jurisdiction)</li>
               <li>Integrates with Compliance Aggregator</li>
-              <li>MongoDB storage for easy querying</li>
+              <li>PostgreSQL storage for easy querying</li>
             </ul>
             <div className="mt-3 text-xs text-blue-300">
               <p>Factory: <code className="font-mono">{TOKEN_CLONE_FACTORY_ADDRESS}</code></p>

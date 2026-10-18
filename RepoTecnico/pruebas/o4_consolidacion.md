@@ -145,3 +145,18 @@ hooks `useReadContract`/`useWriteContract`/`useSignTypedData` (o `readContract`/
 y desinstalar `ethers`. Después, O4.7 (TanStack Query).
 
 *Fin de la evidencia — O4.6 (fundación)*
+
+
+## Ronda 6 · Retirada progresiva de `ethers`
+
+- `apps/issuer/app/page.tsx` (landing): reescrita con `useAccount`/`useConnect`/`useDisconnect` y
+  `useReadContract` (`getTrustedIssuersCount`); sin `ethers`.
+- `apps/token/app/factory/page.tsx`: conexión con hooks de wagmi; sin `ethers`.
+- Eliminado `apps/issuer/lib/examples/TrustedIssuersExample.tsx` (muerto).
+- **`ethers` restante: 13 ficheros** (claims/contratos y componentes con lecturas/escrituras:
+  marketplace, TokensList, CreateTokenForm, dashboard de emisor, RequestDetailModal, WalletContext,
+  lib/contracts y lib/identity-claims). Siguiente: pasar esas llamadas a viem/wagmi y desinstalar `ethers`.
+
+**Verificación:** `tsc` 0 · lint 0 · `./scripts/ci_local.sh` exit 0 (build ×3 + 35 tests).
+
+*Fin de la evidencia — O4.6 (ronda 6)*
