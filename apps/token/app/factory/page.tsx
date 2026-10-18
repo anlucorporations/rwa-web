@@ -13,6 +13,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 
+import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
 export default function FactoryPage() {
   const [connected, setConnected] = useState(false);
   const [userAddress, setUserAddress] = useState('');
@@ -23,13 +24,15 @@ export default function FactoryPage() {
   };
 
   const connectWallet = async () => {
-    if (!window.ethereum) {
+    if (!isInjectedWalletAvailable()) {
       alert('Por favor instala MetaMask para continuar!');
       return;
     }
 
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const eip1193 = await getInjectedEip1193();
+      if (!eip1193) throw new Error('Wallet no disponible');
+      const provider = new ethers.BrowserProvider(eip1193 as ethers.Eip1193Provider);
       const signer = await provider.getSigner();
       const address = await signer.getAddress();
 

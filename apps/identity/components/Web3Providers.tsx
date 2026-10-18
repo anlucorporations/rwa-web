@@ -3,14 +3,14 @@
 import { useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
-import { createWagmiConfig } from '@rwa/shared/web3';
+import { getWagmiConfig } from '@rwa/shared/web3';
 
 /**
  * Providers web3 únicos (O4.6): wagmi + TanStack Query.
  * El QueryClient también sirve de base para O4.7.
  */
 export default function Web3Providers({ children }: { children: ReactNode }) {
-  const [config] = useState(() => createWagmiConfig());
+  const [config] = useState(() => getWagmiConfig());
   const [queryClient] = useState(
     () =>
       new QueryClient({

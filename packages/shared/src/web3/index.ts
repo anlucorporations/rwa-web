@@ -7,6 +7,7 @@
 
 import { defineChain } from 'viem';
 import { createConfig, http, injected } from 'wagmi';
+import { getAccount } from 'wagmi/actions';
 
 import { CANONICAL_CHAIN_ID, getRpcUrl } from '../network';
 
@@ -38,3 +39,44 @@ export function createWagmiConfig() {
 }
 
 export type WagmiConfig = ReturnType<typeof createWagmiConfig>;
+
+
+let cachedConfig: WagmiConfig | null = null;
+
+/** Config singleton: los hooks (WagmiProvider) y los helpers comparten la misma instancia. */
+export function getWagmiConfig(): WagmiConfig {
+  if (!cachedConfig) {
+    cachedConfig = createWagmiConfig();
+  }
+  return cachedConfig;
+}
+
+/** ¿Hay una wallet inyectada disponible? (sustituye a `typeof window.ethereum !== 'undefined'`). */
+export function isInjectedWalletAvailable(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return getWagmiConfig().connectors.some((connector) => connector.id === 'injected');
+  } catch {
+    return false;
+  }
+}
+
+export type Eip1193Like = {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  on?: (event: string, handler: (...args: unknown[]) => void) => void;
+  removeListener?: (event: string, handler: (...args: unknown[]) => void) => void;
+};
+
+/** Proveedor EIP-1193 del conector inyectado (sustituye a `window.ethereum`). */
+export async function getInjectedEip1193(): Promise<Eip1193Like | null> {
+  if (typeof window === 'undefined') return null;
+  const config = getWagmiConfig();
+  const account = getAccount(config);
+  const connector = account.connector ?? config.connectors.find((item) => item.id === 'injected');
+  if (!connector) return null;
+  try {
+    return (await connector.getProvider()) as unknown as Eip1193Like;
+  } catch {
+    return null;
+  }
+}

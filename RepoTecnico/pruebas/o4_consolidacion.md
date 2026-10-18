@@ -116,10 +116,14 @@ cadena canónica). Conserva la API pública que consumen los componentes, inclui
 `tsc --noEmit` 0 errores en las 3 apps · `./scripts/ci_local.sh` **exit 0** (build ×3 con SSR de
 providers + 35 tests) · `test_auth_o1.sh` **30/30** · gate de literales 0.
 
+### Avance de migración (ronda 2)
+- `@rwa/shared/web3`: singleton `getWagmiConfig()` (los providers usan la misma instancia), `isInjectedWalletAvailable()` y `getInjectedEip1193()` (sustituyen a `window.ethereum`).
+- `apps/token`: migrados `CreateTokenForm`, `app/factory` y `TokensList` al helper del conector; eliminado `lib/examples/TokenFactoryExample.tsx` (muerto). **42 → 24** usos (solo queda `app/marketplace/page.tsx`, 24).
+
 ### Pendiente (siguientes rondas)
 | Ámbito | `window.ethereum` restantes |
 |---|---|
-| `apps/token` | 42 (marketplace 24, TokensList 8, CreateTokenForm 4, factory 2, ejemplo 4) |
+| `apps/token` | **24** (solo marketplace) |
 | `apps/issuer` | 22 (dashboard 13, page 5, RequestDetailModal 4) |
 | `apps/identity` | 14 (lib/contracts 9, ClaimRequestForm 2, RequestDetailModal 2, …) |
 

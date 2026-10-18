@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react';
 import { Token } from '@/types/token';
 import { CLAIM_DESCRIPTIONS } from '@/types/token';
 import { TOKEN_CLONE_FACTORY_ADDRESS } from '@/lib/contracts';
+import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
 
 interface TokensListProps {
   adminAddress?: string;
@@ -49,14 +50,18 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
   };
 
   const loadAdminBalances = async () => {
-    if (!adminAddress || typeof window === 'undefined' || !window.ethereum) {
+    if (!adminAddress || !isInjectedWalletAvailable()) {
       return;
     }
 
     try {
       const { ethers } = await import('ethers');
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      
+      const eip1193 = await getInjectedEip1193();
+      if (!eip1193) return;
+      const provider = new ethers.BrowserProvider(
+        eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
+      );
+
       const MIN_ERC20_ABI = [
         "function balanceOf(address) view returns (uint256)",
         "function decimals() view returns (uint8)",
@@ -115,8 +120,11 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
 
       let provider: any = null;
-      if (typeof window !== 'undefined' && window.ethereum) {
-        provider = new ethers.BrowserProvider(window.ethereum);
+      const eip1193 = await getInjectedEip1193();
+      if (eip1193) {
+        provider = new ethers.BrowserProvider(
+          eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
+        );
       } else {
         // Use read-only provider
         const { NETWORK_CONFIG } = await import('@/lib/contracts');
@@ -216,15 +224,21 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       setError(null);
 
             
-      if (typeof window === 'undefined' || !window.ethereum) {
+      if (!isInjectedWalletAvailable()) {
         throw new Error('MetaMask not available');
+      }
+      const eip1193 = await getInjectedEip1193();
+      if (!eip1193) {
+        throw new Error('No se pudo acceder a la wallet');
       }
 
       // Dynamic import
       const { ethers } = await import('ethers');
       const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new ethers.BrowserProvider(
+        eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
+      );
       const signer = await provider.getSigner();
 
       // Verify we're the admin
@@ -417,15 +431,21 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
         }
 
         // Check if wallet is available
-        if (typeof window === 'undefined' || !window.ethereum) {
+        if (!isInjectedWalletAvailable()) {
           throw new Error('MetaMask is not installed.\n\nPlease install MetaMask to set token price.');
+        }
+        const eip1193 = await getInjectedEip1193();
+        if (!eip1193) {
+          throw new Error('No se pudo acceder a la wallet');
         }
 
         // Step 1: Set price on blockchain contract
         const { ethers } = await import('ethers');
         const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
 
-        const provider = new ethers.BrowserProvider(window.ethereum);
+        const provider = new ethers.BrowserProvider(
+          eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
+        );
         const signer = await provider.getSigner();
         
         const tokenContract = new ethers.Contract(

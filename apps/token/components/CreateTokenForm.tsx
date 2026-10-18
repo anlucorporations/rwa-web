@@ -19,6 +19,7 @@ import {
 import { IDENTITY_REGISTRY_ADDRESS, TRUSTED_ISSUERS_REGISTRY_ADDRESS } from '@/lib/contracts/registries';
 import { INVESTMENT_CLAIMS, CLAIM_DESCRIPTIONS } from '@/types/token';
 import { CANONICAL_CHAIN_ID, ZERO_ADDRESS, assertCanonicalChain } from '@rwa/shared/network';
+import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
 
 interface CreateTokenFormProps {
   userAddress: string;
@@ -75,15 +76,19 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
       // Step 1: Create token
       setCurrentStep('Creating token on blockchain...');
             
-      if (typeof window === 'undefined' || !window.ethereum) {
+      if (!isInjectedWalletAvailable()) {
         throw new Error('MetaMask not available');
+      }
+      const eip1193 = await getInjectedEip1193();
+      if (!eip1193) {
+        throw new Error('No se pudo acceder a la wallet');
       }
 
       // Create provider with explicit network config to avoid ENS resolution on local networks
       // Get chain ID from MetaMask first to configure network properly
       let chainId: number;
       try {
-        const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' }) as string;
+        const chainIdHex = await eip1193.request({ method: 'eth_chainId' }) as string;
         chainId = Number(BigInt(chainIdHex));
       } catch {
         // Fallback a la red canónica si no se puede leer la wallet
@@ -106,7 +111,7 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
       let signer: ethers.JsonRpcSigner;
       
       try {
-        provider = new ethers.BrowserProvider(window.ethereum, network);
+        provider = new ethers.BrowserProvider(eip1193 as ethers.Eip1193Provider, network);
         signer = await provider.getSigner();
       } catch (ensError: unknown) {
         // If ENS error still occurs (shouldn't happen with ensAddress: null, but just in case)
@@ -117,7 +122,7 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
         if (isEnsError) {
                     // Fallback: create provider without network config
           // This may still trigger ENS errors, but we'll handle them in the main catch block
-          provider = new ethers.BrowserProvider(window.ethereum);
+          provider = new ethers.BrowserProvider(eip1193 as ethers.Eip1193Provider);
           signer = await provider.getSigner();
         } else {
           throw ensError;
