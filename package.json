@@ -21,6 +21,12 @@
     "smoke:app": "bash scripts/smoke_app_o0.sh",
     "test:auth": "bash scripts/test_auth_o1.sh",
     "test:review": "bash scripts/test_review_o1.sh",
-    "ci": "bash scripts/ci_local.sh"
+    "ci": "bash scripts/ci_local.sh",
+    "a11y:o5": "node scripts/a11y_o5.mjs",
+    "perf:o5": "node scripts/perf_budget_o5.mjs"
+  },
+  "devDependencies": {
+    "axe-core": "^4.14.0",
+    "jsdom": "^30.1.3"
   }
 }

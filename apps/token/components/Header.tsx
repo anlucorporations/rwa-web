@@ -38,6 +38,9 @@ export default function Header() {
         {/* Mobile Menu Button */}
         <button
           onClick={() => setIsOpen(!isOpen)}
+          aria-label={isOpen ? 'Cerrar menú' : 'Abrir menú'}
+          aria-expanded={isOpen}
+          aria-controls="mobile-menu"
           className="md:hidden text-white"
         >
           <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -48,7 +51,7 @@ export default function Header() {
 
       {/* Mobile Navigation */}
       {isOpen && (
-        <div className="border-t border-white/10 bg-slate-800/50 backdrop-blur md:hidden">
+        <div id="mobile-menu" className="border-t border-white/10 bg-slate-800/50 backdrop-blur md:hidden">
           <div className="flex flex-col gap-3 px-4 py-4">
             <Link href="/#features" className="text-sm text-slate-300 transition hover:text-white">
               Features

@@ -315,3 +315,24 @@ deriva · build ×3 · 35 tests).
   `psql`/DATABASE_URL; no hay PostgreSQL en este entorno).
 
 *Fin de la evidencia — O5.4/O5.5 (código y scripts)*
+
+
+## Ronda 14 · O5.6/O5.7: accesibilidad estática y presupuesto de rendimiento
+
+- **O5.6** — `scripts/a11y_o5.mjs`: auditoría con **axe-core + jsdom** sobre el HTML prerenderizado
+  de las 7 rutas (WCAG 2.0/2.1 A y AA). Detectó un fallo real (`button-name` crítico en los botones
+  de menú móvil de los 3 headers) que se corrigió añadiendo `aria-label`, `aria-expanded` y
+  `aria-controls`. Resultado final: **7/7 páginas, 0 violaciones críticas/graves**.
+  Limitación declarada: es un gate estático; los estados dinámicos/foco requieren auditoría de
+  navegador (diferida por falta de browser en el entorno).
+- **O5.7** — `scripts/perf_budget_o5.mjs`: mide el First Load JS gzip por ruta desde el HTML de
+  `next build` (chunks referenciados + scripts inline) con presupuesto `PERF_BUDGET_KB=400`.
+  Baseline medido: identity/app **367.6 KB**, issuer/dashboard **302.7 KB**, token/marketplace
+  **304.9 KB**, landings **288–302 KB** → **7/7 dentro de presupuesto**.
+- Ambos gates quedan integrados en `./scripts/ci_local.sh` (paso 6/7, después del build) y como
+  scripts raíz `pnpm a11y:o5` y `pnpm perf:o5`.
+
+**Verificación:** `pnpm a11y:o5` exit 0 · `pnpm perf:o5` exit 0 · `./scripts/ci_local.sh` exit 0
+(build ×3 + 42 tests).
+
+*Fin de la evidencia — O5.6/O5.7*
