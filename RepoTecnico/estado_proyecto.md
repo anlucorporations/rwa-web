@@ -138,7 +138,7 @@ el E2E off-chain está en verde, pero el on-chain está bloqueado por el desplie
 | O4.3 | Eliminar duplicados | 🟡 `TrustedIssuersRegistry` y tipos comunes consolidados; queda `RequestDetailModal` ×2 (requiere `packages/ui`) | `o4_consolidacion.md` |
 | O4.4 | Destino de `web-registry-trusted2` | ✅ **Retirada** (duplicado experimental) | `o4_consolidacion.md` |
 | O4.5 | Destino de `web-rwa` | ✅ **Retirada** (landing fuera del objetivo de 3 apps) | `o4_consolidacion.md` |
-| O4.6 | Unificar web3 en `wagmi`+`viem`; 0 `window.ethereum` | 🟡 **`window.ethereum` = 0** en todo el monorepo (82→0). Queda retirar `ethers` de las llamadas a contratos (paso a viem) | `o4_consolidacion.md` |
+| O4.6 | Unificar web3 en `wagmi`+`viem`; 0 `window.ethereum` | 🟡 **`window.ethereum` = 0** y **`apps/token` sin `ethers` en runtime**; quedan **7 ficheros** con `ethers` (identity: 4, issuer: 1 + 2 `types/ethereum.d.ts`) | `o4_consolidacion.md` |
 | O4.7 | Estado de datos con TanStack Query | ⏳ | — |
 
 **Gate del ciclo:** `pnpm -r build && pnpm -r test` en verde + conteo de duplicados = 0. *(Parcial: builds/tests en verde; quedan O4.2/O4.6/O4.7 y el `RequestDetailModal`.)*

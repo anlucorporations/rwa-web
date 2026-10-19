@@ -7,10 +7,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAccount, useWalletClient } from 'wagmi';
+import { formatEther, formatUnits, isAddress, parseEther, type Address } from 'viem';
+import { TokenCloneableAbi } from '@rwa/shared/contracts';
+import { getPublicClient } from '@rwa/shared/web3';
 import { Token } from '@/types/token';
 import { CLAIM_DESCRIPTIONS } from '@/types/token';
 import { TOKEN_CLONE_FACTORY_ADDRESS } from '@/lib/contracts';
-import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
+import { TOKEN_MARKET_ABI } from '@/lib/contracts/market';
 
 interface TokensListProps {
   adminAddress?: string;
@@ -19,6 +23,8 @@ interface TokensListProps {
 }
 
 export default function TokensList({ adminAddress, onSelectToken, refreshTrigger }: TokensListProps) {
+  const { address } = useAccount();
+  const { data: walletClient } = useWalletClient();
   const [tokens, setTokens] = useState<Token[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,23 +56,12 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
   };
 
   const loadAdminBalances = async () => {
-    if (!adminAddress || !isInjectedWalletAvailable()) {
+    if (!adminAddress) {
       return;
     }
 
     try {
-      const { ethers } = await import('ethers');
-      const eip1193 = await getInjectedEip1193();
-      if (!eip1193) return;
-      const provider = new ethers.BrowserProvider(
-        eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
-      );
-
-      const MIN_ERC20_ABI = [
-        "function balanceOf(address) view returns (uint256)",
-        "function decimals() view returns (uint8)",
-        "function symbol() view returns (string)"
-      ];
+      const client = getPublicClient();
 
       const balances: Record<string, { balance: string; symbol: string }> = {};
 
@@ -74,40 +69,53 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
         if (!token.tokenAddress || !token.adminAddress) continue;
 
         try {
-          const tokenContract = new ethers.Contract(token.tokenAddress, MIN_ERC20_ABI, provider);
           const [balance, decimals, symbol] = await Promise.all([
-            tokenContract.balanceOf(token.adminAddress),
-            tokenContract.decimals(),
-            tokenContract.symbol()
+            client.readContract({
+              address: token.tokenAddress as Address,
+              abi: TokenCloneableAbi,
+              functionName: 'balanceOf',
+              args: [token.adminAddress as Address],
+            }),
+            client.readContract({
+              address: token.tokenAddress as Address,
+              abi: TokenCloneableAbi,
+              functionName: 'decimals',
+            }),
+            client.readContract({
+              address: token.tokenAddress as Address,
+              abi: TokenCloneableAbi,
+              functionName: 'symbol',
+            }),
           ]);
 
-          const formattedBalance = ethers.formatUnits(balance, decimals);
+          const formattedBalance = formatUnits(balance, Number(decimals));
           // Format balance respecting token decimals
           // Show up to the number of decimals the token has, but at least 4 decimal places
           const tokenDecimals = Number(decimals) || 18; // Default to 18 if invalid
           const decimalsToShow = Math.max(4, tokenDecimals);
           const balanceNum = parseFloat(formattedBalance);
-          
+
           // Format with appropriate decimals, removing trailing zeros but keeping at least one decimal if needed
-          const formattedBalanceWithDecimals = (isNaN(balanceNum) || !isFinite(balanceNum) 
-            ? '0' 
+          const formattedBalanceWithDecimals = (isNaN(balanceNum) || !isFinite(balanceNum)
+            ? '0'
             : balanceNum.toFixed(decimalsToShow).replace(/\.?0+$/, '') || '0');
-          
+
           balances[token._id || token.tokenAddress] = {
             balance: formattedBalanceWithDecimals,
-            symbol: symbol
+            symbol,
           };
-        } catch (err) {
-                    balances[token._id || token.tokenAddress] = {
+        } catch {
+          balances[token._id || token.tokenAddress] = {
             balance: 'Error',
-            symbol: token.symbol || 'N/A'
+            symbol: token.symbol || 'N/A',
           };
         }
       }
 
       setAdminBalances(balances);
-    } catch (err) {
-          }
+    } catch {
+      // Sin RPC disponible se dejan los saldos sin cargar
+    }
   };
 
   const loadTokenPrices = async () => {
@@ -116,49 +124,35 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
     }
 
     try {
-      const { ethers } = await import('ethers');
-      const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
-
-      let provider: any = null;
-      const eip1193 = await getInjectedEip1193();
-      if (eip1193) {
-        provider = new ethers.BrowserProvider(
-          eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
-        );
-      } else {
-        // Use read-only provider
-        const { NETWORK_CONFIG } = await import('@/lib/contracts');
-        provider = new ethers.JsonRpcProvider(NETWORK_CONFIG.rpcUrl) as any;
-      }
-
+      const client = getPublicClient();
       const prices: Record<string, number> = {};
 
       for (const token of tokens) {
         if (!token.tokenAddress) continue;
 
         try {
-          const tokenContract = new ethers.Contract(
-            token.tokenAddress,
-            TOKEN_CLONEABLE_ABI,
-            provider
-          );
-
           // Get price from contract (stored as wei per unit)
-          const priceWeiPerUnit = await tokenContract.pricePerToken();
+          const priceWeiPerUnit = await client.readContract({
+            address: token.tokenAddress as Address,
+            abi: TOKEN_MARKET_ABI,
+            functionName: 'pricePerToken',
+          });
           // Convert to wei per token by multiplying by decimals
           const tokenUnitsPerToken = BigInt(10) ** BigInt(token.decimals);
           const priceWeiPerToken = priceWeiPerUnit * tokenUnitsPerToken;
           // Convert from wei to ETH
-          const priceEth = parseFloat(ethers.formatEther(priceWeiPerToken));
+          const priceEth = parseFloat(formatEther(priceWeiPerToken));
 
           prices[token._id || ''] = priceEth;
-        } catch (err) {
-                  }
+        } catch {
+          // Si el token no expone el precio, se omite
+        }
       }
 
       setTokenPrices(prices);
-    } catch (err) {
-          }
+    } catch {
+      // Sin RPC disponible se dejan los precios sin cargar
+    }
   };
 
   const loadTokens = async () => {
@@ -223,41 +217,28 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       setAddingCompliance(token._id);
       setError(null);
 
-            
-      if (!isInjectedWalletAvailable()) {
+      if (!walletClient || !address) {
         throw new Error('MetaMask not available');
       }
-      const eip1193 = await getInjectedEip1193();
-      if (!eip1193) {
-        throw new Error('No se pudo acceder a la wallet');
+      if (!isAddress(complianceModule)) {
+        throw new Error('Invalid compliance module address');
       }
 
-      // Dynamic import
-      const { ethers } = await import('ethers');
-      const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
-
-      const provider = new ethers.BrowserProvider(
-        eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
-      );
-      const signer = await provider.getSigner();
-
       // Verify we're the admin
-      const signerAddress = await signer.getAddress();
-      if (signerAddress.toLowerCase() !== token.adminAddress.toLowerCase()) {
+      if (address.toLowerCase() !== token.adminAddress.toLowerCase()) {
         throw new Error('Only the token admin can add compliance modules');
       }
 
       // Call addComplianceModule on token contract
-      const tokenContract = new ethers.Contract(
-        token.tokenAddress,
-        TOKEN_CLONEABLE_ABI,
-        signer
-      );
+      const hash = await walletClient.writeContract({
+        address: token.tokenAddress as Address,
+        abi: TokenCloneableAbi,
+        functionName: 'addComplianceModule',
+        args: [complianceModule as Address],
+      });
 
-            const tx = await tokenContract.addComplianceModule(complianceModule);
-      
-      await tx.wait();
-      
+      await getPublicClient().waitForTransactionReceipt({ hash });
+
       // Update modules array in MongoDB
       const currentModules = token.complianceModules || [];
       const updatedModules = [...currentModules, complianceModule];
@@ -275,28 +256,27 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       const result = await response.json();
 
       if (!result.success) {
-              } else {
-              }
+        throw new Error(result.message || 'Failed to update database');
+      }
 
       setError(null);
-      alert(`✅ Compliance Module Added!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Module Address:\n${complianceModule}\n\n📊 Total Modules: ${updatedModules.length}\n\n📜 Transaction Hash:\n${tx.hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      alert(`✅ Compliance Module Added!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Module Address:\n${complianceModule}\n\n📊 Total Modules: ${updatedModules.length}\n\n📜 Transaction Hash:\n${hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
       // Reload tokens
       await loadTokens();
     } catch (err: any) {
-            
       let errorMsg = '❌ Failed to Add Compliance Module\n\n';
-      
-      if (err.message?.includes('execution reverted')) {
+
+      if (err.message?.includes('execution reverted') || err.message?.includes('revert')) {
         errorMsg += '⚠️ Transaction Reverted\n\nPossible causes:\n• You are not the token owner/admin\n• Module address is invalid\n• Token doesn\'t support compliance modules\n• Gas estimation failed';
-      } else if (err.message?.includes('user rejected')) {
+      } else if (err.message?.includes('user rejected') || err.message?.includes('denied')) {
         errorMsg += '🚫 Transaction Cancelled\n\nYou rejected the transaction in MetaMask';
       } else if (err.message?.includes('network')) {
         errorMsg += '🌐 Network Error\n\nPlease check your connection to the blockchain';
       } else {
         errorMsg += err.message || 'Unknown error occurred';
       }
-      
+
       setError(errorMsg);
       alert(errorMsg);
     } finally {
@@ -431,40 +411,26 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
         }
 
         // Check if wallet is available
-        if (!isInjectedWalletAvailable()) {
+        if (!walletClient) {
           throw new Error('MetaMask is not installed.\n\nPlease install MetaMask to set token price.');
-        }
-        const eip1193 = await getInjectedEip1193();
-        if (!eip1193) {
-          throw new Error('No se pudo acceder a la wallet');
         }
 
         // Step 1: Set price on blockchain contract
-        const { ethers } = await import('ethers');
-        const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
-
-        const provider = new ethers.BrowserProvider(
-          eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
-        );
-        const signer = await provider.getSigner();
-        
-        const tokenContract = new ethers.Contract(
-          token.tokenAddress,
-          TOKEN_CLONEABLE_ABI,
-          signer
-        );
-
         // Convert admin input to wei per unit (not per token)
         // Admin input: "1" = 1 ETH per token
         // Store as: 1 ETH / (10^decimals units per token) = wei per unit
-        const pricePerTokenWei = ethers.parseEther(priceValue.toString());
+        const pricePerTokenWei = parseEther(priceValue.toString());
         const tokenUnitsPerToken = BigInt(10) ** BigInt(token.decimals);
         const pricePerUnitWei = pricePerTokenWei / tokenUnitsPerToken;
 
-                                        
-        const tx = await tokenContract.setPrice(pricePerUnitWei);
-        await tx.wait();
-        
+        const hash = await walletClient.writeContract({
+          address: token.tokenAddress as Address,
+          abi: TOKEN_MARKET_ABI,
+          functionName: 'setPrice',
+          args: [pricePerUnitWei],
+        });
+        await getPublicClient().waitForTransactionReceipt({ hash });
+
         // Step 2: Update price in database
         const response = await fetch(`/api/tokens/${token._id}/price`, {
           method: 'POST',
@@ -482,7 +448,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
           throw new Error(result.message || 'Failed to update price in database');
         }
 
-        
+
         // Update local price state immediately
         if (token._id) {
           setTokenPrices(prev => ({
@@ -490,26 +456,25 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
             [token._id || '']: priceValue
           }));
         }
-        
+
         setError(null);
-        alert(`✅ Price Updated!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n💰 New Price: ${priceValue} ETH\n📦 Token: ${token.symbol}\n\n📜 Transaction Hash:\n${tx.hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-        
+        alert(`✅ Price Updated!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n💰 New Price: ${priceValue} ETH\n📦 Token: ${token.symbol}\n\n📜 Transaction Hash:\n${hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+
         await loadTokens();
         setEditingPrice(null);
         setNewPrice('');
       } catch (err: any) {
-                
-        const error = err as { reason?: string; message?: string; code?: string; data?: string };
+        const error = err as { reason?: string; message?: string; code?: string | number; data?: string };
         let errorMsg = '';
-        
-        if (error.message?.includes('user rejected') || String(error.code) === '4001') {
+
+        if (error.message?.includes('user rejected') || error.message?.includes('denied') || String(error.code) === '4001') {
           errorMsg = '🚫 Transaction Cancelled\n\nYou rejected the transaction in MetaMask.';
-        } else if (error.message?.includes('execution reverted')) {
+        } else if (error.message?.includes('execution reverted') || error.message?.includes('revert')) {
           errorMsg = `⚠️ Transaction Reverted\n\n${error.reason || error.message || 'Contract execution reverted'}\n\n💡 Make sure you are the token admin.`;
         } else {
           errorMsg = `❌ Failed to Update Price\n\n${error.message || 'Unknown error occurred'}`;
         }
-        
+
         setError(errorMsg);
         alert(errorMsg);
       }

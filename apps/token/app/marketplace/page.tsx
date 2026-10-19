@@ -1,24 +1,65 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useAccount } from 'wagmi';
-import { ethers } from 'ethers';
+import { useState, useEffect } from 'react';
+import { useAccount, useWalletClient } from 'wagmi';
+import {
+  decodeErrorResult,
+  formatEther,
+  formatUnits,
+  isAddress,
+  parseUnits,
+  type Address,
+} from 'viem';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Token } from '@/types/token';
 import { CLAIM_DESCRIPTIONS } from '@/types/token';
 import { TOKEN_CLONE_FACTORY_ADDRESS } from '@/lib/contracts';
+import { TOKEN_MARKET_ABI } from '@/lib/contracts/market';
 import { ZERO_ADDRESS } from '@rwa/shared/network';
-import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
+import { getInjectedEip1193, getPublicClient, isInjectedWalletAvailable } from '@rwa/shared/web3';
 import {
   ClaimTopicsRegistryAbi,
+  IComplianceAbi,
   IdentityCloneableAbi,
+  IdentityRegistryAbi,
+  TokenCloneableAbi,
   TrustedIssuersRegistryAbi,
 } from '@rwa/shared/contracts';
 
+/** Normaliza errores de wagmi/viem (sin depender de los códigos de `ethers`). */
+function normalizeMarketError(err: unknown): {
+  message: string;
+  reason?: string;
+  code?: string | number;
+  data?: string;
+} {
+  const candidate = err as {
+    shortMessage?: string;
+    details?: string;
+    message?: string;
+    reason?: string;
+    code?: string | number;
+    data?: unknown;
+    cause?: { reason?: string; shortMessage?: string; message?: string; code?: string | number; data?: unknown };
+  };
+  const code = candidate?.code ?? candidate?.cause?.code;
+  const message =
+    candidate?.shortMessage || candidate?.details || candidate?.message || candidate?.cause?.message || '';
+  const reason = candidate?.reason || candidate?.cause?.reason || '';
+  const rawData = candidate?.data ?? candidate?.cause?.data;
+  return {
+    message,
+    reason,
+    code,
+    data: typeof rawData === 'string' && rawData.startsWith('0x') ? rawData : undefined,
+  };
+}
+
 export default function MarketplacePage() {
   const { address: wagmiAddress } = useAccount();
+  const { data: walletClient } = useWalletClient();
   const [tokens, setTokens] = useState<Token[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,20 +111,13 @@ export default function MarketplacePage() {
       setBalance('');
       return;
     }
-    
+
     try {
-      const { ethers } = await import('ethers');
-      const eip1193 = await getInjectedEip1193();
-      if (eip1193) {
-        const provider = new ethers.BrowserProvider(
-          eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
-        );
-        const balance = await provider.getBalance(address);
-        const formattedBalance = ethers.formatEther(balance);
-        setBalance(parseFloat(formattedBalance).toFixed(4));
-      }
-    } catch (err) {
-            setBalance('Error');
+      const balanceWei = await getPublicClient().getBalance({ address: address as Address });
+      const formattedBalance = formatEther(balanceWei);
+      setBalance(parseFloat(formattedBalance).toFixed(4));
+    } catch {
+      setBalance('Error');
     }
   };
 
@@ -215,55 +249,45 @@ export default function MarketplacePage() {
     }
 
     try {
-      const { ethers } = await import('ethers');
-      const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
-
-      let provider: any = null;
-      const eip1193 = await getInjectedEip1193();
-      if (eip1193) {
-        provider = new ethers.BrowserProvider(
-          eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
-        );
-      } else {
-        // If no wallet, we can still load admin balances using a read-only provider
-        const { NETWORK_CONFIG } = await import('@/lib/contracts');
-        provider = new ethers.JsonRpcProvider(NETWORK_CONFIG.rpcUrl) as any;
-      }
-
+      const client = getPublicClient();
       const balances: Record<string, { adminBalance: string; userBalance: string }> = {};
 
       for (const token of tokensList) {
         try {
-          const tokenContract = new ethers.Contract(
-            token.tokenAddress,
-            TOKEN_CLONEABLE_ABI,
-            provider
-          );
-
           // Get admin balance
           const tokenDecimals = token.decimals ?? 18; // Default to 18 if undefined
-          const adminBalance = await tokenContract.balanceOf(token.adminAddress);
-          const adminBalanceFormatted = ethers.formatUnits(adminBalance, tokenDecimals);
+          const adminBalance = await client.readContract({
+            address: token.tokenAddress as Address,
+            abi: TokenCloneableAbi,
+            functionName: 'balanceOf',
+            args: [token.adminAddress as Address],
+          });
+          const adminBalanceFormatted = formatUnits(adminBalance, tokenDecimals);
 
           // Get user balance if account is connected
           let userBalanceFormatted = '0';
           if (account) {
             try {
-              const userBalance = await tokenContract.balanceOf(account);
-              userBalanceFormatted = ethers.formatUnits(userBalance, tokenDecimals);
-                          } catch (err) {
-                          }
-          } else {
-                      }
+              const userBalance = await client.readContract({
+                address: token.tokenAddress as Address,
+                abi: TokenCloneableAbi,
+                functionName: 'balanceOf',
+                args: [account as Address],
+              });
+              userBalanceFormatted = formatUnits(userBalance, tokenDecimals);
+            } catch {
+              // Se mantiene el saldo 0 si falla la lectura
+            }
+          }
 
           // Format balances respecting token decimals
           // Show up to the number of decimals the token has, but at least 4 decimal places
           const decimalsToShow = Math.max(4, tokenDecimals);
-          
+
           // Parse balances with validation
           const adminBalanceNum = isNaN(parseFloat(adminBalanceFormatted)) ? 0 : parseFloat(adminBalanceFormatted);
           const userBalanceNum = isNaN(parseFloat(userBalanceFormatted)) ? 0 : parseFloat(userBalanceFormatted);
-          
+
           // Format with appropriate decimals, removing trailing zeros but keeping at least one decimal if needed
           const formatBalance = (num: number): string => {
             if (isNaN(num) || !isFinite(num)) {
@@ -273,13 +297,13 @@ export default function MarketplacePage() {
             // Remove trailing zeros, but keep at least one decimal place if the number has decimals
             return formatted.replace(/\.?0+$/, '') || '0';
           };
-          
+
           balances[token._id || ''] = {
             adminBalance: formatBalance(adminBalanceNum),
             userBalance: formatBalance(userBalanceNum)
           };
-        } catch (err) {
-                    balances[token._id || ''] = {
+        } catch {
+          balances[token._id || ''] = {
             adminBalance: 'Error',
             userBalance: 'Error'
           };
@@ -287,8 +311,9 @@ export default function MarketplacePage() {
       }
 
       setTokenBalances(balances);
-    } catch (err) {
-          }
+    } catch {
+      // Sin RPC disponible se dejan los saldos sin cargar
+    }
   };
 
   const loadTokenPrices = async (tokensList: Token[]) => {
@@ -297,46 +322,31 @@ export default function MarketplacePage() {
     }
 
     try {
-      const { ethers } = await import('ethers');
-      const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
-
-      let provider: any = null;
-      const eip1193 = await getInjectedEip1193();
-      if (eip1193) {
-        provider = new ethers.BrowserProvider(
-          eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
-        );
-      } else {
-        // Use read-only provider
-        const { NETWORK_CONFIG } = await import('@/lib/contracts');
-        provider = new ethers.JsonRpcProvider(NETWORK_CONFIG.rpcUrl) as any;
-      }
-
+      const client = getPublicClient();
       const prices: Record<string, number> = {};
 
       for (const token of tokensList) {
         try {
-          const tokenContract = new ethers.Contract(
-            token.tokenAddress,
-            TOKEN_CLONEABLE_ABI,
-            provider
-          );
-
           // Get price from contract (in wei)
           // pricePerToken is stored as: price in ETH * 10^18 wei (price per full token)
-          const priceWei = await tokenContract.pricePerToken();
+          const priceWei = await client.readContract({
+            address: token.tokenAddress as Address,
+            abi: TOKEN_MARKET_ABI,
+            functionName: 'pricePerToken',
+          });
           // Convert from wei to ETH to get price per full token
-          const priceEth = parseFloat(ethers.formatEther(priceWei));
-          
+          const priceEth = parseFloat(formatEther(priceWei));
+
           prices[token._id || ''] = priceEth;
-                  } catch (err) {
-                    // If price can't be loaded, set to undefined (will show "Price not set")
+        } catch {
+          // If price can't be loaded, set to undefined (will show "Price not set")
         }
       }
 
       setTokenPrices(prices);
-    } catch (err) {
-          }
+    } catch {
+      // Sin RPC disponible se dejan los precios sin cargar
+    }
   };
 
   const buyToken = async (token: Token, amount: string) => {
@@ -350,57 +360,40 @@ export default function MarketplacePage() {
       return;
     }
 
-    const totalPriceWei: bigint | undefined = undefined;
-    
+    let totalPriceWei: bigint | undefined = undefined;
+
     try {
       setBuying(token._id);
       setError(null);
 
-      if (!isInjectedWalletAvailable()) {
+      if (!walletClient) {
         throw new Error('MetaMask is not installed.\n\nPlease install MetaMask to buy tokens.');
       }
 
-      const { ethers } = await import('ethers');
-      const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
-
-      const eip1193 = await getInjectedEip1193();
-      if (!eip1193) {
+      const client = getPublicClient();
+      const tokenAddress = token.tokenAddress as Address;
+      const buyerAddress = (account || walletClient.account?.address) as Address;
+      if (!buyerAddress) {
         throw new Error('No se pudo acceder a la wallet');
       }
-      const provider = new ethers.BrowserProvider(
-        eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
-      );
-      const signer = await provider.getSigner();
-      const buyerAddress = await signer.getAddress();
-
-      // Get token contract instance
-      const tokenContractReadOnly = new ethers.Contract(
-        token.tokenAddress,
-        TOKEN_CLONEABLE_ABI,
-        provider
-      );
 
       // Get price from contract
       // This is stored as: wei per smallest unit of token
-      const priceWeiPerUnit = await tokenContractReadOnly.pricePerToken();
+      const priceWeiPerUnit = await client.readContract({
+        address: tokenAddress,
+        abi: TOKEN_MARKET_ABI,
+        functionName: 'pricePerToken',
+      });
 
-                  
-      if (priceWeiPerUnit === 0n) {
+      if (priceWeiPerUnit === BigInt(0)) {
         setError(`❌ Price Not Set\n\nThe token "${token.symbol}" doesn't have a price configured in the contract.\n\nContact the token admin to set a price.`);
         setBuying(null);
         return;
       }
 
-      // Get token contract instance for writing
-      const tokenContract = new ethers.Contract(
-        token.tokenAddress,
-        TOKEN_CLONEABLE_ABI,
-        signer
-      );
-
       // Calculate amount in smallest token units
       // Example: 1.5 tokens with 18 decimals = 1.5 * 10^18 units
-      const purchaseAmountInUnits = ethers.parseUnits(amountNum.toString(), token.decimals);
+      const purchaseAmountInUnits = parseUnits(amountNum.toString(), token.decimals);
 
       // Calculate total price that contract will verify
       // Contract formula: totalPrice = pricePerToken * amount
@@ -408,61 +401,64 @@ export default function MarketplacePage() {
       //   pricePerToken = wei per unit (what's stored in contract)
       //   amount = units being purchased
       // So: totalPrice = (wei per unit) * (units) = wei
-      const totalPriceWei = priceWeiPerUnit * purchaseAmountInUnits;
+      totalPriceWei = priceWeiPerUnit * purchaseAmountInUnits;
 
-      // For display: calculate what the user sees (ETH per token)
-      const tokenUnitsPerToken = BigInt(10) ** BigInt(token.decimals);
-      const pricePerTokenWei = priceWeiPerUnit * tokenUnitsPerToken;
-      const pricePerTokenEth = parseFloat(ethers.formatEther(pricePerTokenWei));
-      const totalPriceEth = amountNum * pricePerTokenEth;
-
-                                                      
       // Pre-flight checks before attempting transaction
-      try {
-        // Check if token is paused
-        const paused = await tokenContractReadOnly.paused();
-        if (paused) {
-          throw new Error('Token is paused. The admin has temporarily disabled transfers.');
-        }
-
-        // Check admin balance - buyToken will fail if admin doesn't have enough
-        const adminBalance = await tokenContractReadOnly.balanceOf(token.adminAddress);
-        if (adminBalance < purchaseAmountInUnits) {
-          const adminBalanceFormatted = ethers.formatUnits(adminBalance, token.decimals);
-          // Format with appropriate decimals
-          const decimalsToShow = Math.max(4, token.decimals);
-          const adminBalanceNum = parseFloat(adminBalanceFormatted);
-          const formattedAdminBalance = adminBalanceNum.toFixed(decimalsToShow).replace(/\.?0+$/, '');
-          throw new Error(`Insufficient token supply. Admin has ${formattedAdminBalance} ${token.symbol}, but you're trying to buy ${amountNum} ${token.symbol}.\n\n💡 The admin needs to mint more tokens first.`);
-        }
-
-        // Check buyer's ETH balance
-        const buyerBalance = await provider.getBalance(buyerAddress);
-        if (buyerBalance < totalPriceWei) {
-          throw new Error(`Insufficient ETH balance. You need ${ethers.formatEther(totalPriceWei)} ETH but only have ${ethers.formatEther(buyerBalance)} ETH.`);
-        }
-      } catch (preflightError) {
-        // Re-throw preflight errors with better context
-        throw preflightError;
+      // Check if token is paused
+      const paused = await client.readContract({
+        address: tokenAddress,
+        abi: TokenCloneableAbi,
+        functionName: 'paused',
+      });
+      if (paused) {
+        throw new Error('Token is paused. The admin has temporarily disabled transfers.');
       }
-            // Use buyToken contract method - it handles token transfer and ETH payment
-      const tx = await tokenContract.buyToken(purchaseAmountInUnits, { value: totalPriceWei });
-      
-      await tx.wait();
-      
+
+      // Check admin balance - buyToken will fail if admin doesn't have enough
+      const adminBalance = await client.readContract({
+        address: tokenAddress,
+        abi: TokenCloneableAbi,
+        functionName: 'balanceOf',
+        args: [token.adminAddress as Address],
+      });
+      if (adminBalance < purchaseAmountInUnits) {
+        const adminBalanceFormatted = formatUnits(adminBalance, token.decimals);
+        // Format with appropriate decimals
+        const decimalsToShow = Math.max(4, token.decimals);
+        const adminBalanceNum = parseFloat(adminBalanceFormatted);
+        const formattedAdminBalance = adminBalanceNum.toFixed(decimalsToShow).replace(/\.?0+$/, '');
+        throw new Error(`Insufficient token supply. Admin has ${formattedAdminBalance} ${token.symbol}, but you're trying to buy ${amountNum} ${token.symbol}.\n\n💡 The admin needs to mint more tokens first.`);
+      }
+
+      // Check buyer's ETH balance
+      const buyerBalance = await client.getBalance({ address: buyerAddress });
+      if (buyerBalance < totalPriceWei) {
+        throw new Error(`Insufficient ETH balance. You need ${formatEther(totalPriceWei)} ETH but only have ${formatEther(buyerBalance)} ETH.`);
+      }
+
+      // Use buyToken contract method - it handles token transfer and ETH payment
+      const hash = await walletClient.writeContract({
+        address: tokenAddress,
+        abi: TOKEN_MARKET_ABI,
+        functionName: 'buyToken',
+        args: [purchaseAmountInUnits],
+        value: totalPriceWei,
+      });
+
+      await client.waitForTransactionReceipt({ hash });
+
       // Reload balances and prices after successful purchase
       if (tokens.length > 0) {
         loadTokenBalances(tokens);
         loadTokenPrices(tokens);
       }
-      
+
       setError(null);
-      alert(`✅ Purchase Successful!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Tokens Received: ${amountNum} ${token.symbol}\n💰 Total Price: ${ethers.formatEther(totalPriceWei)} ETH\n\n📜 Transaction Hash:\n${tx.hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      alert(`✅ Purchase Successful!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Tokens Received: ${amountNum} ${token.symbol}\n💰 Total Price: ${formatEther(totalPriceWei)} ETH\n\n📜 Transaction Hash:\n${hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     } catch (err) {
-            
-      const error = err as { reason?: string; message?: string; code?: string; data?: string };
+      const error = normalizeMarketError(err);
       let errorMsg = '';
-      
+
       // Check for specific error messages (most specific first)
       if (error.reason === 'Transfer not compliant' || error.message?.includes('Transfer not compliant')) {
         errorMsg = '🚫 Compliance Check Failed\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
@@ -512,34 +508,31 @@ export default function MarketplacePage() {
       } else if (error.message?.includes('user rejected') || String(error.code) === '4001') {
         errorMsg = '🚫 Transaction Cancelled\n\n';
         errorMsg += 'You rejected the transaction in MetaMask.';
-      } else if (error.message?.includes('execution reverted')) {
+      } else if (error.message?.includes('revert') || error.reason) {
         // Try to decode the actual revert reason
-        let revertReason = 'Unknown error';
-        
-        // Check if we have data to decode
+        let revertReason = error.reason || 'Unknown error';
+
+        // Check if we have data to decode (errores custom del ABI generado)
         if (error.data && error.data !== '0x') {
           try {
-            // Try to decode common error messages
-            const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
-            const { ethers: ethersLib } = await import('ethers');
-            const contractInterface = new ethersLib.Interface(TOKEN_CLONEABLE_ABI);
-            const decoded = contractInterface.parseError(error.data);
-            if (decoded) {
-              revertReason = decoded.name;
-              if (decoded.args && decoded.args.length > 0) {
-                revertReason += ': ' + decoded.args.join(', ');
-              }
+            const decoded = decodeErrorResult({
+              abi: TokenCloneableAbi,
+              data: error.data as `0x${string}`,
+            });
+            revertReason = decoded.errorName;
+            if (decoded.args && decoded.args.length > 0) {
+              revertReason += ': ' + decoded.args.join(', ');
             }
           } catch {
             // If decoding fails, use generic message
-            revertReason = 'Contract execution reverted';
+            revertReason = error.message || 'Contract execution reverted';
           }
         }
-        
+
         errorMsg = '⚠️ Transaction Reverted\n\n';
         errorMsg += `Error: ${revertReason}\n\n`;
         if (totalPriceWei !== undefined) {
-          errorMsg += `💰 Value Sent: ${ethers.formatEther(totalPriceWei)} ETH\n\n`;
+          errorMsg += `💰 Value Sent: ${formatEther(totalPriceWei)} ETH\n\n`;
         }
         
         // Don't show generic causes if we already have a specific error
@@ -572,30 +565,10 @@ export default function MarketplacePage() {
       setCheckingCompliance(token._id || '');
       setError(null);
 
-      if (!isInjectedWalletAvailable()) {
-        throw new Error('MetaMask is not installed');
-      }
+      const client = getPublicClient();
+      const userAddress = account as Address;
+      const tokenAddress = token.tokenAddress as Address;
 
-      const { ethers } = await import('ethers');
-      const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
-
-      const eip1193 = await getInjectedEip1193();
-      if (!eip1193) {
-        throw new Error('No se pudo acceder a la wallet');
-      }
-      const provider = new ethers.BrowserProvider(
-        eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
-      );
-      const signer = await provider.getSigner();
-      const userAddress = await signer.getAddress();
-
-      const tokenContract = new ethers.Contract(
-        token.tokenAddress,
-        TOKEN_CLONEABLE_ABI,
-        provider
-      );
-
-      
       let diagnostic = '🔍 Compliance Diagnostic Report\n\n';
       diagnostic += '━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
       diagnostic += `📍 Your Address: ${userAddress}\n`;
@@ -605,25 +578,36 @@ export default function MarketplacePage() {
 
       // 1. Check if user is verified
       try {
-        const isVerified = await tokenContract.isVerified(userAddress);
+        const isVerified = await client.readContract({
+          address: tokenAddress,
+          abi: TokenCloneableAbi,
+          functionName: 'isVerified',
+          args: [userAddress],
+        });
         diagnostic += `1️⃣ Is Verified: ${isVerified ? '✅ YES' : '❌ NO'}\n`;
-        
+
         if (!isVerified) {
           // Get registries to diagnose
-          const identityRegistryAddress = await tokenContract.identityRegistry();
-          const claimTopicsRegistryAddress = await tokenContract.claimTopicsRegistry();
-          const trustedIssuersRegistryAddress = await tokenContract.trustedIssuersRegistry();
+          const identityRegistryAddress = await client.readContract({
+            address: tokenAddress,
+            abi: TokenCloneableAbi,
+            functionName: 'identityRegistry',
+          });
+          const claimTopicsRegistryAddress = await client.readContract({
+            address: tokenAddress,
+            abi: TokenCloneableAbi,
+            functionName: 'claimTopicsRegistry',
+          });
+          const trustedIssuersRegistryAddress = await client.readContract({
+            address: tokenAddress,
+            abi: TokenCloneableAbi,
+            functionName: 'trustedIssuersRegistry',
+          });
 
           // Convert to string and normalize
-          const identityRegStr = typeof identityRegistryAddress === 'string' 
-            ? identityRegistryAddress.toLowerCase() 
-            : identityRegistryAddress.toString();
-          const claimTopicsRegStr = typeof claimTopicsRegistryAddress === 'string'
-            ? claimTopicsRegistryAddress.toLowerCase()
-            : claimTopicsRegistryAddress.toString();
-          const trustedIssuersRegStr = typeof trustedIssuersRegistryAddress === 'string'
-            ? trustedIssuersRegistryAddress.toLowerCase()
-            : trustedIssuersRegistryAddress.toString();
+          const identityRegStr = identityRegistryAddress.toLowerCase();
+          const claimTopicsRegStr = claimTopicsRegistryAddress.toLowerCase();
+          const trustedIssuersRegStr = trustedIssuersRegistryAddress.toLowerCase();
 
           diagnostic += `\n📍 Identity Registry: ${identityRegStr}\n`;
           diagnostic += `📍 Claim Topics Registry: ${claimTopicsRegStr}\n`;
@@ -640,23 +624,24 @@ export default function MarketplacePage() {
             diagnostic += 'Without these registries, compliance checks cannot work.\n';
             diagnostic += '\n💡 Contact the token admin to configure these registries.\n';
           } else {
-            const IDENTITY_REGISTRY_ABI = [
-              "function isRegistered(address) view returns (bool)",
-              "function getIdentity(address) view returns (address)"
-            ];
-            const identityRegistry = new ethers.Contract(
-              identityRegStr,
-              IDENTITY_REGISTRY_ABI,
-              provider
-            );
-
-            const isRegistered = await identityRegistry.isRegistered(userAddress);
+            const identityRegistryAddress = identityRegStr as Address;
+            const isRegistered = await client.readContract({
+              address: identityRegistryAddress,
+              abi: IdentityRegistryAbi,
+              functionName: 'isRegistered',
+              args: [userAddress],
+            });
             diagnostic += `2️⃣ Registered in Identity Registry: ${isRegistered ? '✅ YES' : '❌ NO'}\n`;
 
             if (!isRegistered) {
               diagnostic += '   ⚠️ You need to register your identity first\n';
             } else {
-              const identityAddress = await identityRegistry.getIdentity(userAddress);
+              const identityAddress = await client.readContract({
+                address: identityRegistryAddress,
+                abi: IdentityRegistryAbi,
+                functionName: 'getIdentity',
+                args: [userAddress],
+              });
               diagnostic += `3️⃣ Identity Contract: ${identityAddress}\n`;
 
               if (identityAddress === ZERO_ADDRESS) {
@@ -666,14 +651,12 @@ export default function MarketplacePage() {
                 if (claimTopicsRegStr === ZERO_ADDRESS || claimTopicsRegStr === '0x0') {
                   diagnostic += '4️⃣ Claim Topics Registry: Not set (no claims required)\n';
                 } else {
-                  const CLAIM_TOPICS_REGISTRY_ABI = ClaimTopicsRegistryAbi;
-                  const claimTopicsRegistry = new ethers.Contract(
-                    claimTopicsRegStr,
-                    CLAIM_TOPICS_REGISTRY_ABI,
-                    provider
-                  );
-
-                  const requiredTopics = await claimTopicsRegistry.getClaimTopics();
+                  const claimTopicsRegistryAddress = claimTopicsRegStr as Address;
+                  const requiredTopics = await client.readContract({
+                    address: claimTopicsRegistryAddress,
+                    abi: ClaimTopicsRegistryAbi,
+                    functionName: 'getClaimTopics',
+                  });
                   diagnostic += `4️⃣ Required Claim Topics: ${requiredTopics.length > 0 ? requiredTopics.join(', ') : 'None'}\n\n`;
 
                   // Check Trusted Issuers Registry
@@ -682,38 +665,41 @@ export default function MarketplacePage() {
                     diagnostic += '   The token admin needs to call:\n';
                     diagnostic += '   token.setTrustedIssuersRegistry(<REGISTRY_ADDRESS>)\n\n';
                   } else {
-                    const TRUSTED_ISSUERS_REGISTRY_ABI = TrustedIssuersRegistryAbi;
-                    const trustedIssuersRegistry = new ethers.Contract(
-                      trustedIssuersRegStr,
-                      TRUSTED_ISSUERS_REGISTRY_ABI,
-                      provider
-                    );
-
-                    // Check Identity contract for claims
-                    const IDENTITY_ABI = IdentityCloneableAbi;
-                    const identityContract = new ethers.Contract(
-                      identityAddress,
-                      IDENTITY_ABI,
-                      provider
-                    );
+                    const trustedIssuersRegistryAddress = trustedIssuersRegStr as Address;
 
                     diagnostic += '📋 Claim Verification:\n';
                     for (const topic of requiredTopics) {
                       const topicNum = Number(topic);
                       const topicName = CLAIM_DESCRIPTIONS[topicNum]?.name || `Claim ${topicNum}`;
-                      
+
                       try {
-                        const claimIssuers = await identityContract.getClaimIssuersForTopic(topic);
+                        const claimIssuers = await client.readContract({
+                          address: identityAddress,
+                          abi: IdentityCloneableAbi,
+                          functionName: 'getClaimIssuersForTopic',
+                          args: [topic],
+                        });
                         diagnostic += `\n  Topic ${topicNum} (${topicName}):\n`;
-                        
+
                         if (claimIssuers.length === 0) {
                           diagnostic += `    ❌ No claim found in your identity\n`;
                         } else {
                           let hasValidIssuer = false;
                           for (const issuer of claimIssuers) {
-                            const isTrusted = await trustedIssuersRegistry.isTrustedIssuer(issuer);
-                            const canIssueTopic = await trustedIssuersRegistry.hasClaimTopic(issuer, topic);
-                            
+                            const issuerAddress = issuer as Address;
+                            const isTrusted = await client.readContract({
+                              address: trustedIssuersRegistryAddress,
+                              abi: TrustedIssuersRegistryAbi,
+                              functionName: 'isTrustedIssuer',
+                              args: [issuerAddress],
+                            });
+                            const canIssueTopic = await client.readContract({
+                              address: trustedIssuersRegistryAddress,
+                              abi: TrustedIssuersRegistryAbi,
+                              functionName: 'hasClaimTopic',
+                              args: [issuerAddress, topic],
+                            });
+
                             if (isTrusted && canIssueTopic) {
                               diagnostic += `    ✅ Claim found from trusted issuer: ${issuer.substring(0, 10)}...\n`;
                               hasValidIssuer = true;
@@ -744,14 +730,24 @@ export default function MarketplacePage() {
 
       // 2. Check canTransfer
       try {
-        const adminAddress = token.adminAddress;
-        const testAmount = ethers.parseUnits('1', token.decimals);
-        const canTransfer = await tokenContract.canTransfer(adminAddress, userAddress, testAmount);
+        const adminAddress = token.adminAddress as Address;
+        const testAmount = parseUnits('1', token.decimals);
+        const canTransfer = await client.readContract({
+          address: tokenAddress,
+          abi: TokenCloneableAbi,
+          functionName: 'canTransfer',
+          args: [adminAddress, userAddress, testAmount],
+        });
         diagnostic += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
         diagnostic += `5️⃣ Can Transfer: ${canTransfer ? '✅ YES' : '❌ NO'}\n`;
         if (!canTransfer) {
           // Check if frozen
-          const isFrozen = await tokenContract.isFrozen(userAddress);
+          const isFrozen = await client.readContract({
+            address: tokenAddress,
+            abi: TokenCloneableAbi,
+            functionName: 'isFrozen',
+            args: [userAddress],
+          });
           if (isFrozen) {
             diagnostic += `   ⚠️ Your account is frozen\n`;
           }
@@ -764,7 +760,7 @@ export default function MarketplacePage() {
 
       setError(diagnostic);
     } catch (err: any) {
-            setError(`❌ Error Checking Compliance\n\n${err.message || 'Unknown error occurred'}`);
+      setError(`❌ Error Checking Compliance\n\n${err.message || 'Unknown error occurred'}`);
     } finally {
       setCheckingCompliance(null);
     }
@@ -777,8 +773,7 @@ export default function MarketplacePage() {
     }
 
     // Validate address format
-    const { ethers } = await import('ethers');
-    if (!ethers.isAddress(recipient)) {
+    if (!isAddress(recipient)) {
       setError('❌ Invalid Address\n\nThe address you entered is not a valid Ethereum address.\n\nPlease check and try again.');
       return;
     }
@@ -794,92 +789,72 @@ export default function MarketplacePage() {
       return;
     }
 
-    let provider: any;
-    let signer: any;
-    let tokenContract: any;
+    const client = getPublicClient();
+    const tokenAddress = token.tokenAddress as Address;
+    const recipientAddress = recipient as Address;
 
     try {
       setTransferring(token._id || '');
       setError(null);
 
-      if (!isInjectedWalletAvailable()) {
+      if (!walletClient) {
         throw new Error('MetaMask is not installed.\n\nPlease install MetaMask to transfer tokens.');
       }
 
-      const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
+      const hash = await walletClient.writeContract({
+        address: tokenAddress,
+        abi: TokenCloneableAbi,
+        functionName: 'transfer',
+        args: [recipientAddress, parseUnits(amountNum.toString(), token.decimals)],
+      });
 
-      const eip1193 = await getInjectedEip1193();
-      if (!eip1193) {
-        throw new Error('No se pudo acceder a la wallet');
-      }
-      provider = new ethers.BrowserProvider(
-        eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
-      );
-      signer = await provider.getSigner();
+      await client.waitForTransactionReceipt({ hash });
 
-      tokenContract = new ethers.Contract(
-        token.tokenAddress,
-        TOKEN_CLONEABLE_ABI,
-        signer
-      );
-
-            
-      const tx = await tokenContract.transfer(recipient, ethers.parseUnits(amountNum.toString(), token.decimals));
-      
-      await tx.wait();
-      
       // Reload balances after successful transfer
       if (tokens.length > 0) {
         loadTokenBalances(tokens);
       }
-      
+
       setError(null);
-      alert(`✅ Transfer Successful!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Amount: ${amountNum} ${token.symbol}\n📫 To: ${recipient.substring(0, 10)}...${recipient.substring(recipient.length - 8)}\n\n📜 Transaction Hash:\n${tx.hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    } catch (err: any) {
-            
+      alert(`✅ Transfer Successful!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Amount: ${amountNum} ${token.symbol}\n📫 To: ${recipient.substring(0, 10)}...${recipient.substring(recipient.length - 8)}\n\n📜 Transaction Hash:\n${hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    } catch (err) {
+      const error = normalizeMarketError(err);
       let errorMsg = '❌ Transfer Failed\n\n';
-      
+
       // Check for specific error messages
-      if (err.reason === 'Transfer not compliant' || err.message?.includes('Transfer not compliant')) {
+      if (error.reason === 'Transfer not compliant' || error.message.includes('Transfer not compliant')) {
         errorMsg = '🚫 Compliance Check Failed\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
-        
+
         // Do detailed diagnostic
         try {
-          // Recreate provider/signer/contract if not available
-          if (!provider || !signer || !tokenContract) {
-            const eip1193 = await getInjectedEip1193();
-            if (eip1193) {
-              const { TOKEN_CLONEABLE_ABI } = await import('@/lib/contracts/TokenCloneable');
-              provider = new ethers.BrowserProvider(
-                eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
-              );
-              signer = await provider.getSigner();
-              tokenContract = new ethers.Contract(
-                token.tokenAddress,
-                TOKEN_CLONEABLE_ABI,
-                provider
-              );
-            }
-          }
+          const userAddress = account as Address;
+          const transferAmount = parseUnits(amountNum.toString(), token.decimals);
 
-          if (!signer || !tokenContract) {
-            throw new Error('Cannot access contracts for diagnostic');
-          }
-
-          const userAddress = await signer.getAddress();
-          const transferAmount = ethers.parseUnits(amountNum.toString(), token.decimals);
-          
           // Check if paused
-          const isPaused = await tokenContract.paused();
+          const isPaused = await client.readContract({
+            address: tokenAddress,
+            abi: TokenCloneableAbi,
+            functionName: 'paused',
+          });
           if (isPaused) {
             errorMsg += '❌ Token is PAUSED by admin\n\n';
             errorMsg += 'The token contract has been paused. Contact the token admin to unpause.\n';
             errorMsg += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━';
           } else {
             // Check if frozen
-            const senderFrozen = await tokenContract.isFrozen(userAddress);
-            const recipientFrozen = await tokenContract.isFrozen(recipient);
-            
+            const senderFrozen = await client.readContract({
+              address: tokenAddress,
+              abi: TokenCloneableAbi,
+              functionName: 'isFrozen',
+              args: [userAddress],
+            });
+            const recipientFrozen = await client.readContract({
+              address: tokenAddress,
+              abi: TokenCloneableAbi,
+              functionName: 'isFrozen',
+              args: [recipientAddress],
+            });
+
             if (senderFrozen) {
               errorMsg += `❌ YOUR account (${userAddress.substring(0, 10)}...) is FROZEN\n\n`;
               errorMsg += 'Contact the token admin to unfreeze your account.\n';
@@ -888,72 +863,87 @@ export default function MarketplacePage() {
               errorMsg += 'The recipient\'s account is frozen. They need to contact the token admin.\n';
             } else {
               // Check verification status
-              const senderVerified = await tokenContract.isVerified(userAddress);
-              const recipientVerified = await tokenContract.isVerified(recipient);
-              
+              const senderVerified = await client.readContract({
+                address: tokenAddress,
+                abi: TokenCloneableAbi,
+                functionName: 'isVerified',
+                args: [userAddress],
+              });
+              const recipientVerified = await client.readContract({
+                address: tokenAddress,
+                abi: TokenCloneableAbi,
+                functionName: 'isVerified',
+                args: [recipientAddress],
+              });
+
               errorMsg += `📍 Sender (${userAddress.substring(0, 10)}...):\n`;
               errorMsg += `   Verified: ${senderVerified ? '✅ YES' : '❌ NO'}\n\n`;
-              
+
               errorMsg += `📍 Recipient (${recipient.substring(0, 10)}...):\n`;
               errorMsg += `   Verified: ${recipientVerified ? '✅ YES' : '❌ NO'}\n\n`;
-              
+
               if (!senderVerified) {
                 errorMsg += '⚠️ YOU need to:\n';
                 errorMsg += '  1. Register your identity in Identity app (port 4001)\n';
                 errorMsg += '  2. Obtain required claims\n';
                 errorMsg += '  3. Load claims to your identity contract\n\n';
               }
-              
+
               if (!recipientVerified) {
                 errorMsg += '⚠️ RECIPIENT needs to:\n';
                 errorMsg += '  1. Register their identity in Identity app (port 4001)\n';
                 errorMsg += '  2. Obtain required claims\n';
                 errorMsg += '  3. Load claims to their identity contract\n\n';
               }
-              
+
               // Check compliance modules
               try {
-                const complianceModules = await tokenContract.getComplianceModules();
+                const complianceModules = await client.readContract({
+                  address: tokenAddress,
+                  abi: TokenCloneableAbi,
+                  functionName: 'getComplianceModules',
+                });
                 if (complianceModules.length > 0) {
                   errorMsg += `🔒 Compliance Modules: ${complianceModules.length}\n`;
-                  
+
                   for (let i = 0; i < complianceModules.length; i++) {
-                    const moduleAddr = complianceModules[i];
+                    const moduleAddr = complianceModules[i] as Address;
                     errorMsg += `   Module ${i + 1}: ${moduleAddr.substring(0, 10)}...\n`;
-                    
+
                     try {
                       // Try to call canTransfer on each module
-                      const COMPLIANCE_ABI = [
-                        "function canTransfer(address,address,uint256) view returns (bool)"
-                      ];
-                      const moduleContract = new ethers.Contract(moduleAddr, COMPLIANCE_ABI, provider);
-                      const moduleCanTransfer = await moduleContract.canTransfer(userAddress, recipient, transferAmount);
+                      const moduleCanTransfer = await client.readContract({
+                        address: moduleAddr,
+                        abi: IComplianceAbi,
+                        functionName: 'canTransfer',
+                        args: [userAddress, recipientAddress, transferAmount],
+                      });
                       if (!moduleCanTransfer) {
                         errorMsg += `      ❌ This module is BLOCKING the transfer\n`;
                       }
-                    } catch (moduleErr) {
+                    } catch {
                       errorMsg += `      ⚠️ Could not check module status\n`;
                     }
                   }
                 }
-              } catch (modulesErr) {
+              } catch {
                 // Ignore if can't get modules
               }
-              
+
               // Show required claims
               if (token.requiredClaims && token.requiredClaims.length > 0) {
                 errorMsg += '\n📋 Required Claims:\n';
-        token.requiredClaims.forEach(topic => {
-          const claimName = CLAIM_DESCRIPTIONS[topic]?.name || `Claim ${topic}`;
-          errorMsg += `  • ${claimName}\n`;
-        });
+                token.requiredClaims.forEach(topic => {
+                  const claimName = CLAIM_DESCRIPTIONS[topic]?.name || `Claim ${topic}`;
+                  errorMsg += `  • ${claimName}\n`;
+                });
               }
             }
-            
+
             errorMsg += '\n💡 Use "Check Compliance" button for detailed diagnostic\n';
             errorMsg += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━';
           }
-        } catch (diagErr) {
+        } catch {
           // Fallback to simple message if diagnostic fails
           errorMsg += `Transfer failed compliance check.\n\n`;
           errorMsg += `Possible causes:\n`;
@@ -962,18 +952,18 @@ export default function MarketplacePage() {
           errorMsg += `  • Sender or recipient not verified\n`;
           errorMsg += `  • Compliance module restrictions\n`;
           errorMsg += `\nUse "Check Compliance" button for detailed info.\n`;
-        errorMsg += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+          errorMsg += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━';
         }
-      } else if (err.message?.includes('insufficient')) {
+      } else if (error.message.includes('insufficient')) {
         errorMsg += '💸 Insufficient Balance\n\nYou don\'t have enough tokens to transfer';
-      } else if (err.message?.includes('execution reverted')) {
+      } else if (error.message.includes('revert')) {
         errorMsg += '⚠️ Transaction Reverted\n\nPossible causes:\n• Token is paused by admin\n• Transfer restrictions active\n• Invalid recipient address';
-      } else if (err.message?.includes('user rejected')) {
+      } else if (error.message.includes('user rejected') || error.message.includes('denied') || String(error.code) === '4001') {
         errorMsg += '🚫 Transaction Cancelled\n\nYou rejected the transaction in MetaMask';
       } else {
-        errorMsg += err.message || 'Unknown error occurred';
+        errorMsg += error.message || 'Unknown error occurred';
       }
-      
+
       setError(errorMsg);
     } finally {
       setTransferring(null);

@@ -7,11 +7,11 @@
 'use client';
 
 import { useState } from 'react';
+import { usePublicClient, useWalletClient } from 'wagmi';
 import { ClaimRequest } from '@/types/claim-request';
 import { IdentityCloneableAbi } from '@rwa/shared/contracts';
 import { ZERO_ADDRESS } from '@rwa/shared/network';
 
-import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
 interface RequestDetailModalProps {
   request: ClaimRequest;
   onClose: () => void;
@@ -22,6 +22,8 @@ interface RequestDetailModalProps {
 export default function RequestDetailModal({ request, onClose, identityAddress, onClaimAdded }: RequestDetailModalProps) {
   const [addingClaim, setAddingClaim] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
   const [claimAdded, setClaimAdded] = useState(false);
 
   const formatDate = (date: Date | string) => {
@@ -44,23 +46,9 @@ export default function RequestDetailModal({ request, onClose, identityAddress, 
       setError(null);
 
                         
-      if (!isInjectedWalletAvailable()) {
+      if (!walletClient || !publicClient) {
         throw new Error('MetaMask not available');
       }
-      const eip1193 = await getInjectedEip1193();
-      if (!eip1193) {
-        throw new Error('No se pudo acceder a la wallet');
-      }
-
-      // Dynamic import of ethers
-      const { ethers } = await import('ethers');
-
-      const provider = new ethers.BrowserProvider(
-        eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
-      );
-      const signer = await provider.getSigner();
-
-      const identityContract = new ethers.Contract(identityAddress, IdentityCloneableAbi, signer);
 
       // O2.3: el claim se envía con la firma EIP-712 emitida por el emisor.
       const payload = request.claimPayload;
@@ -74,18 +62,22 @@ export default function RequestDetailModal({ request, onClose, identityAddress, 
         throw new Error('El claim firmado corresponde a otra identidad on-chain.');
       }
 
-      const tx = await identityContract.addClaim(
-        BigInt(payload.topic),
-        BigInt(payload.scheme),
-        request.issuerAddress,
-        claimSignature,
-        payload.data,
-        payload.uri,
-        BigInt(payload.expiresAt),
-      );
+      const hash = await walletClient.writeContract({
+        address: identityAddress as `0x${string}`,
+        abi: IdentityCloneableAbi,
+        functionName: 'addClaim',
+        args: [
+          BigInt(payload.topic),
+          BigInt(payload.scheme),
+          request.issuerAddress as `0x${string}`,
+          claimSignature as `0x${string}`,
+          payload.data as `0x${string}`,
+          payload.uri,
+          BigInt(payload.expiresAt),
+        ],
+      });
+      await publicClient.waitForTransactionReceipt({ hash });
 
-            await tx.wait();
-      
       setClaimAdded(true);
       alert('Claim added to your identity successfully!\n\n✓ You can now use this claim for token investments');
       

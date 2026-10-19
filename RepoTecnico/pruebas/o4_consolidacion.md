@@ -175,3 +175,31 @@ y desinstalar `ethers`. Después, O4.7 (TanStack Query).
 **Verificación:** `tsc` 0 · lint 0 · `./scripts/ci_local.sh` exit 0 (build ×3 + 35 tests).
 
 *Fin de la evidencia — O4.6 (ronda 7)*
+
+
+## Ronda 8 · Escrituras a viem/wagmi (bloque mayor de `apps/token`)
+
+- `apps/token/components/CreateTokenForm.tsx`: alta de token con `useWalletClient().writeContract`
+  (`createTokenWithRegistries`), ClaimTopicsRegistry (`createRegistryForTokenWithTopics`),
+  `setClaimTopicsRegistry`, `setMaxSupply` y `addComplianceModule`; confirmaciones con
+  `getPublicClient().waitForTransactionReceipt`; dirección del clon por `decodeEventLog(TokenCreated)`
+  (fallback `getTotalTokens`/`getTokenAt`). `assertCanonicalChain` usa `useChainId` (O2.5).
+- `apps/token/components/TokensList.tsx`: saldos y precios con `readContract`; `addComplianceModule`
+  y `setPrice` con `writeContract`; validación de dirección con `viem.isAddress`.
+- `apps/token/app/marketplace/page.tsx`: compra (`buyToken` con `value`), transferencia, diagnóstico de
+  compliance y lecturas de precio/saldo/pausa/frozen/registries con viem; errores de wallet
+  normalizados (`shortMessage`/`cause`, sin códigos de `ethers`) y revert decodificado con
+  `decodeErrorResult`.
+- `apps/token/lib/contracts/market.ts`: ABI viem mínima (`pricePerToken`, `setPrice`, `buyToken`)
+  porque el artefacto generado no declara esas funciones (deuda: alinear con `rwa-sc`; la UI de
+  mercado es anterior al artefacto O2.2).
+- `RequestDetailModal` (identity/issuer): firma EIP-712 y `addClaim` con wagmi/viem; se limpian los
+  imports muertos que quedaban en el árbol de trabajo.
+- **`ethers` restante: 12 → 7 ficheros**. `apps/token` queda **sin `ethers` en runtime** (solo el
+  `types/ethereum.d.ts` ambiental). Pendientes: dashboard de emisor, identidad (WalletContext,
+  ClaimRequestForm, lib/contracts y app/app) y los `types/ethereum.d.ts`.
+
+**Verificación:** `tsc` 0 · lint 0 errores · `./scripts/ci_local.sh` **exit 0** (gates de literales y
+deriva · build ×3 · 35 tests).
+
+*Fin de la evidencia — O4.6 (ronda 8)*

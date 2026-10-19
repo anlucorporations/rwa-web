@@ -7,7 +7,8 @@
 'use client';
 
 import { useState } from 'react';
-import { ethers } from 'ethers';
+import { useChainId, useWalletClient } from 'wagmi';
+import { decodeEventLog, parseUnits, type Address } from 'viem';
 import { TOKEN_CLONE_FACTORY_ADDRESS } from '@/lib/contracts/TokenCloneFactory';
 import { COMPLIANCE_AGGREGATOR_ADDRESS } from '@/lib/contracts/compliance';
 import {
@@ -18,15 +19,34 @@ import {
 } from '@rwa/shared/contracts';
 import { IDENTITY_REGISTRY_ADDRESS, TRUSTED_ISSUERS_REGISTRY_ADDRESS } from '@/lib/contracts/registries';
 import { INVESTMENT_CLAIMS, CLAIM_DESCRIPTIONS } from '@/types/token';
-import { CANONICAL_CHAIN_ID, ZERO_ADDRESS, assertCanonicalChain } from '@rwa/shared/network';
-import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
+import { ZERO_ADDRESS, assertCanonicalChain } from '@rwa/shared/network';
+import { getPublicClient } from '@rwa/shared/web3';
 
 interface CreateTokenFormProps {
   userAddress: string;
   onSuccess: () => void;
 }
 
+/** Normaliza errores de wagmi/viem (sin depender de los códigos de `ethers`). */
+function normalizeWalletError(err: unknown): { message: string; reason?: string; code?: string | number } {
+  const candidate = err as {
+    shortMessage?: string;
+    details?: string;
+    message?: string;
+    reason?: string;
+    code?: string | number;
+    cause?: { reason?: string; shortMessage?: string; message?: string; code?: string | number };
+  };
+  const code = candidate?.code ?? candidate?.cause?.code;
+  const message =
+    candidate?.shortMessage || candidate?.details || candidate?.message || candidate?.cause?.message || '';
+  const reason = candidate?.reason || candidate?.cause?.reason || candidate?.cause?.shortMessage || '';
+  return { message, reason, code };
+}
+
 export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenFormProps) {
+  const { data: walletClient } = useWalletClient();
+  const chainId = useChainId();
   const [name, setName] = useState('');
   const [symbol, setSymbol] = useState('');
   const [decimals, setDecimals] = useState('18');
@@ -75,155 +95,86 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
       
       // Step 1: Create token
       setCurrentStep('Creating token on blockchain...');
-            
-      if (!isInjectedWalletAvailable()) {
-        throw new Error('MetaMask not available');
-      }
-      const eip1193 = await getInjectedEip1193();
-      if (!eip1193) {
-        throw new Error('No se pudo acceder a la wallet');
-      }
 
-      // Create provider with explicit network config to avoid ENS resolution on local networks
-      // Get chain ID from MetaMask first to configure network properly
-      let chainId: number;
-      try {
-        const chainIdHex = await eip1193.request({ method: 'eth_chainId' }) as string;
-        chainId = Number(BigInt(chainIdHex));
-      } catch {
-        // Fallback a la red canónica si no se puede leer la wallet
-        chainId = CANONICAL_CHAIN_ID;
+      if (!walletClient) {
+        throw new Error('MetaMask not available');
       }
       // O2.5: la wallet debe estar en la red canónica (mensaje claro si no)
       assertCanonicalChain(chainId);
 
-      // Create network object - explicitly disable ENS to avoid errors on local networks
-      // Omit ensAddress to prevent ENS resolution on local networks
-      const network: ethers.Networkish = {
-        chainId: chainId,
-        name: 'rwa-canonical',
-        // Don't set ensAddress - ethers.js will not try to resolve ENS if it's not set
-      };
+      const client = getPublicClient();
+      const factoryAddress = TOKEN_CLONE_FACTORY_ADDRESS as Address;
 
-      // Create provider with network config to prevent ENS resolution
-      // Wrap in try-catch in case ENS error still occurs during provider creation
-      let provider: ethers.BrowserProvider;
-      let signer: ethers.JsonRpcSigner;
-      
-      try {
-        provider = new ethers.BrowserProvider(eip1193 as ethers.Eip1193Provider, network);
-        signer = await provider.getSigner();
-      } catch (ensError: unknown) {
-        // If ENS error still occurs (shouldn't happen with ensAddress: null, but just in case)
-        const ensErrorMessage = (ensError instanceof Error ? ensError.message : String(ensError)) || '';
-        const isEnsError = ensErrorMessage.includes('ENS') || 
-          (typeof ensError === 'object' && ensError !== null && 'code' in ensError && ensError.code === 'UNSUPPORTED_OPERATION');
-        
-        if (isEnsError) {
-                    // Fallback: create provider without network config
-          // This may still trigger ENS errors, but we'll handle them in the main catch block
-          provider = new ethers.BrowserProvider(eip1193 as ethers.Eip1193Provider);
-          signer = await provider.getSigner();
-        } else {
-          throw ensError;
-        }
-      }
-      
-      const factory = new ethers.Contract(
-        TOKEN_CLONE_FACTORY_ADDRESS,
-        TokenCloneFactoryAbi,
-        signer
-      );
-
-      // Use createTokenWithRegistries to configure IdentityRegistry and TrustedIssuersRegistry
-      // For ClaimTopicsRegistry, we'll set it to address(0) for now (can be configured later per token)
-                              
       // Tope de suministro en wei (0 = sin tope, D-022). Se fija tras crear el token.
-      const maxSupplyWei = initialSupply ? ethers.parseUnits(initialSupply, parseInt(decimals)) : BigInt(0);
+      const maxSupplyWei = initialSupply ? parseUnits(initialSupply, parseInt(decimals)) : BigInt(0);
 
       // O2.4: la factoría real tiene 7 argumentos (sin `maxTotalSupply`). El ClaimTopicsRegistry
       // se crea justo después y se asigna con `setClaimTopicsRegistry`.
-      const tx = await factory.createTokenWithRegistries(
-        name,
-        symbol,
-        parseInt(decimals),
-        userAddress,
-        IDENTITY_REGISTRY_ADDRESS,
-        TRUSTED_ISSUERS_REGISTRY_ADDRESS,
-        ZERO_ADDRESS
-      );
-      
-            setCurrentStep('Waiting for confirmation...');
-      // After creating the token, fetch and log the admin's token balance
-    
-      const receipt = await tx.wait();
-                  
+      const hash = await walletClient.writeContract({
+        address: factoryAddress,
+        abi: TokenCloneFactoryAbi,
+        functionName: 'createTokenWithRegistries',
+        args: [
+          name,
+          symbol,
+          parseInt(decimals),
+          userAddress as Address,
+          IDENTITY_REGISTRY_ADDRESS as Address,
+          TRUSTED_ISSUERS_REGISTRY_ADDRESS as Address,
+          ZERO_ADDRESS,
+        ],
+      });
+
+      setCurrentStep('Waiting for confirmation...');
+      const receipt = await client.waitForTransactionReceipt({ hash });
+
       // Method 1: Try to get token address from event logs
       let tokenAddress: string | null = null;
-      
-      if (receipt && receipt.logs) {
-                
-        for (let i = 0; i < receipt.logs.length; i++) {
-          const log = receipt.logs[i];
-                    
-          try {
-            // Try to parse the log
-            const parsed = factory.interface.parseLog({
-              topics: [...log.topics],
-              data: log.data,
-            });
-            
-                        
-            if (parsed && parsed.name === 'TokenCreated') {
-              tokenAddress = parsed.args.token;
-                            break;
-            }
-          } catch (error) {
-            // This log is not from our contract or not a TokenCreated event
-                        continue;
-          }
+
+      for (const log of receipt.logs) {
+        try {
+          const decoded = decodeEventLog({
+            abi: TokenCloneFactoryAbi,
+            eventName: 'TokenCreated',
+            data: log.data,
+            topics: log.topics,
+          });
+          tokenAddress = decoded.args.token;
+          break;
+        } catch {
+          // This log is not a TokenCreated event
+          continue;
         }
       }
 
       // Method 2: If not found in logs, query the contract directly
       if (!tokenAddress) {
-                try {
-          const totalTokens = await factory.getTotalTokens();
-                    
-          if (totalTokens > 0) {
+        try {
+          const totalTokens = await client.readContract({
+            address: factoryAddress,
+            abi: TokenCloneFactoryAbi,
+            functionName: 'getTotalTokens',
+          });
+          if (totalTokens > BigInt(0)) {
             // Get the last token created (most recent)
-            const lastIndex = Number(totalTokens) - 1;
-            tokenAddress = await factory.getTokenAt(lastIndex);
-                      }
-        } catch (queryError) {
-                  }
+            tokenAddress = await client.readContract({
+              address: factoryAddress,
+              abi: TokenCloneFactoryAbi,
+              functionName: 'getTokenAt',
+              args: [totalTokens - BigInt(1)],
+            });
+          }
+        } catch {
+          // Se informa abajo si no se pudo resolver la dirección
+        }
       }
-
-      // Try to fetch admin balance after getting token address
-      try {
-        if (tokenAddress) {
-          // The ABI for the new token: just enough to call balanceOf
-          const MIN_ERC20_ABI = [
-            "function balanceOf(address) view returns (uint256)",
-            "function decimals() view returns (uint8)",
-            "function symbol() view returns (string)"
-          ];
-          const tokenContract = new ethers.Contract(tokenAddress, MIN_ERC20_ABI, signer);
-          // Query the balance and symbol
-          const balance = await tokenContract.balanceOf(userAddress);
-          const tokenDecimals = await tokenContract.decimals();
-          const tokenSymbol = await tokenContract.symbol();
-          const formatBalance = ethers.formatUnits(balance, tokenDecimals);
-                  } else {
-                  }
-      } catch (err) {
-              }
 
       if (!tokenAddress) {
         throw new Error('Could not retrieve token address. Please check the transaction on the block explorer.');
       }
 
-                  
+      const tokenContractAddress = tokenAddress as Address;
+
       // Step 2 (O2.4): crear el ClaimTopicsRegistry del token y asignarlo. RF-W-11 fail-closed:
       // un token sin claimTopicsRegistry no verifica a nadie.
       if (selectedClaims.length === 0) {
@@ -232,32 +183,43 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
         );
       }
       setCurrentStep('Creating ClaimTopicsRegistry for token...');
-      const registryFactory = new ethers.Contract(
-        getContractAddress('ClaimTopicsRegistryCloneFactory'),
-        ClaimTopicsRegistryCloneFactoryAbi,
-        signer,
-      );
-      const registryTx = await registryFactory.createRegistryForTokenWithTopics(
-        userAddress,
-        tokenAddress,
-        selectedClaims.map((topic) => BigInt(topic)),
-      );
-      await registryTx.wait();
-      const claimTopicsRegistryAddress = String(await registryFactory.getRegistryForToken(tokenAddress));
+      const registryFactoryAddress = getContractAddress('ClaimTopicsRegistryCloneFactory') as Address;
+      const registryHash = await walletClient.writeContract({
+        address: registryFactoryAddress,
+        abi: ClaimTopicsRegistryCloneFactoryAbi,
+        functionName: 'createRegistryForTokenWithTopics',
+        args: [userAddress as Address, tokenContractAddress, selectedClaims.map((topic) => BigInt(topic))],
+      });
+      await client.waitForTransactionReceipt({ hash: registryHash });
+      const claimTopicsRegistryAddress = await client.readContract({
+        address: registryFactoryAddress,
+        abi: ClaimTopicsRegistryCloneFactoryAbi,
+        functionName: 'getRegistryForToken',
+        args: [tokenContractAddress],
+      });
       if (!claimTopicsRegistryAddress || claimTopicsRegistryAddress === ZERO_ADDRESS) {
         throw new Error('No se pudo crear el ClaimTopicsRegistry del token.');
       }
 
-      const tokenContract = new ethers.Contract(tokenAddress, TokenCloneableAbi, signer);
       setCurrentStep('Assigning ClaimTopicsRegistry...');
-      const setRegistryTx = await tokenContract.setClaimTopicsRegistry(claimTopicsRegistryAddress);
-      await setRegistryTx.wait();
+      const setRegistryHash = await walletClient.writeContract({
+        address: tokenContractAddress,
+        abi: TokenCloneableAbi,
+        functionName: 'setClaimTopicsRegistry',
+        args: [claimTopicsRegistryAddress as Address],
+      });
+      await client.waitForTransactionReceipt({ hash: setRegistryHash });
 
       // Tope de suministro (opcional; 0 = sin tope, D-022)
       if (maxSupplyWei > BigInt(0)) {
         setCurrentStep('Setting max supply...');
-        const supplyTx = await tokenContract.setMaxSupply(maxSupplyWei);
-        await supplyTx.wait();
+        const supplyHash = await walletClient.writeContract({
+          address: tokenContractAddress,
+          abi: TokenCloneableAbi,
+          functionName: 'setMaxSupply',
+          args: [maxSupplyWei],
+        });
+        await client.waitForTransactionReceipt({ hash: supplyHash });
       }
 
       // Note: All tokens are automatically minted to admin during initialization
@@ -268,16 +230,20 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
       if (addCompliance) {
         try {
           setCurrentStep('Setting compliance contract...');
-                    
-          // `tokenContract` (TokenCloneableAbi) ya se creó al asignar el ClaimTopicsRegistry
-          const complianceTx = await tokenContract.addComplianceModule(COMPLIANCE_AGGREGATOR_ADDRESS);
-                    
+
+          const complianceHash = await walletClient.writeContract({
+            address: tokenContractAddress,
+            abi: TokenCloneableAbi,
+            functionName: 'addComplianceModule',
+            args: [COMPLIANCE_AGGREGATOR_ADDRESS as Address],
+          });
+
           setCurrentStep('Waiting for compliance confirmation...');
-          await complianceTx.wait();
-                    
+          await client.waitForTransactionReceipt({ hash: complianceHash });
+
           complianceAddress = COMPLIANCE_AGGREGATOR_ADDRESS;
-        } catch (complianceError) {
-                                        // Don't throw - token was created successfully
+        } catch {
+          // Don't throw - token was created successfully
           complianceAddress = ''; // Clear compliance address since it wasn't set
         }
       }
@@ -304,8 +270,8 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
           complianceModules: complianceAddress ? [complianceAddress] : [],
           requiredClaims: selectedClaims,
           description,
-          transactionHash: tx.hash,
-          blockNumber: receipt.blockNumber,
+          transactionHash: hash,
+          blockNumber: Number(receipt.blockNumber),
         }),
       });
 
@@ -348,60 +314,21 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
       
       onSuccess();
     } catch (err: unknown) {
-            
       let errorMsg = '❌ Failed to Create Token\n\n';
-      
-      // Type guard helper
-      const isErrorWithCode = (e: unknown): e is { code?: string; message?: string; reason?: string; data?: unknown; error?: unknown } => {
-        return typeof e === 'object' && e !== null;
-      };
-      
-      const errorObj = isErrorWithCode(err) ? err : {};
-      const errorMessage = errorObj.message || (err instanceof Error ? err.message : '');
-      const errorCode = errorObj.code;
-      const errorReason = errorObj.reason;
-      
-      // Handle ethers.js specific errors
-      if (errorCode === 'UNSUPPORTED_OPERATION' && errorMessage.includes('ENS')) {
-        // Ignore ENS errors on local networks - this is not a real error
-        // Just log it and continue with the actual error if there is one
-                // Don't show this as an error to the user - it's expected on local networks
-        // Reset state and return silently
-        setCreating(false);
-        setCurrentStep('');
-        return;
-      } else if (errorCode === 'ACTION_REJECTED' || errorMessage.includes('user rejected')) {
+
+      const { message: errorMessage, reason: errorReason, code: errorCode } = normalizeWalletError(err);
+      const isUserRejection =
+        errorCode === 4001 || /user rejected|user denied|action_rejected/i.test(errorMessage);
+
+      if (isUserRejection) {
         errorMsg += '🚫 Transaction Cancelled\n\nYou rejected the transaction in MetaMask';
-      } else if (errorCode === 'CALL_EXCEPTION' || errorMessage.includes('execution reverted')) {
+      } else if (/revert/i.test(errorMessage) || /revert/i.test(errorReason ?? '')) {
         errorMsg += '⚠️ Transaction Reverted\n\n';
-        
-        // Try to extract revert reason
-        let revertReason = '';
+
         if (errorReason) {
-          revertReason = errorReason;
-        } else if (errorObj.error && typeof errorObj.error === 'object' && 'message' in errorObj.error) {
-          revertReason = String(errorObj.error.message);
-        } else if (errorObj.data && typeof errorObj.data === 'object' && 'message' in errorObj.data) {
-          revertReason = String(errorObj.data.message);
-        } else if (errorObj.error && typeof errorObj.error === 'object' && 'data' in errorObj.error) {
-          const errorData = errorObj.error.data;
-          if (errorData && typeof errorData === 'object' && 'message' in errorData) {
-            revertReason = String(errorData.message);
-          } else if (typeof errorData === 'string') {
-            // Try to decode error data
-            try {
-              const { AbiCoder } = await import('ethers');
-              const abiCoder = AbiCoder.defaultAbiCoder();
-              revertReason = abiCoder.decode(['string'], errorData)[0];
-            } catch (decodeErr) {
-                          }
-          }
+          errorMsg += `Reason: ${errorReason}\n\n`;
         }
-        
-        if (revertReason) {
-          errorMsg += `Reason: ${revertReason}\n\n`;
-        }
-        
+
         errorMsg += '💡 Common causes:\n';
         errorMsg += ' • Invalid registry addresses\n';
         errorMsg += ' • Registry contracts not deployed\n';
@@ -410,19 +337,14 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
         errorMsg += ' • Admin address is invalid\n';
         errorMsg += ' • Contract verification/compliance check failed\n';
         errorMsg += ' • Gas estimation failed';
-      } else if (errorCode === 'NETWORK_ERROR' || errorMessage.includes('network')) {
+      } else if (/network|fetch failed|timeout/i.test(errorMessage)) {
         errorMsg += '🌐 Network Error\n\nPlease check your connection to the blockchain';
       } else if (errorMessage) {
         errorMsg += errorMessage;
       } else {
         errorMsg += 'Unknown error occurred. Please check the console for details.';
       }
-      
-      // Log detailed error information for debugging
-      if (isErrorWithCode(err)) {
-              } else {
-              }
-      
+
       setError(errorMsg);
       setCurrentStep('');
     } finally {

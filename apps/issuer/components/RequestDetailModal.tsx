@@ -7,6 +7,8 @@
 'use client';
 
 import { useState } from 'react';
+import { usePublicClient, useWalletClient } from 'wagmi';
+import { toHex } from 'viem';
 import { ClaimRequest } from '@/types/claim-request';
 import {
   IdentityCloneableAbi,
@@ -14,8 +16,7 @@ import {
   getContractAddress,
 } from '@rwa/shared/contracts';
 import { buildClaimTypedData, type ClaimPayload } from '@rwa/shared/claims';
-import { CANONICAL_CHAIN_ID, ZERO_ADDRESS, assertCanonicalChain, getRpcUrl } from '@rwa/shared/network';
-import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
+import { ZERO_ADDRESS, assertCanonicalChain } from '@rwa/shared/network';
 
 interface RequestDetailModalProps {
   request: ClaimRequest;
@@ -25,6 +26,8 @@ interface RequestDetailModalProps {
 }
 
 export default function RequestDetailModal({ request, onClose, onUpdate, issuerAddress }: RequestDetailModalProps) {
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
   const [loading, setLoading] = useState(false);
   const [reviewNote, setReviewNote] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -35,20 +38,10 @@ export default function RequestDetailModal({ request, onClose, onUpdate, issuerA
 
   const signReviewDecision = async (status: 'approved' | 'rejected'): Promise<{ signedMessage: string; signature: string }> => {
     try {
-      if (!isInjectedWalletAvailable()) {
+      if (!walletClient) {
         throw new Error('MetaMask not available');
       }
 
-      const { ethers } = await import('ethers');
-      const eip1193 = await getInjectedEip1193();
-      if (!eip1193) {
-        throw new Error('No se pudo acceder a la wallet');
-      }
-      const provider = new ethers.BrowserProvider(
-        eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
-      );
-      const signer = await provider.getSigner();
-      
       // Create message with review decision
       const timestamp = new Date().toISOString();
       const messageToSign = `Claim Request Review Decision
@@ -65,7 +58,7 @@ I hereby ${status === 'approved' ? 'APPROVE' : 'REJECT'} this claim request with
       
             
       // Request signature from MetaMask
-      const signature = await signer.signMessage(messageToSign);
+      const signature = await walletClient.signMessage({ account: walletClient.account!, message: messageToSign });
       
             
       return {
@@ -83,54 +76,50 @@ I hereby ${status === 'approved' ? 'APPROVE' : 'REJECT'} this claim request with
    * después `addClaim` con esta firma.
    */
   const signClaim = async (): Promise<{ payload: ClaimPayload; signature: string }> => {
-    if (!isInjectedWalletAvailable()) {
+    if (!walletClient || !publicClient) {
       throw new Error('MetaMask not available');
     }
-    const { ethers } = await import('ethers');
-    const eip1193 = await getInjectedEip1193();
-    if (!eip1193) {
-      throw new Error('No se pudo acceder a la wallet');
-    }
-    const browserProvider = new ethers.BrowserProvider(
-      eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
-    );
-    const signer = await browserProvider.getSigner();
-    const network = await browserProvider.getNetwork();
-    const chainId = Number(network.chainId);
+    const chainId = await publicClient.getChainId();
     assertCanonicalChain(chainId);
 
-    const rpc = new ethers.JsonRpcProvider(getRpcUrl());
-    const registry = new ethers.Contract(
-      getContractAddress('IdentityRegistry'),
-      IdentityRegistryAbi,
-      rpc,
-    );
-    const identityAddress = String(await registry.getIdentity(request.requesterAddress));
+    const identityAddress = (await publicClient.readContract({
+      address: getContractAddress('IdentityRegistry') as `0x${string}`,
+      abi: IdentityRegistryAbi,
+      functionName: 'getIdentity',
+      args: [request.requesterAddress as `0x${string}`],
+    })) as string;
+
     if (!identityAddress || identityAddress === ZERO_ADDRESS) {
       throw new Error(
         'El inversor todavía no ha creado su identidad on-chain; no se puede emitir el claim firmado.',
       );
     }
 
-    const identity = new ethers.Contract(identityAddress, IdentityCloneableAbi, rpc);
-    const owner = String(await identity.owner());
+    const owner = (await publicClient.readContract({
+      address: identityAddress as `0x${string}`,
+      abi: IdentityCloneableAbi,
+      functionName: 'owner',
+    })) as string;
     if (owner.toLowerCase() !== request.requesterAddress.toLowerCase()) {
       throw new Error('La identidad on-chain no pertenece al solicitante (owner distinto).');
     }
 
     const topic = Number(request.claimTopic);
-    const nonce = String(await identity.claimNonce(topic, issuerAddress));
+    const nonce = (await publicClient.readContract({
+      address: identityAddress as `0x${string}`,
+      abi: IdentityCloneableAbi,
+      functionName: 'claimNonce',
+      args: [BigInt(topic), issuerAddress as `0x${string}`],
+    })) as bigint;
     const expiresAt = String(Math.floor(Date.now() / 1000) + 365 * 24 * 3600);
-    const data = ethers.hexlify(
-      ethers.toUtf8Bytes(
-        JSON.stringify({
-          claimRequestId: request._id,
-          documentFileId: request.documentFileId ?? null,
-          issuer: issuerAddress,
-          requester: request.requesterAddress,
-          reviewedAt: new Date().toISOString(),
-        }),
-      ),
+    const data = toHex(
+      JSON.stringify({
+        claimRequestId: request._id,
+        documentFileId: request.documentFileId ?? null,
+        issuer: issuerAddress,
+        requester: request.requesterAddress,
+        reviewedAt: new Date().toISOString(),
+      }),
     );
     const uri = request.documentFileId
       ? `/api/download/${request.documentFileId}`
@@ -145,15 +134,17 @@ I hereby ${status === 'approved' ? 'APPROVE' : 'REJECT'} this claim request with
       data: data as `0x${string}`,
       uri,
       expiresAt,
-      nonce,
+      nonce: String(nonce),
     };
 
     const typedData = buildClaimTypedData(payload);
-    const signature = await signer.signTypedData(
-      typedData.domain,
-      typedData.types as unknown as Record<string, { name: string; type: string }[]>,
-      typedData.message,
-    );
+    const signature = await walletClient.signTypedData({
+      account: walletClient.account!,
+      domain: typedData.domain,
+      types: typedData.types,
+      primaryType: 'Claim',
+      message: typedData.message,
+    });
     return { payload, signature };
   };
 
