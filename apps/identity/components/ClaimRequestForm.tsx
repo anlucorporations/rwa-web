@@ -7,9 +7,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
-import { useWallet } from '@/contexts/WalletContext';
-import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
+import { usePublicClient, useWalletClient } from 'wagmi';
+import type { Address } from 'viem';
+import { getPublicClient } from '@rwa/shared/web3';
 import {
   TRUSTED_ISSUERS_REGISTRY_ADDRESS,
   TRUSTED_ISSUERS_REGISTRY_ABI,
@@ -18,7 +18,7 @@ import {
 
 interface Issuer {
   address: string;
-  claimTopics: bigint[];
+  claimTopics: readonly bigint[];
   name?: string;
 }
 
@@ -28,10 +28,11 @@ interface ClaimRequestFormProps {
 }
 
 export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimRequestFormProps) {
-  const { provider: walletProvider } = useWallet();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
   const [issuers, setIssuers] = useState<Issuer[]>([]);
   const [selectedIssuer, setSelectedIssuer] = useState<string>('');
-  const [availableTopics, setAvailableTopics] = useState<bigint[]>([]);
+  const [availableTopics, setAvailableTopics] = useState<readonly bigint[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<string>('');
   const [message, setMessage] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -42,7 +43,8 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
 
   useEffect(() => {
     loadIssuers();
-  }, [walletProvider]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [publicClient]);
 
   useEffect(() => {
     if (selectedIssuer) {
@@ -63,29 +65,36 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
       setError(null);
 
             
-      // Use wallet provider if available, otherwise fall back to JsonRpcProvider
-      const provider = walletProvider || new ethers.JsonRpcProvider(NETWORK_CONFIG.rpcUrl);
-            const contract = new ethers.Contract(
-        TRUSTED_ISSUERS_REGISTRY_ADDRESS,
-        TRUSTED_ISSUERS_REGISTRY_ABI,
-        provider
-      );
+      const client = publicClient ?? getPublicClient();
+      const registryAddress = TRUSTED_ISSUERS_REGISTRY_ADDRESS as Address;
 
       // First check if contract exists by getting the count
       let issuersCount: bigint;
       try {
-        issuersCount = await contract.getTrustedIssuersCount();
-              } catch (countError: any) {
-                throw new Error(`Failed to connect to TrustedIssuersRegistry contract at ${TRUSTED_ISSUERS_REGISTRY_ADDRESS}. Error: ${countError.message}`);
+        issuersCount = await client.readContract({
+          address: registryAddress,
+          abi: TRUSTED_ISSUERS_REGISTRY_ABI,
+          functionName: 'getTrustedIssuersCount',
+        });
+      } catch (countError: unknown) {
+        throw new Error(
+          `Failed to connect to TrustedIssuersRegistry contract at ${TRUSTED_ISSUERS_REGISTRY_ADDRESS}. Error: ${
+            countError instanceof Error ? countError.message : 'unknown error'
+          }`,
+        );
       }
 
-      if (issuersCount === 0n) {
+      if (issuersCount === BigInt(0)) {
                 setIssuers([]);
         setError('No trusted issuers have been configured in the registry. The contract owner needs to add issuers using addTrustedIssuer().');
         return;
       }
 
-      const issuerAddresses = await contract.getTrustedIssuers();
+      const issuerAddresses = await client.readContract({
+        address: registryAddress,
+        abi: TRUSTED_ISSUERS_REGISTRY_ABI,
+        functionName: 'getTrustedIssuers',
+      });
             
       if (!issuerAddresses || issuerAddresses.length === 0) {
                 setIssuers([]);
@@ -116,21 +125,26 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
       }
       
       const issuersData = await Promise.all(
-        issuerAddresses.map(async (address: string) => {
+        issuerAddresses.map(async (address) => {
           try {
-            const claimTopics = await contract.getIssuerClaimTopics(address);
-                        const name = issuerNamesMap[address.toLowerCase()];
+            const claimTopics = await client.readContract({
+              address: registryAddress,
+              abi: TRUSTED_ISSUERS_REGISTRY_ABI,
+              functionName: 'getIssuerClaimTopics',
+              args: [address],
+            });
+            const name = issuerNamesMap[address.toLowerCase()];
             return {
               address,
               claimTopics,
               name,
             };
-          } catch (topicError: any) {
-                        // Return issuer with empty topics array if we can't load them
+          } catch {
+            // Return issuer with empty topics array if we can't load them
             const name = issuerNamesMap[address.toLowerCase()];
             return {
               address,
-              claimTopics: [],
+              claimTopics: [] as bigint[],
               name,
             };
           }
@@ -194,32 +208,23 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
 
   const signMessage = async (): Promise<{ signedMessage: string; signature: string }> => {
     try {
-      if (!isInjectedWalletAvailable()) {
+      if (!walletClient) {
         throw new Error('MetaMask not available');
       }
-      const eip1193 = await getInjectedEip1193();
-      if (!eip1193) {
-        throw new Error('No se pudo acceder a la wallet');
-      }
 
-      const provider = new ethers.BrowserProvider(
-        eip1193 as unknown as ConstructorParameters<typeof ethers.BrowserProvider>[0],
-      );
-      const signer = await provider.getSigner();
-      
       // Create message with requester address + timestamp
       const timestamp = new Date().toISOString();
       const messageToSign = `Claim Request Verification\n\nRequester: ${userAddress}\nTimestamp: ${timestamp}\n\nI hereby request verification of my claim from the selected trusted issuer.`;
-      
+
       // Request signature from MetaMask
-      const signature = await signer.signMessage(messageToSign);
-      
+      const signature = await walletClient.signMessage({ message: messageToSign });
+
       return {
         signedMessage: messageToSign,
         signature: signature
       };
-    } catch (err) {
-            throw new Error('Failed to sign message. Please approve the signature request in MetaMask.');
+    } catch {
+      throw new Error('Failed to sign message. Please approve the signature request in MetaMask.');
     }
   };
 

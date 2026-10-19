@@ -1,29 +1,46 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useChainId, usePublicClient, useWalletClient } from "wagmi";
+import { decodeEventLog, type Address } from "viem";
 import { useWallet } from "@/contexts/WalletContext";
-import {
-  getIdentityRegistryContract,
-  getIdentityCloneFactoryContract,
-  IDENTITY_REGISTRY_ADDRESS,
-} from "@/lib/contracts";
+import { IDENTITY_FACTORY_ADDRESS, IDENTITY_REGISTRY_ADDRESS } from "@/lib/contracts";
 import ClaimRequestForm from "@/components/ClaimRequestForm";
 import ClaimRequestsList from "@/components/ClaimRequestsList";
-import { CLAIM_TOPIC_NAMES } from "@/lib/identity-claims";
+import { CLAIM_TOPIC_NAMES, getIdentityClaims } from "@/lib/identity-claims";
+import { ValidationError } from "@rwa/shared/errors";
+import { IdentityCloneFactoryAbi, IdentityRegistryAbi } from "@rwa/shared/contracts";
 import {
   CANONICAL_CHAIN_ID,
+  TRUSTED_ISSUERS_REGISTRY_ABI,
+  TRUSTED_ISSUERS_REGISTRY_ADDRESS,
   ZERO_ADDRESS,
   assertCanonicalChain,
 } from "@rwa/shared/network";
+import { getPublicClient } from "@rwa/shared/web3";
+
+/** Normaliza errores de wagmi/viem (sin los códigos de `ethers`). */
+function normalizeWalletError(err: unknown): { message: string; reason?: string; code?: string | number } {
+  const candidate = err as {
+    shortMessage?: string;
+    details?: string;
+    message?: string;
+    reason?: string;
+    code?: string | number;
+    cause?: { reason?: string; shortMessage?: string; message?: string; code?: string | number };
+  };
+  const code = candidate?.code ?? candidate?.cause?.code;
+  const message =
+    candidate?.shortMessage || candidate?.details || candidate?.message || candidate?.cause?.message || '';
+  const reason = candidate?.reason || candidate?.cause?.reason || '';
+  return { message, reason, code };
+}
 
 export default function Home() {
-  const {
-    provider,
-    account,
-    walletName,
-    isConnecting,
-    connectWallet
-  } = useWallet();
+  const { account, isConnecting, connectWallet } = useWallet();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
+  const chainId = useChainId();
 
   const [isRegistered, setIsRegistered] = useState<boolean>(false);
   const [identityAddress, setIdentityAddress] = useState<string>("");
@@ -35,52 +52,58 @@ export default function Home() {
   const [identityClaims, setIdentityClaims] = useState<{ topic: bigint; issuer: string }[]>([]);
 
   const checkRegistrationStatus = useCallback(async (address: string) => {
-    if (!provider) return;
+    if (!publicClient) return;
 
     setIsCheckingRegistration(true);
     setError("");
     try {
-      
-      // First verify we're on the right network
-      const network = await provider.getNetwork();
-      
-      // Lanza un ValidationError con el mensaje de red incorrecta si no es la canónica.
-      assertCanonicalChain(Number(network.chainId));
+      // O2.5: la wallet debe estar en la red canónica
+      assertCanonicalChain(chainId);
 
-      const registryWithProvider = getIdentityRegistryContract(provider);
-      
-      const registered = await registryWithProvider.isRegistered(address);
-      
+      const registryAddress = IDENTITY_REGISTRY_ADDRESS as Address;
+      const registered = await publicClient.readContract({
+        address: registryAddress,
+        abi: IdentityRegistryAbi,
+        functionName: "isRegistered",
+        args: [address as Address],
+      });
+
       setIsRegistered(registered);
 
       if (registered) {
-        const identity = await registryWithProvider.getIdentity(address);
-                setIdentityAddress(identity);
+        const identity = await publicClient.readContract({
+          address: registryAddress,
+          abi: IdentityRegistryAbi,
+          functionName: "getIdentity",
+          args: [address as Address],
+        });
+        setIdentityAddress(identity);
       } else {
         setIdentityAddress("");
       }
     } catch (err) {
-            const error = err as { code?: string; message?: string; reason?: string; data?: string };
+      setIsRegistered(false);
+      setIdentityAddress("");
 
-      // If it's a contract error, assume not registered
-      if (error.code === 'VALIDATION_ERROR') {
+      if (err instanceof ValidationError) {
         // Red incorrecta: muestra el mensaje del ValidationError de @rwa/shared/network
-        setError(error.message || `Red incorrecta: la red canónica es chainId ${CANONICAL_CHAIN_ID}.`);
-      } else if (error.code === 'CALL_EXCEPTION') {
-                                        setIsRegistered(false);
-        setIdentityAddress("");
-        setError(`Cannot connect to contracts. Make sure your wallet is on the canonical network (chainId: ${CANONICAL_CHAIN_ID}).`);
+        setError(err.message);
       } else {
-        setError(`Error checking registration: ${error.message || "Unknown error"}`);
+        const info = normalizeWalletError(err);
+        setError(
+          `Cannot connect to contracts. Make sure your wallet is on the canonical network (chainId: ${CANONICAL_CHAIN_ID}). ${
+            info.message || ""
+          }`.trim(),
+        );
       }
     } finally {
       setIsCheckingRegistration(false);
     }
-  }, [provider]);
+  }, [publicClient, chainId]);
 
   // Check registration status when account changes
   useEffect(() => {
-    if (account && provider) {
+    if (account && publicClient) {
       checkRegistrationStatus(account);
     } else {
       // Clear state when disconnected
@@ -88,10 +111,10 @@ export default function Home() {
       setIdentityAddress("");
       setIdentityClaims([]);
     }
-  }, [account, provider, checkRegistrationStatus]);
+  }, [account, publicClient, checkRegistrationStatus]);
 
   const createIdentity = async () => {
-    if (!account || !provider) {
+    if (!account || !walletClient || !publicClient) {
       setError("Please connect your wallet first");
       return;
     }
@@ -101,13 +124,13 @@ export default function Home() {
     setSuccess("");
 
     try {
-      // Get the signer from the context provider
-      setSuccess("Getting signer...");
-      
-      const signer = await provider.getSigner();
-      const signerAddress = await signer.getAddress();
+      assertCanonicalChain(chainId);
 
-                  
+      const signerAddress = walletClient.account?.address;
+      if (!signerAddress) {
+        throw new Error("Signer address doesn't match connected account. Please reconnect your wallet.");
+      }
+
       // Verify the signer matches the connected account
       if (signerAddress.toLowerCase() !== account.toLowerCase()) {
         throw new Error("Signer address doesn't match connected account. Please reconnect your wallet.");
@@ -116,48 +139,59 @@ export default function Home() {
       // Step 1: Create identity using IdentityCloneFactory
       setSuccess("Creating identity contract...");
 
-      const factory = getIdentityCloneFactoryContract(signer);
+      const hash = await walletClient.writeContract({
+        address: IDENTITY_FACTORY_ADDRESS as Address,
+        abi: IdentityCloneFactoryAbi,
+        functionName: "createIdentity",
+        args: [signerAddress],
+      });
 
-                  
-      // Use the signer's address instead of the account state
-      setSuccess("Waiting for transaction signature... Check your wallet!");
-      
-      const tx = await factory.createIdentity(signerAddress);
-
-            
-      setSuccess(`Transaction sent! Hash: ${tx.hash.substring(0, 10)}... Waiting for confirmation...`);
-      const receipt = await tx.wait();
-
-      if (!receipt) {
-        throw new Error("Transaction receipt not received");
-      }
+      setSuccess(
+        `Transaction sent! Hash: ${hash.substring(0, 10)}... Waiting for confirmation...`,
+      );
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
       // Get the identity address from the IdentityCreated event
-      const event = receipt.logs
-        .map((log: { topics: string[]; data: string }) => {
-          try {
-            return factory.interface.parseLog(log);
-          } catch {
-            return null;
-          }
-        })
-        .find((parsedLog: { name: string } | null) => parsedLog?.name === "IdentityCreated");
+      let newIdentityAddress: string | null = null;
+      for (const log of receipt.logs) {
+        try {
+          const decoded = decodeEventLog({
+            abi: IdentityCloneFactoryAbi,
+            eventName: "IdentityCreated",
+            data: log.data,
+            topics: log.topics,
+          });
+          newIdentityAddress = decoded.args.identity;
+          break;
+        } catch {
+          continue;
+        }
+      }
 
-      if (!event) {
+      if (!newIdentityAddress) {
         throw new Error("Identity creation event not found");
       }
 
-      const newIdentityAddress = event.args.identity;
-            setIdentityAddress(newIdentityAddress); // Set identity address immediately
+      setIdentityAddress(newIdentityAddress); // Set identity address immediately
       setSuccess(`Identity created at ${newIdentityAddress}. Registering...`);
 
       // Step 2: Register the identity in IdentityRegistry
-            const registry = getIdentityRegistryContract(signer);
+      const registryAddress = IDENTITY_REGISTRY_ADDRESS as Address;
 
       // Check if already registered before attempting to register
-      const isAlreadyRegistered = await registry.isRegistered(signerAddress);
+      const isAlreadyRegistered = await publicClient.readContract({
+        address: registryAddress,
+        abi: IdentityRegistryAbi,
+        functionName: "isRegistered",
+        args: [signerAddress],
+      });
       if (isAlreadyRegistered) {
-                const existingIdentity = await registry.getIdentity(signerAddress);
+        const existingIdentity = await publicClient.readContract({
+          address: registryAddress,
+          abi: IdentityRegistryAbi,
+          functionName: "getIdentity",
+          args: [signerAddress],
+        });
         setIdentityAddress(existingIdentity);
         setIsRegistered(true);
         setSuccess(`Identity already registered at ${existingIdentity}!`);
@@ -165,50 +199,28 @@ export default function Home() {
       }
 
       setSuccess("Waiting for registration signature... Check your wallet!");
-      
-      const registerTx = await registry.registerIdentity(signerAddress, newIdentityAddress);
 
-            
-      setSuccess(`Registration sent! Hash: ${registerTx.hash.substring(0, 10)}... Waiting for confirmation...`);
-      const registerReceipt = await registerTx.wait();
+      const registerHash = await walletClient.writeContract({
+        address: registryAddress,
+        abi: IdentityRegistryAbi,
+        functionName: "registerIdentity",
+        args: [signerAddress, newIdentityAddress as Address],
+      });
 
-      if (!registerReceipt) {
-        throw new Error("Registration transaction receipt not received");
-      }
+      setSuccess(
+        `Registration sent! Hash: ${registerHash.substring(0, 10)}... Waiting for confirmation...`,
+      );
+      await publicClient.waitForTransactionReceipt({ hash: registerHash });
 
       // Update state
       setIsRegistered(true);
       setSuccess(`Identity successfully created and registered at ${newIdentityAddress}!`);
     } catch (err) {
-            let errorMessage = "Unknown error";
-      const error = err as {
-        code?: string;
-        message?: string;
-        reason?: string;
-        data?: string;
-        shortMessage?: string;
-      };
+      const info = normalizeWalletError(err);
+      let errorMessage = info.reason || info.message || "Unknown error";
 
-      if (error.code === 'ACTION_REJECTED') {
+      if (info.code === 4001 || /user rejected|user denied|action_rejected/i.test(info.message)) {
         errorMessage = "Transaction was rejected by user";
-      } else       if (error.data) {
-        // Check for custom errors
-        const errorData = error.data;
-        if (errorData.includes('Wallet already registered')) {
-          errorMessage = "This wallet address is already registered. Please check your existing identity.";
-        } else if (error.reason) {
-          errorMessage = error.reason;
-        } else if (error.shortMessage) {
-          errorMessage = error.shortMessage;
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-      } else if (error.reason) {
-        errorMessage = error.reason;
-      } else if (error.shortMessage) {
-        errorMessage = error.shortMessage;
-      } else if (error.message) {
-        errorMessage = error.message;
       }
 
       setError(`Failed to create identity: ${errorMessage}`);
@@ -218,7 +230,7 @@ export default function Home() {
   };
 
   const registerExistingIdentity = async () => {
-    if (!account || !provider || !identityAddress) {
+    if (!account || !walletClient || !publicClient || !identityAddress) {
       setError("Missing required data");
       return;
     }
@@ -228,22 +240,23 @@ export default function Home() {
     setSuccess("");
 
     try {
-      const signer = await provider.getSigner();
-      const signerAddress = await signer.getAddress();
+      assertCanonicalChain(chainId);
 
-            const registry = getIdentityRegistryContract(signer);
+      const registryAddress = IDENTITY_REGISTRY_ADDRESS as Address;
 
       setSuccess("Waiting for registration signature... Check your wallet!");
-      
-      const registerTx = await registry.registerIdentity(signerAddress, identityAddress);
 
-            
-      setSuccess(`Registration sent! Hash: ${registerTx.hash.substring(0, 10)}... Waiting for confirmation...`);
-      const registerReceipt = await registerTx.wait();
+      const registerHash = await walletClient.writeContract({
+        address: registryAddress,
+        abi: IdentityRegistryAbi,
+        functionName: "registerIdentity",
+        args: [account as Address, identityAddress as Address],
+      });
 
-      if (!registerReceipt) {
-        throw new Error("Registration transaction receipt not received");
-      }
+      setSuccess(
+        `Registration sent! Hash: ${registerHash.substring(0, 10)}... Waiting for confirmation...`,
+      );
+      await publicClient.waitForTransactionReceipt({ hash: registerHash });
 
       // Update state
       setIsRegistered(true);
@@ -252,15 +265,11 @@ export default function Home() {
       // Recheck registration status to confirm
       await checkRegistrationStatus(account);
     } catch (err) {
-            let errorMessage = "Unknown error";
-      const error = err as { code?: string; message?: string; reason?: string };
+      const info = normalizeWalletError(err);
+      let errorMessage = info.reason || info.message || "Unknown error";
 
-      if (error.code === 'ACTION_REJECTED') {
+      if (info.code === 4001 || /user rejected|user denied|action_rejected/i.test(info.message)) {
         errorMessage = "Transaction was rejected by user";
-      } else if (error.reason) {
-        errorMessage = error.reason;
-      } else if (error.message) {
-        errorMessage = error.message;
       }
 
       setError(`Failed to register identity: ${errorMessage}`);
@@ -278,43 +287,44 @@ export default function Home() {
   };
 
   const loadIdentityClaims = useCallback(async () => {
-    if (!identityAddress || identityAddress === ZERO_ADDRESS || !provider) {
+    if (!identityAddress || identityAddress === ZERO_ADDRESS) {
       setIdentityClaims([]);
       return;
     }
 
     try {
-      
-      // Dynamic import of ethers
-      const { ethers } = await import('ethers');
-      const { getIdentityClaims } = await import('@/lib/identity-claims');
+      const client = publicClient ?? getPublicClient();
+      const registryAddress = TRUSTED_ISSUERS_REGISTRY_ADDRESS as Address;
 
       // First, try to get all topics from TrustedIssuersRegistry
       let topicsToCheck: number[] = [];
       try {
-        const { TRUSTED_ISSUERS_REGISTRY_ADDRESS, TRUSTED_ISSUERS_REGISTRY_ABI } = await import('@/contracts/TrustedIssuersRegistry');
-        const registryContract = new ethers.Contract(
-          TRUSTED_ISSUERS_REGISTRY_ADDRESS,
-          TRUSTED_ISSUERS_REGISTRY_ABI,
-          provider
-        );
-
-        const issuerAddresses = await registryContract.getTrustedIssuers();
+        const issuerAddresses = await client.readContract({
+          address: registryAddress,
+          abi: TRUSTED_ISSUERS_REGISTRY_ABI,
+          functionName: "getTrustedIssuers",
+        });
         const allTopics = new Set<number>();
 
         for (const issuerAddress of issuerAddresses) {
           try {
-            const issuerTopics = await registryContract.getIssuerClaimTopics(issuerAddress);
-            issuerTopics.forEach((topic: bigint) => {
+            const issuerTopics = await client.readContract({
+              address: registryAddress,
+              abi: TRUSTED_ISSUERS_REGISTRY_ABI,
+              functionName: "getIssuerClaimTopics",
+              args: [issuerAddress],
+            });
+            issuerTopics.forEach((topic) => {
               allTopics.add(Number(topic));
             });
-          } catch (err) {
-                      }
+          } catch {
+            // Un issuer sin topics legibles no bloquea el resto
+          }
         }
 
         topicsToCheck = Array.from(allTopics);
-              } catch (err) {
-                // Fallback: check a wider range of common topics
+      } catch {
+        // Fallback: check a wider range of common topics
         topicsToCheck = Array.from({ length: 20 }, (_, i) => i + 1);
       }
 
@@ -327,23 +337,23 @@ export default function Home() {
       const claimsData = await getIdentityClaims(identityAddress, topicsToCheck);
 
       // Convert to the format expected by the component
-      const claims = claimsData.map(claim => ({
+      const claims = claimsData.map((claim) => ({
         topic: claim.topic,
-        issuer: claim.issuer
+        issuer: claim.issuer,
       }));
 
-            setIdentityClaims(claims);
-    } catch (err) {
-            setIdentityClaims([]);
+      setIdentityClaims(claims);
+    } catch {
+      setIdentityClaims([]);
     }
-  }, [identityAddress, provider]);
+  }, [identityAddress, publicClient]);
 
   // Load claims when identity address changes
   useEffect(() => {
-    if (identityAddress && identityAddress !== ZERO_ADDRESS && provider) {
+    if (identityAddress && identityAddress !== ZERO_ADDRESS) {
       loadIdentityClaims();
     }
-  }, [identityAddress, provider, loadIdentityClaims]);
+  }, [identityAddress, loadIdentityClaims]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 font-sans dark:from-gray-900 dark:to-gray-800">

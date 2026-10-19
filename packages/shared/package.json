@@ -13,7 +13,8 @@
     "./network": "./src/network/index.ts",
     "./claims": "./src/claims/eip712.ts",
     "./validation": "./src/validation/index.ts",
-    "./web3": "./src/web3/index.ts"
+    "./web3": "./src/web3/index.ts",
+    "./errors": "./src/errors.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

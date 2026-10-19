@@ -9,7 +9,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ClaimRequest } from '@/types/claim-request';
 import RequestDetailModal from './RequestDetailModal';
-import { useWallet } from '@/contexts/WalletContext';
 import { claimExists } from '@/lib/identity-claims';
 import { ZERO_ADDRESS } from '@rwa/shared/network';
 
@@ -21,7 +20,6 @@ interface ClaimRequestsListProps {
 }
 
 export default function ClaimRequestsList({ userAddress, refreshTrigger, identityAddress, onClaimAdded }: ClaimRequestsListProps) {
-  const { provider } = useWallet();
   const [requests, setRequests] = useState<ClaimRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +28,7 @@ export default function ClaimRequestsList({ userAddress, refreshTrigger, identit
   const [claimsInContract, setClaimsInContract] = useState<Set<string>>(new Set());
 
   const checkClaimsInContract = useCallback(async () => {
-    if (!identityAddress || identityAddress === ZERO_ADDRESS || !provider) {
+    if (!identityAddress || identityAddress === ZERO_ADDRESS) {
       return;
     }
 
@@ -59,17 +57,17 @@ export default function ClaimRequestsList({ userAddress, refreshTrigger, identit
       setClaimsInContract(claimsSet);
           } catch (err) {
           }
-  }, [requests, identityAddress, provider]);
+  }, [requests, identityAddress]);
 
   useEffect(() => {
     loadRequests();
   }, [userAddress, refreshTrigger, filter]);
 
   useEffect(() => {
-    if (requests.length > 0 && identityAddress && identityAddress !== ZERO_ADDRESS && provider) {
+    if (requests.length > 0 && identityAddress && identityAddress !== ZERO_ADDRESS) {
       checkClaimsInContract();
     }
-  }, [requests, identityAddress, provider, checkClaimsInContract]);
+  }, [requests, identityAddress, checkClaimsInContract]);
 
   const loadRequests = async () => {
     try {

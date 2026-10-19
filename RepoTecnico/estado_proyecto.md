@@ -2,7 +2,7 @@
 
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
 > **Línea:** `@web` (`rwa-web/`) — separada de `@sc` (`rwa-sc/`) por D-102
-> **Versión:** v2.0 · 2026-10-18 · **Fase 3 — O0, O1 y O3 cerrados; O2 pendiente de redespliegue de GCP; O4: 4.1/4.2/4.4/4.5 hechos, 4.6 casi completo (0 `window.ethereum`), 4.3 parcial**
+> **Versión:** v2.1 · 2026-10-19 · **Fase 3 — O0, O1 y O3 cerrados; O2 pendiente de redespliegue de GCP; O4: 4.1/4.2/4.4/4.5/4.6 hechos, 4.3 parcial, 4.7 pendiente**
 >
 > **Memoria de trabajo de la etapa.** El registro global del proyecto (contratos + etapa web)
 > sigue en `rwa-sc/RepoTecnico/estado_proyecto.md`; este archivo gobierna el día a día de `@web`.
@@ -138,10 +138,10 @@ el E2E off-chain está en verde, pero el on-chain está bloqueado por el desplie
 | O4.3 | Eliminar duplicados | 🟡 `TrustedIssuersRegistry` y tipos comunes consolidados; queda `RequestDetailModal` ×2 (requiere `packages/ui`) | `o4_consolidacion.md` |
 | O4.4 | Destino de `web-registry-trusted2` | ✅ **Retirada** (duplicado experimental) | `o4_consolidacion.md` |
 | O4.5 | Destino de `web-rwa` | ✅ **Retirada** (landing fuera del objetivo de 3 apps) | `o4_consolidacion.md` |
-| O4.6 | Unificar web3 en `wagmi`+`viem`; 0 `window.ethereum` | 🟡 **`window.ethereum` = 0** y **`apps/token` sin `ethers` en runtime**; quedan **7 ficheros** con `ethers` (identity: 4, issuer: 1 + 2 `types/ethereum.d.ts`) | `o4_consolidacion.md` |
+| O4.6 | Unificar web3 en `wagmi`+`viem`; 0 `window.ethereum` | ✅ **HECHO** — **0 `window.ethereum` y 0 imports de `ethers`** en todo el monorepo; `ethers` desinstalado de las 3 apps; stack único wagmi+viem | `o4_consolidacion.md` |
 | O4.7 | Estado de datos con TanStack Query | ⏳ | — |
 
-**Gate del ciclo:** `pnpm -r build && pnpm -r test` en verde + conteo de duplicados = 0. *(Parcial: builds/tests en verde; quedan O4.2/O4.6/O4.7 y el `RequestDetailModal`.)*
+**Gate del ciclo:** `pnpm -r build && pnpm -r test` en verde + conteo de duplicados = 0. *(Parcial: builds/tests en verde; quedan O4.2 (`packages/ui`/`config`), O4.3 (`RequestDetailModal`) y O4.7.)*
 
 ---
 

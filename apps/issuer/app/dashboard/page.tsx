@@ -1,9 +1,15 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { ethers, BrowserProvider } from 'ethers';
-import { useAccount } from 'wagmi';
-import { getInjectedEip1193, isInjectedWalletAvailable } from '@rwa/shared/web3';
+import { useEffect, useState } from 'react';
+import {
+  useAccount,
+  useConnect,
+  useDisconnect,
+  usePublicClient,
+  useSwitchChain,
+  useWalletClient,
+} from 'wagmi';
+import { isAddress, type Address } from 'viem';
 import {
   TRUSTED_ISSUERS_REGISTRY_ADDRESS,
   TRUSTED_ISSUERS_REGISTRY_ABI,
@@ -11,13 +17,14 @@ import {
   CONTRACT_OWNER,
 } from '@/lib/contracts';
 import { CANONICAL_CHAIN_ID, DEMO_ACCOUNTS, getRpcUrl } from '@rwa/shared/network';
+import { getPublicClient } from '@rwa/shared/web3';
 import IssuerRequestsList from '@/components/IssuerRequestsList';
 import RequestDetailModal from '@/components/RequestDetailModal';
 import { ClaimRequest } from '@/types/claim-request';
 
 interface IssuerData {
   address: string;
-  claimTopics: bigint[];
+  claimTopics: readonly bigint[];
   isTrusted: boolean;
 }
 
@@ -34,8 +41,30 @@ function getRpcUrlForDisplay(): string {
   }
 }
 
+/** Normaliza errores de wagmi/viem (sin los códigos de `ethers`). */
+function normalizeWalletError(err: unknown): { message: string; reason?: string; code?: string | number } {
+  const candidate = err as {
+    shortMessage?: string;
+    details?: string;
+    message?: string;
+    reason?: string;
+    code?: string | number;
+    cause?: { reason?: string; shortMessage?: string; message?: string; code?: string | number };
+  };
+  const code = candidate?.code ?? candidate?.cause?.code;
+  const message =
+    candidate?.shortMessage || candidate?.details || candidate?.message || candidate?.cause?.message || '';
+  const reason = candidate?.reason || candidate?.cause?.reason || '';
+  return { message, reason, code };
+}
+
 export default function Home() {
   const { address: wagmiAddress } = useAccount();
+  const { connectAsync, connectors } = useConnect();
+  const { disconnect } = useDisconnect();
+  const { switchChainAsync } = useSwitchChain();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
   const [issuers, setIssuers] = useState<string[]>([]);
   const [issuerDetails, setIssuerDetails] = useState<IssuerData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,7 +85,7 @@ export default function Home() {
 
   useEffect(() => {
     loadTrustedIssuers();
-    checkMetaMask();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sincroniza la cuenta con wagmi (sustituye a los listeners del proveedor inyectado).
@@ -79,16 +108,17 @@ export default function Home() {
 
   const checkIfIssuer = async (address: string) => {
     try {
-      const provider = new ethers.JsonRpcProvider(NETWORK_CONFIG.rpcUrl);
-      const contract = new ethers.Contract(
-        TRUSTED_ISSUERS_REGISTRY_ADDRESS,
-        TRUSTED_ISSUERS_REGISTRY_ABI,
-        provider
-      );
-      const isTrusted = await contract.isTrustedIssuer(address);
+      const client = publicClient;
+      if (!client) return;
+      const isTrusted = await client.readContract({
+        address: TRUSTED_ISSUERS_REGISTRY_ADDRESS as Address,
+        abi: TRUSTED_ISSUERS_REGISTRY_ABI,
+        functionName: 'isTrustedIssuer',
+        args: [address as Address],
+      });
       setIsIssuer(isTrusted);
-    } catch (err) {
-            setIsIssuer(false);
+    } catch {
+      setIsIssuer(false);
     }
   };
 
@@ -97,9 +127,10 @@ export default function Home() {
   };
 
   const disconnectWallet = () => {
+    disconnect();
     setAccount('');
     setIsOwner(false);
-      };
+  };
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -109,59 +140,21 @@ export default function Home() {
     });
   };
 
-  const checkMetaMask = async () => {
-    if (isInjectedWalletAvailable()) {
-      try {
-        const eip1193 = await getInjectedEip1193();
-        if (!eip1193) return;
-        const provider = new BrowserProvider(
-          eip1193 as unknown as ConstructorParameters<typeof BrowserProvider>[0],
-        );
-        const accounts = await provider.listAccounts();
-        if (accounts.length > 0) {
-          const signer = await provider.getSigner();
-          const address = await signer.getAddress();
-          setAccount(address);
-        }
-      } catch (err) {
-              }
-    }
-  };
-
   const connectWallet = async () => {
-    if (!isInjectedWalletAvailable()) {
-      alert('Please install MetaMask to interact with this application');
-      return;
-    }
-
     try {
-      const eip1193 = await getInjectedEip1193();
-      if (!eip1193) {
+      const target = connectors.find((connector) => connector.id === 'injected') ?? connectors[0];
+      if (!target) {
         alert('Please install MetaMask to interact with this application');
         return;
       }
-      const provider = new BrowserProvider(
-        eip1193 as unknown as ConstructorParameters<typeof BrowserProvider>[0],
-      );
-      await provider.send('eth_requestAccounts', []);
-      const signer = await provider.getSigner();
-      const address = await signer.getAddress();
-      setAccount(address);
-
-      // Switch to the correct network
+      await connectAsync({ connector: target });
       try {
-        await eip1193.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: `0x${NETWORK_CONFIG.chainId.toString(16)}` }],
-        });
-      } catch (switchError: unknown) {
-        // This error code indicates that the chain has not been added to MetaMask
-        if ((switchError as { code?: number }).code === 4902) {
-          alert(`Please add network ${NETWORK_CONFIG.chainName} to MetaMask manually`);
-        }
+        await switchChainAsync({ chainId: CANONICAL_CHAIN_ID });
+      } catch {
+        // La wallet puede no soportar cambio de cadena; la UI lo refleja con el chainId.
       }
     } catch (err) {
-            setError(err instanceof Error ? err.message : 'Error connecting wallet');
+      setError(err instanceof Error ? err.message : 'Error connecting wallet');
     }
   };
 
@@ -170,21 +163,31 @@ export default function Home() {
       setLoading(true);
       setError(null);
 
-      const provider = new ethers.JsonRpcProvider(NETWORK_CONFIG.rpcUrl);
-      const contract = new ethers.Contract(
-        TRUSTED_ISSUERS_REGISTRY_ADDRESS,
-        TRUSTED_ISSUERS_REGISTRY_ABI,
-        provider
-      );
+      const client = publicClient ?? getPublicClient();
+      const registryAddress = TRUSTED_ISSUERS_REGISTRY_ADDRESS as Address;
 
-      const issuerAddresses = await contract.getTrustedIssuers();
-      setIssuers(issuerAddresses);
+      const issuerAddresses = await client.readContract({
+        address: registryAddress,
+        abi: TRUSTED_ISSUERS_REGISTRY_ABI,
+        functionName: 'getTrustedIssuers',
+      });
+      setIssuers([...issuerAddresses]);
 
       const details = await Promise.all(
-        issuerAddresses.map(async (address: string) => {
-          const claimTopics = await contract.getIssuerClaimTopics(address);
-          const isTrusted = await contract.isTrustedIssuer(address);
-          
+        issuerAddresses.map(async (address) => {
+          const claimTopics = await client.readContract({
+            address: registryAddress,
+            abi: TRUSTED_ISSUERS_REGISTRY_ABI,
+            functionName: 'getIssuerClaimTopics',
+            args: [address],
+          });
+          const isTrusted = await client.readContract({
+            address: registryAddress,
+            abi: TRUSTED_ISSUERS_REGISTRY_ABI,
+            functionName: 'isTrustedIssuer',
+            args: [address],
+          });
+
           return {
             address,
             claimTopics,
@@ -195,7 +198,7 @@ export default function Home() {
 
       setIssuerDetails(details);
     } catch (err) {
-            setError(err instanceof Error ? err.message : 'Unknown error occurred');
+      setError(err instanceof Error ? err.message : 'Unknown error occurred');
     } finally {
       setLoading(false);
     }
@@ -203,7 +206,7 @@ export default function Home() {
 
   const addTrustedIssuer = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!account) {
       alert('Please connect your wallet first');
       return;
@@ -214,31 +217,19 @@ export default function Home() {
       return;
     }
 
-    if (!ethers.isAddress(newIssuerAddress)) {
+    if (!isAddress(newIssuerAddress)) {
       alert('Please enter a valid Ethereum address');
+      return;
+    }
+
+    if (!walletClient) {
+      alert('MetaMask no disponible');
       return;
     }
 
     try {
       setAddingIssuer(true);
       setError(null);
-
-      if (!isInjectedWalletAvailable()) {
-        throw new Error('MetaMask no disponible');
-      }
-      const eip1193 = await getInjectedEip1193();
-      if (!eip1193) {
-        throw new Error('No se pudo acceder a la wallet');
-      }
-      const provider = new BrowserProvider(
-        eip1193 as unknown as ConstructorParameters<typeof BrowserProvider>[0],
-      );
-      const signer = await provider.getSigner();
-      const contract = new ethers.Contract(
-        TRUSTED_ISSUERS_REGISTRY_ADDRESS,
-        TRUSTED_ISSUERS_REGISTRY_ABI,
-        signer
-      );
 
       // Parse claim topics from input (comma-separated numbers)
       const claimTopics = claimTopicsInput
@@ -252,22 +243,28 @@ export default function Home() {
         return;
       }
 
-      
-      const tx = await contract.addTrustedIssuer(newIssuerAddress, claimTopics);
-            
-      await tx.wait();
-      
+      const hash = await walletClient.writeContract({
+        address: TRUSTED_ISSUERS_REGISTRY_ADDRESS as Address,
+        abi: TRUSTED_ISSUERS_REGISTRY_ABI,
+        functionName: 'addTrustedIssuer',
+        args: [newIssuerAddress as Address, claimTopics],
+      });
+
+      await (publicClient ?? getPublicClient()).waitForTransactionReceipt({ hash });
+
       alert('Trusted issuer added successfully!');
-      
+
       // Reset form
       setNewIssuerAddress('');
       setClaimTopicsInput('1');
-      
+
       // Reload issuers
       await loadTrustedIssuers();
     } catch (err) {
-            setError(err instanceof Error ? err.message : 'Error adding trusted issuer');
-      alert(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      const info = normalizeWalletError(err);
+      const message = info.reason || info.message || 'Error adding trusted issuer';
+      setError(message);
+      alert(`Error: ${message}`);
     } finally {
       setAddingIssuer(false);
     }

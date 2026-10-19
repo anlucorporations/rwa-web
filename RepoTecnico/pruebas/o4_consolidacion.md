@@ -203,3 +203,29 @@ y desinstalar `ethers`. Después, O4.7 (TanStack Query).
 deriva · build ×3 · 35 tests).
 
 *Fin de la evidencia — O4.6 (ronda 8)*
+
+
+## Ronda 9 · Cierre de O4.6: identidad y emisor a viem
+
+- `apps/identity/contexts/WalletContext.tsx`: deja de exponer `ethers.BrowserProvider`; solo mantiene
+  estado de conexión y acciones wagmi. Los componentes obtienen `PublicClient`/`WalletClient` con
+  `usePublicClient`/`useWalletClient`.
+- `apps/identity/lib/contracts.ts`: reducido a las direcciones canónicas (sin helpers de `ethers`).
+- `apps/identity/app/app/page.tsx`: creación de identidad (`createIdentity`) y registro
+  (`registerIdentity`) con `writeContract` + `waitForTransactionReceipt`; dirección del clon por
+  `decodeEventLog(IdentityCreated)`; lecturas `isRegistered`/`getIdentity` y claims con `readContract`.
+- `apps/identity/components/ClaimRequestForm.tsx`: lectores del TrustedIssuersRegistry con
+  `readContract` y firma con `walletClient.signMessage` (API viem, sin `personal_sign` de ethers).
+- `apps/identity/components/ClaimRequestsList.tsx`: sin dependencia del provider de ethers.
+- `apps/issuer/app/dashboard/page.tsx`: lecturas del registro y `addTrustedIssuer` con viem; conexión
+  con `useConnect`/`useSwitchChain` y `disconnect` de wagmi; eliminado `checkMetaMask`/`BrowserProvider`.
+- `@rwa/shared/errors` se exporta como subruta para que los componentes cliente validen
+  `ValidationError` sin arrastrar la capa `db`/`pg` del índice raíz.
+- Eliminados los 3 `types/ethereum.d.ts` ambientales y **`ethers` desinstalado** de los 3 `package.json`
+  (lockfile regenerado).
+- **`ethers` restante: 7 → 0 ficheros. 0 imports de `ethers` en el monorepo.** RT-W-02 cumplido.
+
+**Verificación:** `tsc` 0 · lint 0 errores · `./scripts/ci_local.sh` **exit 0** (gates de literales y
+deriva · build ×3 · 35 tests).
+
+*Fin de la evidencia — O4.6 (ronda 9, cierre)*
