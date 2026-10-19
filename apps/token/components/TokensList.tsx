@@ -15,6 +15,7 @@ import { Token } from '@/types/token';
 import { CLAIM_DESCRIPTIONS } from '@/types/token';
 import { TOKEN_CLONE_FACTORY_ADDRESS } from '@/lib/contracts';
 import { TOKEN_MARKET_ABI } from '@/lib/contracts/market';
+import { useTokensQuery } from '@/lib/queries';
 
 interface TokensListProps {
   adminAddress?: string;
@@ -25,21 +26,20 @@ interface TokensListProps {
 export default function TokensList({ adminAddress, onSelectToken, refreshTrigger }: TokensListProps) {
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const [tokens, setTokens] = useState<Token[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: tokens = [],
+    isLoading: loading,
+    error: tokensError,
+    refetch,
+  } = useTokensQuery(adminAddress, refreshTrigger);
   const [error, setError] = useState<string | null>(null);
   const [addingCompliance, setAddingCompliance] = useState<string | null>(null); // tokenId being updated
   const [removingCompliance, setRemovingCompliance] = useState<string | null>(null);
   const [removingClaim, setRemovingClaim] = useState<string | null>(null); // tokenId_claimTopic
   const [editingPrice, setEditingPrice] = useState<string | null>(null); // tokenId being edited
   const [newPrice, setNewPrice] = useState<string>('');
-  const [tokenSupportsCompliance, setTokenSupportsCompliance] = useState<Record<string, boolean>>({});
   const [adminBalances, setAdminBalances] = useState<Record<string, { balance: string; symbol: string }>>({});
   const [tokenPrices, setTokenPrices] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    loadTokens();
-  }, [adminAddress, refreshTrigger]);
 
   useEffect(() => {
     if (tokens.length > 0 && adminAddress) {
@@ -47,13 +47,6 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       loadTokenPrices();
     }
   }, [tokens, adminAddress]);
-
-  // Assume all tokens support compliance - let the transaction fail if they don't
-  const checkComplianceSupport = async (tokenAddress: string): Promise<boolean> => {
-    // Simply return true for all tokens
-    // If addComplianceModule doesn't exist, the transaction will fail with a clear error
-    return true;
-  };
 
   const loadAdminBalances = async () => {
     if (!adminAddress) {
@@ -155,40 +148,6 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
     }
   };
 
-  const loadTokens = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const params = new URLSearchParams();
-      if (adminAddress) {
-        params.append('adminAddress', adminAddress);
-      }
-
-      const response = await fetch(`/api/tokens?${params}`);
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to load tokens');
-      }
-
-      setTokens(result.data);
-      
-      // Check compliance support for each token without compliance
-      const supportMap: Record<string, boolean> = {};
-      for (const token of result.data) {
-        if (!token.complianceAddress && token.tokenAddress) {
-          supportMap[token.tokenAddress] = await checkComplianceSupport(token.tokenAddress);
-        }
-      }
-      setTokenSupportsCompliance(supportMap);
-    } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to load tokens');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const getClaimBadges = (claimTopics: number[]) => {
     return claimTopics.map((topic) => ({
       topic,
@@ -263,7 +222,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       alert(`✅ Compliance Module Added!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Module Address:\n${complianceModule}\n\n📊 Total Modules: ${updatedModules.length}\n\n📜 Transaction Hash:\n${hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
       // Reload tokens
-      await loadTokens();
+      await refetch();
     } catch (err: any) {
       let errorMsg = '❌ Failed to Add Compliance Module\n\n';
 
@@ -328,7 +287,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       alert(`✅ Module Hidden from UI\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Hidden Module:\n${moduleAddress}\n\n📊 Remaining Modules: ${updatedModules.length}\n\n⚠️ Note: Module still exists on blockchain\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
       // Reload tokens
-      await loadTokens();
+      await refetch();
     } catch (err: any) {
             
       const errorMsg = `❌ Failed to Hide Module\n\n⚠️ Database Error\n\n${err instanceof Error ? err.message : 'Failed to remove module'}`;
@@ -383,7 +342,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       alert(`✅ Claim Removed from UI\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🏷️ Removed: ${claimName}\n📊 Remaining Claims: ${updatedClaims.length}\n\n⚠️ Note: This only updates the UI.\nOn-chain requirements may still be enforced.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
       // Reload tokens
-      await loadTokens();
+      await refetch();
     } catch (err: any) {
             
       const errorMsg = `❌ Failed to Remove Claim\n\n⚠️ Database Error\n\n${err instanceof Error ? err.message : 'Failed to remove claim'}`;
@@ -460,7 +419,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
         setError(null);
         alert(`✅ Price Updated!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n💰 New Price: ${priceValue} ETH\n📦 Token: ${token.symbol}\n\n📜 Transaction Hash:\n${hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
-        await loadTokens();
+        await refetch();
         setEditingPrice(null);
         setNewPrice('');
       } catch (err: any) {
@@ -502,16 +461,18 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
           Created Tokens ({tokens.length})
         </h2>
         <button
-          onClick={loadTokens}
+          onClick={() => void refetch()}
           className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
         >
           🔄 Refresh
         </button>
       </div>
 
-      {error && (
+      {(error || tokensError) && (
         <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
-          <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
+          <p className="text-sm text-red-800 dark:text-red-400">
+            {error || tokensError?.message || 'Failed to load tokens'}
+          </p>
         </div>
       )}
 

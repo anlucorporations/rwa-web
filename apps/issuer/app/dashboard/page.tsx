@@ -5,7 +5,7 @@ import {
   useAccount,
   useConnect,
   useDisconnect,
-  usePublicClient,
+  useReadContract,
   useSwitchChain,
   useWalletClient,
 } from 'wagmi';
@@ -18,15 +18,10 @@ import {
 } from '@/lib/contracts';
 import { CANONICAL_CHAIN_ID, DEMO_ACCOUNTS, getRpcUrl } from '@rwa/shared/network';
 import { getPublicClient } from '@rwa/shared/web3';
+import { useTrustedIssuersQuery } from '@/lib/queries';
 import IssuerRequestsList from '@/components/IssuerRequestsList';
 import RequestDetailModal from '@/components/RequestDetailModal';
 import { ClaimRequest } from '@/types/claim-request';
-
-interface IssuerData {
-  address: string;
-  claimTopics: readonly bigint[];
-  isTrusted: boolean;
-}
 
 /**
  * RPC que se muestra en la guía de configuración. `getRpcUrl()` es perezoso y
@@ -63,15 +58,25 @@ export default function Home() {
   const { connectAsync, connectors } = useConnect();
   const { disconnect } = useDisconnect();
   const { switchChainAsync } = useSwitchChain();
-  const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
-  const [issuers, setIssuers] = useState<string[]>([]);
-  const [issuerDetails, setIssuerDetails] = useState<IssuerData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: issuerDetails = [],
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useTrustedIssuersQuery();
+  const issuers = issuerDetails.map((issuer) => issuer.address);
   const [error, setError] = useState<string | null>(null);
   const [account, setAccount] = useState<string>('');
   const [isOwner, setIsOwner] = useState(false);
-  const [isIssuer, setIsIssuer] = useState(false);
+  const { data: isIssuerData } = useReadContract({
+    address: TRUSTED_ISSUERS_REGISTRY_ADDRESS as Address,
+    abi: TRUSTED_ISSUERS_REGISTRY_ABI,
+    functionName: 'isTrustedIssuer',
+    args: account ? [account as Address] : undefined,
+    query: { enabled: Boolean(account) },
+  });
+  const isIssuer = isIssuerData ?? false;
   
   // Form states
   const [newIssuerAddress, setNewIssuerAddress] = useState('');
@@ -83,11 +88,6 @@ export default function Home() {
   const [selectedRequest, setSelectedRequest] = useState<ClaimRequest | null>(null);
   const [requestsRefreshTrigger, setRequestsRefreshTrigger] = useState(0);
 
-  useEffect(() => {
-    loadTrustedIssuers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Sincroniza la cuenta con wagmi (sustituye a los listeners del proveedor inyectado).
   useEffect(() => {
     if (wagmiAddress) {
@@ -96,31 +96,13 @@ export default function Home() {
       setAccount('');
       setIsOwner(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wagmiAddress]);
 
   useEffect(() => {
     if (account) {
       setIsOwner(account.toLowerCase() === CONTRACT_OWNER.toLowerCase());
-      checkIfIssuer(account);
     }
   }, [account]);
-
-  const checkIfIssuer = async (address: string) => {
-    try {
-      const client = publicClient;
-      if (!client) return;
-      const isTrusted = await client.readContract({
-        address: TRUSTED_ISSUERS_REGISTRY_ADDRESS as Address,
-        abi: TRUSTED_ISSUERS_REGISTRY_ABI,
-        functionName: 'isTrustedIssuer',
-        args: [address as Address],
-      });
-      setIsIssuer(isTrusted);
-    } catch {
-      setIsIssuer(false);
-    }
-  };
 
   const handleRequestUpdate = () => {
     setRequestsRefreshTrigger(prev => prev + 1);
@@ -155,52 +137,6 @@ export default function Home() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error connecting wallet');
-    }
-  };
-
-  const loadTrustedIssuers = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const client = publicClient ?? getPublicClient();
-      const registryAddress = TRUSTED_ISSUERS_REGISTRY_ADDRESS as Address;
-
-      const issuerAddresses = await client.readContract({
-        address: registryAddress,
-        abi: TRUSTED_ISSUERS_REGISTRY_ABI,
-        functionName: 'getTrustedIssuers',
-      });
-      setIssuers([...issuerAddresses]);
-
-      const details = await Promise.all(
-        issuerAddresses.map(async (address) => {
-          const claimTopics = await client.readContract({
-            address: registryAddress,
-            abi: TRUSTED_ISSUERS_REGISTRY_ABI,
-            functionName: 'getIssuerClaimTopics',
-            args: [address],
-          });
-          const isTrusted = await client.readContract({
-            address: registryAddress,
-            abi: TRUSTED_ISSUERS_REGISTRY_ABI,
-            functionName: 'isTrustedIssuer',
-            args: [address],
-          });
-
-          return {
-            address,
-            claimTopics,
-            isTrusted,
-          };
-        })
-      );
-
-      setIssuerDetails(details);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error occurred');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -250,7 +186,7 @@ export default function Home() {
         args: [newIssuerAddress as Address, claimTopics],
       });
 
-      await (publicClient ?? getPublicClient()).waitForTransactionReceipt({ hash });
+      await getPublicClient().waitForTransactionReceipt({ hash });
 
       alert('Trusted issuer added successfully!');
 
@@ -259,7 +195,7 @@ export default function Home() {
       setClaimTopicsInput('1');
 
       // Reload issuers
-      await loadTrustedIssuers();
+      await refetch();
     } catch (err) {
       const info = normalizeWalletError(err);
       const message = info.reason || info.message || 'Error adding trusted issuer';
@@ -456,12 +392,12 @@ export default function Home() {
 
 
         {/* Error Display */}
-        {error && (
+        {(error || queryError) && (
           <div className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
             <h3 className="text-lg font-semibold text-red-800 dark:text-red-400">Error</h3>
-            <p className="text-red-600 dark:text-red-300">{error}</p>
+            <p className="text-red-600 dark:text-red-300">{error || queryError?.message}</p>
             <button
-              onClick={loadTrustedIssuers}
+              onClick={() => void refetch()}
               className="mt-2 rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700"
             >
               Retry
@@ -530,7 +466,7 @@ export default function Home() {
                     Trusted Issuers ({issuers.length})
                   </h2>
                   <button
-                    onClick={loadTrustedIssuers}
+                    onClick={() => void refetch()}
                     disabled={loading}
                     className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-300 disabled:opacity-50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
                   >

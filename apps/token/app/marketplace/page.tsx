@@ -17,6 +17,7 @@ import { Token } from '@/types/token';
 import { CLAIM_DESCRIPTIONS } from '@/types/token';
 import { TOKEN_CLONE_FACTORY_ADDRESS } from '@/lib/contracts';
 import { TOKEN_MARKET_ABI } from '@/lib/contracts/market';
+import { useTokensQuery } from '@/lib/queries';
 import { ZERO_ADDRESS } from '@rwa/shared/network';
 import { getInjectedEip1193, getPublicClient, isInjectedWalletAvailable } from '@rwa/shared/web3';
 import {
@@ -60,8 +61,12 @@ function normalizeMarketError(err: unknown): {
 export default function MarketplacePage() {
   const { address: wagmiAddress } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const [tokens, setTokens] = useState<Token[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: tokens = [],
+    isLoading: loading,
+    error: tokensError,
+    refetch,
+  } = useTokensQuery();
   const [error, setError] = useState<string | null>(null);
   const [account, setAccount] = useState<string>('');
   const [balance, setBalance] = useState<string>('');
@@ -72,8 +77,8 @@ export default function MarketplacePage() {
   const [checkingCompliance, setCheckingCompliance] = useState<string | null>(null);
 
   useEffect(() => {
-    loadTokens();
     checkWallet();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sincroniza la cuenta con wagmi (sustituye a los listeners del proveedor inyectado).
@@ -81,9 +86,6 @@ export default function MarketplacePage() {
     if (wagmiAddress) {
       setAccount(wagmiAddress);
       void loadBalance(wagmiAddress);
-      if (tokens.length > 0) {
-        void loadTokenBalances(tokens);
-      }
     } else {
       setAccount('');
       setBalance('');
@@ -96,15 +98,16 @@ export default function MarketplacePage() {
         return updated;
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wagmiAddress]);
 
-  // Reload token balances when account changes or when tokens are loaded with account available
+  // Recarga saldos y precios cuando cambian la lista de tokens o la cuenta
   useEffect(() => {
     if (tokens.length > 0) {
-            loadTokenBalances(tokens);
+      void loadTokenBalances(tokens);
+      void loadTokenPrices(tokens);
     }
-  }, [account]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tokens, account]);
 
   const loadBalance = async (address: string) => {
     if (!address) {
@@ -214,32 +217,6 @@ export default function MarketplacePage() {
               } else {
         setError(`❌ Failed to Switch Account\n\n${err.message || 'Unknown error occurred'}`);
       }
-    }
-  };
-
-  const loadTokens = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch('/api/tokens');
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to load tokens');
-      }
-
-      setTokens(result.data);
-      
-      // Load balances and prices after tokens are loaded
-      if (result.data && result.data.length > 0) {
-        loadTokenBalances(result.data);
-        loadTokenPrices(result.data);
-      }
-    } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to load tokens');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -447,11 +424,8 @@ export default function MarketplacePage() {
 
       await client.waitForTransactionReceipt({ hash });
 
-      // Reload balances and prices after successful purchase
-      if (tokens.length > 0) {
-        loadTokenBalances(tokens);
-        loadTokenPrices(tokens);
-      }
+      // Recarga la lista y los saldos tras la compra
+      void refetch();
 
       setError(null);
       alert(`✅ Purchase Successful!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Tokens Received: ${amountNum} ${token.symbol}\n💰 Total Price: ${formatEther(totalPriceWei)} ETH\n\n📜 Transaction Hash:\n${hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
@@ -1031,13 +1005,13 @@ export default function MarketplacePage() {
           </div>
         </div>
 
-        {error && (
+        {(error || tokensError) && (
           <div className="mb-6 rounded-lg border-2 border-red-300 bg-red-50 p-6 shadow-lg dark:border-red-800 dark:bg-red-900/20">
             <div className="flex items-start gap-3">
               <span className="text-2xl">⚠️</span>
               <div className="flex-1">
                 <pre className="whitespace-pre-wrap font-sans text-sm text-red-800 dark:text-red-400">
-                  {error}
+                  {error || tokensError?.message || 'Failed to load tokens'}
                 </pre>
                 <button
                   onClick={() => setError(null)}

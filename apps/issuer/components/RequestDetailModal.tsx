@@ -17,6 +17,7 @@ import {
 } from '@rwa/shared/contracts';
 import { buildClaimTypedData, type ClaimPayload } from '@rwa/shared/claims';
 import { ZERO_ADDRESS, assertCanonicalChain } from '@rwa/shared/network';
+import { useUpdateRequestMutation } from '@/lib/queries';
 
 interface RequestDetailModalProps {
   request: ClaimRequest;
@@ -28,6 +29,7 @@ interface RequestDetailModalProps {
 export default function RequestDetailModal({ request, onClose, onUpdate, issuerAddress }: RequestDetailModalProps) {
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
+  const updateRequest = useUpdateRequestMutation();
   const [loading, setLoading] = useState(false);
   const [reviewNote, setReviewNote] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -188,19 +190,17 @@ I hereby ${status === 'approved' ? 'APPROVE' : 'REJECT'} this claim request with
         };
       }
 
-      const response = await fetch('/api/update-request', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(reviewBody),
+      await updateRequest.mutateAsync({
+        requestId: request._id,
+        status,
+        reviewNote,
+        ...(reviewBody.claim ? { claim: reviewBody.claim } : {}),
+        ...(reviewBody.claimSignature ? { claimSignature: String(reviewBody.claimSignature) } : {}),
+        ...(reviewBody.issuerSignedMessage
+          ? { issuerSignedMessage: String(reviewBody.issuerSignedMessage) }
+          : {}),
+        ...(reviewBody.issuerSignature ? { issuerSignature: String(reviewBody.issuerSignature) } : {}),
       });
-
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to update request');
-      }
 
       alert(`Request ${status} successfully!\n\n✓ Decision cryptographically signed`);
       onUpdate();

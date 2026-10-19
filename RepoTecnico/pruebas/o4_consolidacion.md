@@ -229,3 +229,24 @@ deriva · build ×3 · 35 tests).
 deriva · build ×3 · 35 tests).
 
 *Fin de la evidencia — O4.6 (ronda 9, cierre)*
+
+
+## Ronda 10 · O4.7: datos de cliente con TanStack Query
+
+- `@rwa/shared/api/client` se exporta como subruta segura para cliente (cliente API tipado).
+- **token**: `lib/queries.ts` con `useTokensQuery` (claves por admin/refresh) y `tokenKeys`;
+  `TokensList` y `marketplace` consumen la query (loading/error/refetch centralizados) y
+  `CreateTokenForm` invalida `tokenKeys.all` al crear.
+- **identity**: `lib/queries.ts` con `useClaimRequestsQuery`, `useTrustedIssuersQuery` (lectura
+  on-chain + nombres de la API) y `useCreateClaimRequestMutation` (invalidación). `ClaimRequestsList`
+  y `ClaimRequestForm` ya no hacen `fetch`+estado manual.
+- **issuer**: `lib/queries.ts` con `useIssuerRequestsQuery`, `useTrustedIssuersQuery` y
+  `useUpdateRequestMutation`; `IssuerRequestsList`, dashboard (`useReadContract` para `isTrustedIssuer`)
+  y `RequestDetailModal` usan las queries/mutaciones y la invalidación.
+- Las mutaciones que siguen con `fetch` directo (`/api/upload`, módulos/claims/price de token)
+  mantienen la UI y refrescan vía `invalidateQueries`/`refetch`; su paso a `useMutation` queda como
+  mejora incremental (no bloquea O4.7).
+
+**Verificación:** `tsc` 0 · lint 0 errores · `./scripts/ci_local.sh` **exit 0** (build ×3 + 35 tests).
+
+*Fin de la evidencia — O4.7*

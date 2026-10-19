@@ -7,20 +7,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePublicClient, useWalletClient } from 'wagmi';
-import type { Address } from 'viem';
-import { getPublicClient } from '@rwa/shared/web3';
+import { useWalletClient } from 'wagmi';
+import { useCreateClaimRequestMutation, useTrustedIssuersQuery } from '@/lib/queries';
 import {
   TRUSTED_ISSUERS_REGISTRY_ADDRESS,
-  TRUSTED_ISSUERS_REGISTRY_ABI,
   NETWORK_CONFIG,
 } from '@/contracts/TrustedIssuersRegistry';
-
-interface Issuer {
-  address: string;
-  claimTopics: readonly bigint[];
-  name?: string;
-}
 
 interface ClaimRequestFormProps {
   userAddress: string;
@@ -28,9 +20,13 @@ interface ClaimRequestFormProps {
 }
 
 export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimRequestFormProps) {
-  const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
-  const [issuers, setIssuers] = useState<Issuer[]>([]);
+  const {
+    data: issuers = [],
+    isLoading: loadingIssuers,
+    error: issuersError,
+  } = useTrustedIssuersQuery();
+  const createClaimRequest = useCreateClaimRequestMutation();
   const [selectedIssuer, setSelectedIssuer] = useState<string>('');
   const [availableTopics, setAvailableTopics] = useState<readonly bigint[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<string>('');
@@ -38,13 +34,7 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [loadingIssuers, setLoadingIssuers] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadIssuers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [publicClient]);
 
   useEffect(() => {
     if (selectedIssuer) {
@@ -58,109 +48,6 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
       setSelectedTopic('');
     }
   }, [selectedIssuer, issuers]);
-
-  const loadIssuers = async () => {
-    try {
-      setLoadingIssuers(true);
-      setError(null);
-
-            
-      const client = publicClient ?? getPublicClient();
-      const registryAddress = TRUSTED_ISSUERS_REGISTRY_ADDRESS as Address;
-
-      // First check if contract exists by getting the count
-      let issuersCount: bigint;
-      try {
-        issuersCount = await client.readContract({
-          address: registryAddress,
-          abi: TRUSTED_ISSUERS_REGISTRY_ABI,
-          functionName: 'getTrustedIssuersCount',
-        });
-      } catch (countError: unknown) {
-        throw new Error(
-          `Failed to connect to TrustedIssuersRegistry contract at ${TRUSTED_ISSUERS_REGISTRY_ADDRESS}. Error: ${
-            countError instanceof Error ? countError.message : 'unknown error'
-          }`,
-        );
-      }
-
-      if (issuersCount === BigInt(0)) {
-                setIssuers([]);
-        setError('No trusted issuers have been configured in the registry. The contract owner needs to add issuers using addTrustedIssuer().');
-        return;
-      }
-
-      const issuerAddresses = await client.readContract({
-        address: registryAddress,
-        abi: TRUSTED_ISSUERS_REGISTRY_ABI,
-        functionName: 'getTrustedIssuers',
-      });
-            
-      if (!issuerAddresses || issuerAddresses.length === 0) {
-                setIssuers([]);
-        setError('No trusted issuers found. The contract may not have any issuers configured.');
-        return;
-      }
-      
-      // Get issuer names from MongoDB
-      const issuerNamesMap: Record<string, string> = {};
-      try {
-        const issuerNamesResponse = await fetch('/api/issuers/batch', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ addresses: issuerAddresses }),
-        });
-
-        const issuerNamesResult = await issuerNamesResponse.json();
-        
-        if (issuerNamesResult.success && issuerNamesResult.data) {
-          Object.values(issuerNamesResult.data).forEach((issuer: any) => {
-            issuerNamesMap[issuer.address.toLowerCase()] = issuer.name;
-          });
-        }
-      } catch (nameError) {
-                // Continue without names if API fails
-      }
-      
-      const issuersData = await Promise.all(
-        issuerAddresses.map(async (address) => {
-          try {
-            const claimTopics = await client.readContract({
-              address: registryAddress,
-              abi: TRUSTED_ISSUERS_REGISTRY_ABI,
-              functionName: 'getIssuerClaimTopics',
-              args: [address],
-            });
-            const name = issuerNamesMap[address.toLowerCase()];
-            return {
-              address,
-              claimTopics,
-              name,
-            };
-          } catch {
-            // Return issuer with empty topics array if we can't load them
-            const name = issuerNamesMap[address.toLowerCase()];
-            return {
-              address,
-              claimTopics: [] as bigint[],
-              name,
-            };
-          }
-        })
-      );
-
-            setIssuers(issuersData);
-      setError(null);
-    } catch (err: any) {
-            const errorMessage = err.message || 'Failed to load trusted issuers';
-      setError(errorMessage);
-      setIssuers([]);
-    } finally {
-      setLoadingIssuers(false);
-    }
-  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -244,31 +131,17 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
       const { signedMessage, signature } = await signMessage();
 
       // Step 2: Create the claim request (the document is not part of this payload)
-      const requestBody = {
+      const createdRequest = await createClaimRequest.mutateAsync({
         requesterAddress: userAddress,
         issuerAddress: selectedIssuer,
         claimTopic: selectedTopic,
         message,
         signedMessage,
         signature,
-      };
-
-      const response = await fetch('/api/claim-requests', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
       });
 
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to create claim request');
-      }
-
       // Step 3: Attach the document to the created request
-      const claimRequestId: string | undefined = result.data?._id;
+      const claimRequestId: string | undefined = createdRequest?._id;
       if (!claimRequestId) {
         throw new Error('The claim request was created without an identifier');
       }
@@ -322,13 +195,13 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
         <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
           Request Claim
         </h2>
-        {error ? (
+        {issuersError || error ? (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
             <p className="text-sm font-semibold text-red-800 dark:text-red-400 mb-2">
               Error loading trusted issuers:
             </p>
             <p className="text-sm text-red-700 dark:text-red-300">
-              {error}
+              {issuersError instanceof Error ? issuersError.message : error}
             </p>
             <details className="mt-3 text-xs text-red-600 dark:text-red-400">
               <summary className="cursor-pointer font-medium">Debug Information</summary>

@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { useChainId, useWalletClient } from 'wagmi';
+import { useQueryClient } from '@tanstack/react-query';
 import { decodeEventLog, parseUnits, type Address } from 'viem';
 import { TOKEN_CLONE_FACTORY_ADDRESS } from '@/lib/contracts/TokenCloneFactory';
 import { COMPLIANCE_AGGREGATOR_ADDRESS } from '@/lib/contracts/compliance';
@@ -21,6 +22,7 @@ import { IDENTITY_REGISTRY_ADDRESS, TRUSTED_ISSUERS_REGISTRY_ADDRESS } from '@/l
 import { INVESTMENT_CLAIMS, CLAIM_DESCRIPTIONS } from '@/types/token';
 import { ZERO_ADDRESS, assertCanonicalChain } from '@rwa/shared/network';
 import { getPublicClient } from '@rwa/shared/web3';
+import { tokenKeys } from '@/lib/queries';
 
 interface CreateTokenFormProps {
   userAddress: string;
@@ -47,6 +49,7 @@ function normalizeWalletError(err: unknown): { message: string; reason?: string;
 export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenFormProps) {
   const { data: walletClient } = useWalletClient();
   const chainId = useChainId();
+  const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [symbol, setSymbol] = useState('');
   const [decimals, setDecimals] = useState('18');
@@ -299,6 +302,9 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
       
       alert(`Token "${name}" created successfully!\nAddress: ${tokenAddress}\n\n${registriesMessage}${complianceMessage}${mintMessage}${claimTopicsMessage}\n\n✓ Saved to MongoDB`);
       
+      // Invalida la lista cacheada de tokens (O4.7)
+      await queryClient.invalidateQueries({ queryKey: tokenKeys.all });
+
       // Reset form
       setName('');
       setSymbol('');

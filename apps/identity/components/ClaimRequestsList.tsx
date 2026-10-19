@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ClaimRequest } from '@/types/claim-request';
 import RequestDetailModal from './RequestDetailModal';
 import { claimExists } from '@/lib/identity-claims';
+import { useClaimRequestsQuery } from '@/lib/queries';
 import { ZERO_ADDRESS } from '@rwa/shared/network';
 
 interface ClaimRequestsListProps {
@@ -20,10 +21,13 @@ interface ClaimRequestsListProps {
 }
 
 export default function ClaimRequestsList({ userAddress, refreshTrigger, identityAddress, onClaimAdded }: ClaimRequestsListProps) {
-  const [requests, setRequests] = useState<ClaimRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const {
+    data: requests = [],
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useClaimRequestsQuery(userAddress, filter, refreshTrigger);
   const [selectedRequest, setSelectedRequest] = useState<ClaimRequest | null>(null);
   const [claimsInContract, setClaimsInContract] = useState<Set<string>>(new Set());
 
@@ -60,43 +64,10 @@ export default function ClaimRequestsList({ userAddress, refreshTrigger, identit
   }, [requests, identityAddress]);
 
   useEffect(() => {
-    loadRequests();
-  }, [userAddress, refreshTrigger, filter]);
-
-  useEffect(() => {
     if (requests.length > 0 && identityAddress && identityAddress !== ZERO_ADDRESS) {
       checkClaimsInContract();
     }
   }, [requests, identityAddress, checkClaimsInContract]);
-
-  const loadRequests = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Build query parameters
-      const params = new URLSearchParams({
-        requesterAddress: userAddress,
-      });
-
-      if (filter !== 'all') {
-        params.append('status', filter);
-      }
-
-      const response = await fetch(`/api/claim-requests?${params}`);
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to load requests');
-      }
-
-      setRequests(result.data);
-    } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to load requests');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const isClaimInContract = (request: ClaimRequest): boolean => {
     if (request.status !== 'approved') {
@@ -147,7 +118,7 @@ export default function ClaimRequestsList({ userAddress, refreshTrigger, identit
           My Claim Requests ({requests.length})
         </h2>
         <button
-          onClick={loadRequests}
+          onClick={() => void refetch()}
           className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
         >
           🔄 Refresh
@@ -171,9 +142,9 @@ export default function ClaimRequestsList({ userAddress, refreshTrigger, identit
         ))}
       </div>
 
-      {error && (
+      {queryError && (
         <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
-          <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
+          <p className="text-sm text-red-800 dark:text-red-400">{queryError.message}</p>
         </div>
       )}
 
@@ -288,7 +259,7 @@ export default function ClaimRequestsList({ userAddress, refreshTrigger, identit
           identityAddress={identityAddress}
           onClaimAdded={async () => {
             setSelectedRequest(null);
-            await loadRequests();
+            await refetch();
             // Check claims again after adding (wait a bit for blockchain to update)
             setTimeout(() => {
               checkClaimsInContract();
