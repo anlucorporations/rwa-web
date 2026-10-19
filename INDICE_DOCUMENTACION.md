@@ -372,3 +372,8 @@ mmdc -i DIAGRAMA_C4.md -o diagrams.pdf
 
 🎉 **Documentación completa y organizada!**
 
+## Cierre de la etapa `@web` (2026-10-19)
+
+- [`RepoTecnico/informe_optimizacion_web_cierre.md`](RepoTecnico/informe_optimizacion_web_cierre.md) — informe de cierre (antes/después, pendientes, veredicto).
+- [`RepoTecnico/pruebas/fase4_verificacion.md`](RepoTecnico/pruebas/fase4_verificacion.md) — Fase 4: gate CI, cobertura, accesibilidad AA y presupuesto de rendimiento.
+- [`RepoTecnico/pruebas/o4_consolidacion.md`](RepoTecnico/pruebas/o4_consolidacion.md) — evidencia de las rondas O4.6–O5.7.

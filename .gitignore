@@ -41,3 +41,6 @@ docker-build/
 
 # Backups locales (O5.5)
 backups/
+
+# Cobertura de tests (generada)
+coverage/

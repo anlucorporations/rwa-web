@@ -2,7 +2,7 @@
 
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
 > **Línea:** `@web` (`rwa-web/`) — separada de `@sc` (`rwa-sc/`) por D-102
-> **Versión:** v2.6 · 2026-10-19 · **Fase 3 — O0, O1, O3, O4 cerrados; O5 casi completo (O5.6/O5.7 hechos; O5.1/O5.2/O5.5 pendientes de Docker/PostgreSQL reales); O2 bloqueado por GCP**
+> **Versión:** v2.7 · 2026-10-19 · **Fases 3 y 4 cerradas — O0, O1, O3, O4 cerrados; O5 casi completo (O5.1/O5.2/O5.5 pendientes de Docker/PostgreSQL reales); O2.7 bloqueado por GCP**
 >
 > **Memoria de trabajo de la etapa.** El registro global del proyecto (contratos + etapa web)
 > sigue en `rwa-sc/RepoTecnico/estado_proyecto.md`; este archivo gobierna el día a día de `@web`.
@@ -15,9 +15,9 @@
 |---|---|---|---|
 | 1 | Concepto | ✅ **Heredada** | `requerimientos_web.md` v1.2 (RF-W/RNF-W/RT-W) |
 | 2 | Auditoría | ✅ **Heredada** | `INFORME_OPTIMIZACION_WEB_V1.md` (16 hallazgos, 15/15 verificados) |
-| 3 | Desarrollo | 🟡 **EN CURSO — ciclo O0** | `plan_desarrollo_web.md` v1.2 (ciclos O0…O5) |
-| 4 | Pruebas | ⏳ Pendiente | — |
-| 5 | Manuales | ⏳ Pendiente (omitible por D-087 de `@sc`) | — |
+| 3 | Desarrollo | ✅ **Cerrada (código y CI)** — O0–O4 cerrados; O5 casi completo | `plan_desarrollo_web.md` · `informe_optimizacion_web_cierre.md` |
+| 4 | Pruebas | ✅ **Hecha** — gate CI 7 pasos, cobertura 97.16 % crítica, axe AA, perf budget | `pruebas/fase4_verificacion.md` |
+| 5 | Manuales | ⏭️ **Omitida** por D-087 (decisión registrada en el informe de cierre) | `informe_optimizacion_web_cierre.md` |
 
 **Decisión de arranque (2026-10-14, bloque 1 de la etapa):**
 (a) ejecutar **O0 completo** con un commit y un gate por tarea;

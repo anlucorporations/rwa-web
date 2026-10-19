@@ -10,5 +10,25 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts'],
     reporters: ['default'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary'],
+      // Cobertura de los módulos críticos unit-testables. La sesión SIWE
+      // (auth/index + routes, con BD) se verifica con scripts/test_auth_o1.sh (30/30).
+      include: [
+        'src/claims/**/*.ts',
+        'src/media/**/*.ts',
+        'src/validation/**/*.ts',
+        'src/api/serializers.ts',
+        'src/api/client.ts',
+      ],
+      exclude: ['**/*.test.ts', 'src/contracts/**'],
+      thresholds: {
+        lines: 90,
+        functions: 90,
+        statements: 90,
+        branches: 60,
+      },
+    },
   },
 });
