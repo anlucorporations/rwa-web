@@ -12,6 +12,7 @@ import {
   toErrorResponse,
   requireSession,
   attachmentDisposition,
+  decryptDocument,
   ForbiddenError,
   ValidationError,
   NotFoundError,
@@ -59,7 +60,14 @@ export async function GET(
       detail: { claimRequestId: file.claim_request_id },
     });
 
-    return new NextResponse(new Uint8Array(file.content), {
+    // O5.4: el contenido está cifrado en reposo; se descifra solo tras autorizar.
+    const plaintext = decryptDocument({
+      content: file.content,
+      encryptionAlgo: file.encryption_algo,
+      encryptionNonce: file.encryption_nonce,
+    });
+
+    return new NextResponse(new Uint8Array(plaintext), {
       headers: {
         'Content-Type': file.content_type,
         'Content-Length': file.size_bytes,

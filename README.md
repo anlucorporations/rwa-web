@@ -141,7 +141,10 @@ Red canónica: **Anvil de GCP**, `chainId 31337`, RPC en `NEXT_PUBLIC_RPC_URL`
 ## 🔐 Seguridad
 
 - Sesión SIWE + cookies firmadas; rutas de escritura protegidas por propiedad.
-- Documentos KYC servidos solo a su titular/emisor, con `attachment` + `nosniff` y validación por magic bytes.
+- Documentos KYC **cifrados en reposo con AES-256-GCM** (`KYC_ENCRYPTION_KEY` obligatoria, O5.4);
+  se descifran solo tras autorizar al titular/emisor, con `attachment` + `nosniff` y magic bytes.
+- Retención y backup del esquema `rwa`:
+  `./scripts/retention_o5.sh [--dry-run]` y `./scripts/backup_o5.sh [--restore <dump>]`.
 - Secretos fuera del repositorio (`.env.local` ignorado, `.env.example` plantilla; Secret Manager en GCP).
 - 0 logs por consola (`no-console: error`); logger estructurado en servidor.
 

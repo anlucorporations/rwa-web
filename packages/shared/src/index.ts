@@ -20,4 +20,5 @@ export * from './auth/index';
 export * from './auth/routes';
 export * from './media/magic-bytes';
 export * from './media/filename';
+export * from './media/kyc-crypto';
 export * from './validation';

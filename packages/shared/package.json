@@ -15,7 +15,8 @@
     "./validation": "./src/validation/index.ts",
     "./web3": "./src/web3/index.ts",
     "./errors": "./src/errors.ts",
-    "./api/client": "./src/api/client.ts"
+    "./api/client": "./src/api/client.ts",
+    "./media/kyc-crypto": "./src/media/kyc-crypto.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

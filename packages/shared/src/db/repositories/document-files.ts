@@ -1,10 +1,10 @@
 /**
  * Repositorio de `rwa.document_files` — documentos KYC en `bytea` (sustituye GridFS).
  *
- * En O0 solo se persiste/lee el binario tal cual (migración mecánica del acceso a
- * MongoDB). El **cifrado AES-256-GCM** (D-093/D-098) y la autorización por propiedad
- * (RF-W-06) son O5.4 y O1.4 respectivamente: hasta entonces el llamador debe declarar
- * qué hace (`encryptionAlgo`), y `'none'` deja constancia explícita de que aún no está cifrado.
+ * Desde O5.4 el binario se guarda cifrado con **AES-256-GCM** (D-093/D-098): el
+ * llamador indica `encryptionAlgo`/`encryptionNonce` y la autorización por propiedad
+ * vive en las rutas de descarga (O1.4). Las filas antiguas con `'none'` se siguen
+ * leyendo sin cifrar (compatibilidad).
  */
 
 import { query } from '../pool';
@@ -24,7 +24,7 @@ export type CreateDocumentFileInput = {
   sizeBytes: number;
   sha256: Buffer;
   content: Buffer;
-  /** `'AES-256-GCM'` cuando el contenido va cifrado; `'none'` mientras O5.4 no esté hecho. */
+  /** `'AES-256-GCM'` (O5.4); `'none'` solo para filas anteriores a O5.4. */
   encryptionAlgo: string;
   encryptionNonce?: Buffer | null;
   uploadedBy: string;

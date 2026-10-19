@@ -17,6 +17,7 @@ import {
   uuidSchema,
   ValidationError,
   NotFoundError,
+  encryptDocument,
 } from '@rwa/shared';
 
 export const dynamic = 'force-dynamic';
@@ -52,15 +53,19 @@ export async function POST(request: NextRequest) {
     const contentType = assertAllowedUpload(content, file.type);
     const sha256 = createHash('sha256').update(content).digest();
 
+    // O5.4/D-093: el binario se guarda cifrado (AES-256-GCM); sha256 y tamaño
+    // corresponden al texto plano para verificar integridad y Content-Length.
+    const encrypted = encryptDocument(content);
+
     const doc = await repos.documentFiles.create({
       claimRequestId,
       originalName: file.name,
       contentType,
       sizeBytes: size,
       sha256,
-      content,
-      encryptionAlgo: 'none',
-      encryptionNonce: null,
+      content: encrypted.content,
+      encryptionAlgo: encrypted.algo,
+      encryptionNonce: encrypted.nonce,
       uploadedBy: session.address,
     });
 

@@ -10,6 +10,7 @@ import {
   NotFoundError,
   ValidationError,
   attachmentDisposition,
+  decryptDocument,
   repos,
   requireSession,
   toErrorResponse,
@@ -58,7 +59,14 @@ export async function GET(
     });
 
     // `Buffer` no satisface `BodyInit` en el lib DOM: se copia a un `Uint8Array`.
-    return new NextResponse(new Uint8Array(file.content), {
+    // O5.4: el contenido está cifrado en reposo; se descifra solo tras autorizar.
+    const plaintext = decryptDocument({
+      content: file.content,
+      encryptionAlgo: file.encryption_algo,
+      encryptionNonce: file.encryption_nonce,
+    });
+
+    return new NextResponse(new Uint8Array(plaintext), {
       headers: {
         'Content-Type': file.content_type,
         'Content-Length': file.size_bytes,

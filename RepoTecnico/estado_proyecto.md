@@ -2,7 +2,7 @@
 
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
 > **Línea:** `@web` (`rwa-web/`) — separada de `@sc` (`rwa-sc/`) por D-102
-> **Versión:** v2.4 · 2026-10-19 · **Fase 3 — O0, O1, O3 y O4 cerrados; O5 en curso (O5.3/O5.8 hechos, O5.1/O5.2 assets); O2 pendiente de redespliegue de GCP**
+> **Versión:** v2.5 · 2026-10-19 · **Fase 3 — O0, O1, O3 y O4 cerrados; O5: O5.3/O5.4/O5.8 hechos, O5.1/O5.2/O5.5 assets; pendientes O5.6/O5.7; O2 bloqueado por GCP**
 >
 > **Memoria de trabajo de la etapa.** El registro global del proyecto (contratos + etapa web)
 > sigue en `rwa-sc/RepoTecnico/estado_proyecto.md`; este archivo gobierna el día a día de `@web`.
@@ -152,8 +152,8 @@ el E2E off-chain está en verde, pero el on-chain está bloqueado por el desplie
 | O5.1 | `docker-compose`: 3 apps + PostgreSQL + Anvil con healthchecks | 🟡 **Assets listos** (`docker-compose.yml`, init SQL, perfil `chain`); `docker compose up` pendiente de validar en host con Docker | `o4_consolidacion.md` (ronda 12) |
 | O5.2 | Imágenes multi-stage `standalone`, `PORT` y healthcheck | 🟡 **Dockerfile multi-stage** con healthcheck HTTP; build de imagen pendiente de host con Docker | `Dockerfile` |
 | O5.3 | Retirar `docker-build/` y rutas de desarrollador | ✅ HECHO — sin `docker-build/`; scripts `start/stop/check` actualizados al monorepo | `o4_consolidacion.md` |
-| O5.4 | Cifrado AES-256-GCM de documentos KYC + `audit_log` | ⏳ Pendiente (hoy `encryption = 'none'`) | — |
-| O5.5 | Índices, retención de `sessions`/`audit_log` y backup/restore | ⏳ Pendiente | — |
+| O5.4 | Cifrado AES-256-GCM de documentos KYC + `audit_log` | ✅ **HECHO** — cifrado en subida, descifrado tras autorización, `audit_log` en acceso; 7 tests nuevos | `o4_consolidacion.md` (ronda 13) |
+| O5.5 | Índices, retención de `sessions`/`audit_log` y backup/restore | 🟡 **Scripts listos** (`retention_o5.sh`, `backup_o5.sh`); ejecución pendiente de PostgreSQL/`psql` | `scripts/` |
 | O5.6 | Accesibilidad (`axe`) y estados/notificaciones unificados | ⏳ Pendiente | — |
 | O5.7 | Presupuesto de rendimiento medido en build de producción | ⏳ Pendiente | — |
 | O5.8 | README raíz con el mapa real de apps y puertos | ✅ HECHO — README reescrito con arranque local y Docker | `README.md` |

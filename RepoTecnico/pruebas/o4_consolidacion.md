@@ -294,3 +294,24 @@ deriva · build ×3 · 35 tests).
   con Docker (gate de O5.1 en el plan).
 
 *Fin de la evidencia — O5.1/O5.2/O5.3/O5.8 (assets)*
+
+
+## Ronda 13 · O5.4/O5.5: cifrado KYC y operación de datos
+
+- **`@rwa/shared/media/kyc-crypto`**: AES-256-GCM con clave de 32 bytes desde
+  `KYC_ENCRYPTION_KEY` (hex/base64), IV aleatorio de 12 bytes, authTag al final del ciphertext y
+  fail-closed si la clave falta o es inválida. `decryptDocument` mantiene lectura de filas antiguas
+  con `encryption_algo = 'none'` y rechaza algoritmos desconocidos. Añadido `hashesEqual`
+  (comparación en tiempo constante).
+- **`POST /api/upload`** cifra antes de persistir (`content` cifrado, `sha256`/`size_bytes` del
+  texto plano); **`GET /api/download/[fileId]`** (identity e issuer) descifra solo después de
+  autorizar y registra `audit_log`.
+- Tests nuevos: `kyc-crypto.test.ts` (7 casos: roundtrip, nonce único, clave errónea, legacy `none`,
+  algoritmo inválido, lectura de clave hex/base64 y comparación de hashes) → **42 tests en verde**.
+- **O5.5**: `scripts/retention_o5.sh` (poda de `sessions` caducadas/revocadas y `audit_log`;
+  `--dry-run`) y `scripts/backup_o5.sh` (`pg_dump` custom del esquema `rwa` + `pg_restore --clean`);
+  `backups/` ignorado por git; índices de apoyo ya existen en `base_datos.sql` §6.
+- Verificación: gates + tsc + build ×3 + **42 tests** (ejecución de retención/backup pendiente de
+  `psql`/DATABASE_URL; no hay PostgreSQL en este entorno).
+
+*Fin de la evidencia — O5.4/O5.5 (código y scripts)*

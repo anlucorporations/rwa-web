@@ -38,3 +38,6 @@ temp/
 
 # Artefactos de build parciales (HW-11)
 docker-build/
+
+# Backups locales (O5.5)
+backups/
