@@ -1,93 +1,66 @@
 #!/bin/bash
+# =============================================================================
+# check-status.sh — estado de las 3 apps y de las dependencias (O5.3/O5.8)
+#
+#   ./check-status.sh
+#
+# Comprueba /api/health de cada app (incluye comprobación de PostgreSQL y RPC en
+# la propia ruta), el RPC canónico y el puerto de PostgreSQL local.
+# =============================================================================
 
-# Script to check status of all RWA services
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
 
-# Colors
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-echo -e "${BLUE}🔍 RWA Platform Status Check${NC}"
-echo -e "${BLUE}=============================${NC}\n"
+FAIL=0
 
-# Check MongoDB
-echo -e "${YELLOW}📊 MongoDB Status:${NC}"
-if mongosh --eval "db.serverStatus().ok" --quiet > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ MongoDB is running${NC}"
-    COLLECTIONS=$(mongosh --eval "use rwa; db.getCollectionNames()" --quiet 2>/dev/null | grep -v "switched" || echo "[]")
-    echo -e "${BLUE}   Collections: ${COLLECTIONS}${NC}"
+echo -e "${BLUE}🔍 RWA Web — estado del entorno${NC}"
+echo -e "${BLUE}===============================${NC}\n"
+
+echo -e "${YELLOW}🌐 Aplicaciones (/api/health):${NC}"
+for spec in "4001:identity" "4002:issuer" "4003:token"; do
+  port="${spec%%:*}"
+  name="${spec##*:}"
+  body=$(curl -fsS --max-time 5 "http://127.0.0.1:${port}/api/health" 2>/dev/null || true)
+  if [ -n "${body}" ]; then
+    echo -e "${GREEN}✅ ${name} (:${port}) — ${body}${NC}"
+  else
+    echo -e "${RED}❌ ${name} (:${port}) no responde${NC}"
+    echo -e "${YELLOW}   arranca con: ./start-all.sh${NC}"
+    FAIL=$((FAIL + 1))
+  fi
+done
+
+echo -e "\n${YELLOW}⛓️  RPC canónico:${NC}"
+if [ -n "${NEXT_PUBLIC_RPC_URL:-}" ]; then
+  if curl -fsS --max-time 5 -X POST -H 'Content-Type: application/json' \
+    --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' \
+    "${NEXT_PUBLIC_RPC_URL}" >/dev/null 2>&1; then
+    echo -e "${GREEN}✅ RPC responde (${NEXT_PUBLIC_RPC_URL})${NC}"
+  else
+    echo -e "${RED}❌ RPC no responde (${NEXT_PUBLIC_RPC_URL})${NC}"
+    FAIL=$((FAIL + 1))
+  fi
 else
-    echo -e "${RED}❌ MongoDB is not running${NC}"
-    echo -e "${YELLOW}   Start with: brew services start mongodb-community${NC}"
+  echo -e "${YELLOW}⚠️  NEXT_PUBLIC_RPC_URL no definida (source scripts/gcp-env.sh --tcp)${NC}"
 fi
 
-echo ""
-
-# Check Anvil
-echo -e "${YELLOW}⛓️  Anvil Status:${NC}"
-if lsof -ti:8545 > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ Anvil is running on port 8545${NC}"
+echo -e "\n${YELLOW}📊 PostgreSQL local (:5432):${NC}"
+if lsof -ti:5432 >/dev/null 2>&1; then
+  echo -e "${GREEN}✅ PostgreSQL escuchando en :5432${NC}"
 else
-    echo -e "${RED}❌ Anvil is not running${NC}"
-    echo -e "${YELLOW}   Start with: anvil${NC}"
+  echo -e "${YELLOW}ℹ️  Sin PostgreSQL local (usa DATABASE_URL de Cloud SQL o docker compose)${NC}"
 fi
 
-echo ""
-
-# Check Web Applications
-echo -e "${YELLOW}🌐 Web Applications:${NC}"
-
-check_app() {
-    local port=$1
-    local name=$2
-    
-    if lsof -ti:${port} > /dev/null 2>&1; then
-        echo -e "${GREEN}✅ ${name} is running on port ${port}${NC}"
-        echo -e "${BLUE}   http://localhost:${port}${NC}"
-    else
-        echo -e "${RED}❌ ${name} is not running on port ${port}${NC}"
-    fi
-}
-
-check_app 4001 "web-identity        "
-check_app 4002 "web-registry-trusted"
-check_app 4003 "web-token           "
-
-echo ""
-
-# Summary
-echo -e "${BLUE}=============================${NC}"
-echo -e "${BLUE}📋 Summary:${NC}\n"
-
-RUNNING_COUNT=0
-if mongosh --eval "db.serverStatus().ok" --quiet > /dev/null 2>&1; then
-    ((RUNNING_COUNT++))
+echo -e "\n${BLUE}===============================${NC}"
+if [ "${FAIL}" -eq 0 ]; then
+  echo -e "${GREEN}✅ 3/3 apps sanas${NC}"
+  exit 0
 fi
-if lsof -ti:8545 > /dev/null 2>&1; then
-    ((RUNNING_COUNT++))
-fi
-if lsof -ti:4001 > /dev/null 2>&1; then
-    ((RUNNING_COUNT++))
-fi
-if lsof -ti:4002 > /dev/null 2>&1; then
-    ((RUNNING_COUNT++))
-fi
-if lsof -ti:4003 > /dev/null 2>&1; then
-    ((RUNNING_COUNT++))
-fi
-
-echo -e "   Services running: ${RUNNING_COUNT}/5"
-
-if [ $RUNNING_COUNT -eq 5 ]; then
-    echo -e "${GREEN}   🎉 All systems operational!${NC}"
-elif [ $RUNNING_COUNT -eq 0 ]; then
-    echo -e "${RED}   ⚠️  Nothing is running${NC}"
-    echo -e "${YELLOW}   Run: ./start-all.sh${NC}"
-else
-    echo -e "${YELLOW}   ⚠️  Some services are not running${NC}"
-fi
-
-echo ""
-
+echo -e "${YELLOW}⚠️  ${FAIL} comprobación(es) fallida(s)${NC}"
+exit 1

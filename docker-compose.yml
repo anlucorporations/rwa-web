@@ -1,0 +1,99 @@
+# =============================================================================
+# Entorno reproducible de las 3 apps + PostgreSQL + Anvil (O5.1)
+#
+#   cp .env.compose.example .env.compose   # rellenar secretos
+#   docker compose --env-file .env.compose up --build
+#
+# Puertos: identity 4001 · issuer 4002 · token 4003 · PostgreSQL 5432 · Anvil 8545
+# El perfil `chain` levanta un Anvil local (sin contratos desplegados: para E2E
+# completos usa el Anvil de GCP vía NEXT_PUBLIC_RPC_URL).
+# =============================================================================
+
+name: rwa-web
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-truekeate}
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./RepoTecnico/base_datos.sql:/docker-entrypoint-initdb.d/001_base_datos.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-truekeate}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    profiles: ["chain"]
+    command: ["anvil", "--host", "0.0.0.0", "--port", "8545"]
+    ports:
+      - "8545:8545"
+    healthcheck:
+      test: ["CMD-SHELL", "cast chain-id --rpc-url http://127.0.0.1:8545 >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  identity:
+    build:
+      context: .
+      args:
+        APP: identity
+        NEXT_PUBLIC_CHAIN_ID: ${NEXT_PUBLIC_CHAIN_ID:-31337}
+        NEXT_PUBLIC_RPC_URL: ${NEXT_PUBLIC_RPC_URL}
+        NEXT_PUBLIC_DEPLOYMENT_JSON: ${NEXT_PUBLIC_DEPLOYMENT_JSON}
+    environment: &app-env
+      DATABASE_URL: ${DATABASE_URL}
+      SIWE_SESSION_SECRET: ${SIWE_SESSION_SECRET}
+      KYC_ENCRYPTION_KEY: ${KYC_ENCRYPTION_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      ALLOW_DEBUG_ENDPOINTS: ${ALLOW_DEBUG_ENDPOINTS:-0}
+      PORT: "3000"
+    ports:
+      - "4001:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  issuer:
+    build:
+      context: .
+      args:
+        APP: issuer
+        NEXT_PUBLIC_CHAIN_ID: ${NEXT_PUBLIC_CHAIN_ID:-31337}
+        NEXT_PUBLIC_RPC_URL: ${NEXT_PUBLIC_RPC_URL}
+        NEXT_PUBLIC_DEPLOYMENT_JSON: ${NEXT_PUBLIC_DEPLOYMENT_JSON}
+    environment: *app-env
+    ports:
+      - "4002:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  token:
+    build:
+      context: .
+      args:
+        APP: token
+        NEXT_PUBLIC_CHAIN_ID: ${NEXT_PUBLIC_CHAIN_ID:-31337}
+        NEXT_PUBLIC_RPC_URL: ${NEXT_PUBLIC_RPC_URL}
+        NEXT_PUBLIC_DEPLOYMENT_JSON: ${NEXT_PUBLIC_DEPLOYMENT_JSON}
+    environment: *app-env
+    ports:
+      - "4003:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  db-data:

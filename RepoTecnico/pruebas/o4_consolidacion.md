@@ -271,3 +271,26 @@ deriva · build ×3 · 35 tests).
 (gates de literales y deriva · build ×3 con `@rwa/ui` · 35 tests).
 
 *Fin de la evidencia — O4.2/O4.3*
+
+
+## Ronda 12 · O5.1–O5.3 y O5.8: entorno reproducible y documentación
+
+- **Dockerfile** multi-stage único (build arg `APP=identity|issuer|token`): `pnpm install
+  --frozen-lockfile`, build de la app, runtime `standalone` con usuario no-root, `PORT`
+  configurable, `HOSTNAME=0.0.0.0` y `HEALTHCHECK` HTTP contra `/api/health`.
+- **docker-compose.yml**: PostgreSQL 16 (con `base_datos.sql` como init), Anvil opcional
+  (`--profile chain`), las 3 apps con build args `NEXT_PUBLIC_*`, variables de entorno, puertos
+  4001/4002/4003, `depends_on: db healthy` y healthchecks.
+- **`.env.compose.example`**: plantilla sin secretos (`POSTGRES_*`, `DATABASE_URL`,
+  `NEXT_PUBLIC_*`, `SIWE_SESSION_SECRET`, `KYC_ENCRYPTION_KEY`).
+- **O5.3**: `start-all.sh`, `stop-all.sh` y `check-status.sh` reescritos para el monorepo
+  (`pnpm dev:<app>`, logs `.pids`/`logs`, health real); sin rutas antiguas (`web-identity`,
+  `web-registry-trusted`, `web-token`) ni artefactos `docker-build/`.
+- **O5.8**: README raíz reescrito con el mapa real (3 apps + 3 paquetes), arranque, Docker,
+  gates, stack (`wagmi`+`viem`, PostgreSQL, TanStack Query) y estado de O2.7.
+- Verificación local: `bash -n` de los 3 scripts, YAML de compose válido, plantilla no ignorada y
+  `CI_SKIP_BUILD=1 ./scripts/ci_local.sh` **exit 0** (tsc/lint/tests). **`docker compose up` no se
+  ejecutó: el entorno de desarrollo no tiene Docker**; queda como verificación pendiente en un host
+  con Docker (gate de O5.1 en el plan).
+
+*Fin de la evidencia — O5.1/O5.2/O5.3/O5.8 (assets)*

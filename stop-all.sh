@@ -1,42 +1,36 @@
 #!/bin/bash
+# =============================================================================
+# stop-all.sh — detiene las 3 apps del monorepo (O5.3)
+# =============================================================================
 
-# Script to stop all RWA web applications
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
 
-set -e
-
-# Colors for output
-RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-echo -e "${RED}🛑 Stopping RWA Web Applications${NC}"
-echo -e "${RED}================================${NC}\n"
+echo -e "${YELLOW}🛑 Deteniendo apps RWA Web...${NC}"
 
-# Function to kill process on a port
-kill_port() {
-    local port=$1
-    local name=$2
-    
-    echo -e "${YELLOW}Stopping ${name} on port ${port}...${NC}"
-    
-    if lsof -ti:${port} > /dev/null 2>&1; then
-        lsof -ti:${port} | xargs kill -9 2>/dev/null || true
-        sleep 1
-        echo -e "${GREEN}✅ ${name} stopped${NC}"
-    else
-        echo -e "${BLUE}ℹ️  ${name} was not running${NC}"
+for app in identity issuer token; do
+  pidfile=".pids/${app}.pid"
+  if [ -f "${pidfile}" ]; then
+    pid=$(cat "${pidfile}")
+    if kill -0 "${pid}" 2>/dev/null; then
+      kill "${pid}" 2>/dev/null || true
+      echo -e "${GREEN}✅ ${app} detenido (PID ${pid})${NC}"
     fi
-}
+    rm -f "${pidfile}"
+  fi
+done
 
-# Kill all applications
-kill_port 4001 "web-identity"
-kill_port 4002 "web-registry-trusted"
-kill_port 4003 "web-token"
+# Red de seguridad: liberar los puertos si quedó algún proceso hijo
+for port in 4001 4002 4003; do
+  if lsof -ti:"${port}" >/dev/null 2>&1; then
+    lsof -ti:"${port}" | xargs kill -9 2>/dev/null || true
+    echo -e "${GREEN}✅ Puerto ${port} liberado${NC}"
+  fi
+done
 
-# Clean up PID files
 rm -f .pids/*.pid 2>/dev/null || true
-
-echo -e "\n${GREEN}✅ All applications stopped${NC}\n"
-
+echo -e "${GREEN}Hecho.${NC}"

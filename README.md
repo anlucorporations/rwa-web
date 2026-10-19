@@ -1,379 +1,157 @@
-# 🏦 RWA Web Platform - Complete Ecosystem
+# 🏦 RWA Web — identidad, emisión y mercado de tokens RWA
 
-A complete decentralized platform for Real World Asset (RWA) tokenization with identity management, claim verification, and compliant token creation.
+Monorepo de la etapa `@web`: **3 apps Next.js** sobre una base compartida, con identidad
+on-chain (ERC-3643), claims firmadas por emisores y creación/gestión de tokens RWA.
 
-## 🎯 Platform Overview
-
-This platform consists of **3 integrated web applications**:
-
-| Application | Port | Description | Target Users |
-|------------|------|-------------|--------------|
-| **web-identity** | 4001 | Identity & Claim Management | End Users / Investors |
-| **web-registry-trusted** | 4002 | Issuer Panel & Claim Approval | Trusted Issuers |
-| **web-token** | 4003 | Token Factory & Management | Token Creators |
-
-> **📌 Nota de contexto (2026-10-14, línea `@web`).**
-> - El repositorio contiene **5** directorios de app: los **3 canónicos** de la tabla más `web-registry-trusted2`
->   y `web-rwa`, pendientes de absorción/retirada en el ciclo **O4** (D-089; ver `RepoTecnico/INFORME_OPTIMIZACION_WEB_V1.md`, HW-10).
-> - La BD off-chain canónica es **PostgreSQL** (Cloud SQL, esquema `rwa`), que **sustituye a MongoDB** (D-095);
->   las referencias a MongoDB de esta guía son del estado anterior y están en proceso de migración (ciclo O0.3).
-> - La documentación técnica de la línea vive en **[`RepoTecnico/`](RepoTecnico/README.md)**.
+> Documentación técnica de la línea: [`RepoTecnico/README.md`](RepoTecnico/README.md).
+> Requisitos: [`requerimientos_web.md`](RepoTecnico/requerimientos_web.md) ·
+> Plan: [`plan_desarrollo_web.md`](RepoTecnico/plan_desarrollo_web.md) ·
+> Estado: [`estado_proyecto.md`](RepoTecnico/estado_proyecto.md).
 
 ---
 
-## 🚀 Quick Start - Launch Everything
+## 🎯 Aplicaciones
 
-### One-Command Startup
+| App | Paquete | Puerto | Rol | Funciones |
+|---|---|---|---|---|
+| **identity** | `@rwa/identity` | 4001 | Inversor | Crear/registrar identidad on-chain, solicitar claims, subir documentos, añadir claims a la identidad |
+| **issuer** | `@rwa/issuer` | 4002 | Emisor | Gestionar trusted issuers (owner), revisar solicitudes, firmar aprobaciones EIP-712 y rechazos EIP-191 |
+| **token** | `@rwa/token` | 4003 | Creador/inversor | Crear tokens RWA (clon EIP-1167), ClaimTopicsRegistry por token, comprar/transferir tokens |
+
+Paquetes compartidos:
+
+| Paquete | Contenido |
+|---|---|
+| `@rwa/shared` | Red y direcciones generadas desde `rwa-sc`, ABIs, capa PostgreSQL, validación `zod`, cliente API tipado, claims EIP-712, logger, web3 (wagmi/viem) |
+| `@rwa/ui` | Primitivas y `RequestDetailModal` compartido (variantes inversor/emisor) |
+| `@rwa/config` | Presets compartidos de TypeScript y ESLint |
+
+---
+
+## 🚀 Arranque rápido
+
+Requisitos: **Node ≥ 20**, **pnpm 9.15.9** (Corepack), acceso al **Anvil de GCP** (chain 31337) y a
+**PostgreSQL** (Cloud SQL). MetaMask para las operaciones on-chain.
 
 ```bash
-# Start all 3 applications
-./start-all.sh
-```
+corepack enable
+pnpm install
 
-This will:
-- ✅ Kill any existing processes on ports 4001, 4002, 4003
-- ✅ Start web-identity on port 4001
-- ✅ Start web-registry-trusted on port 4002
-- ✅ Start web-token on port 4003
-- ✅ Create logs in `logs/` directory
-- ✅ Verify all servers are running
+# 1) Variables de entorno (sin secretos en el repo)
+cp .env.example .env.local        # rellenar NEXT_PUBLIC_RPC_URL y DATABASE_URL
+source scripts/gcp-env.sh --tcp   # alternativa: exporta RPC y DATABASE_URL desde GCP
 
-### Stop Everything
+# 2) Arrancar las 3 apps en desarrollo
+./start-all.sh                    # identity 4001 · issuer 4002 · token 4003
 
-```bash
+# 3) Estado y parada
+./check-status.sh
 ./stop-all.sh
 ```
 
----
+También se puede arrancar una app suelta: `pnpm dev:identity`, `pnpm dev:issuer`, `pnpm dev:token`.
 
-## 📱 Applications
-
-### 1. web-identity (Port 4001)
-**For End Users / Investors**
-
-Features:
-- Create and register on-chain identities
-- Request claims from trusted issuers
-- Upload supporting documents to MongoDB
-- Track claim request status
-- Digital signature verification
-
-**URL:** http://localhost:4001
-
-### 2. web-registry-trusted (Port 4002)
-**For Trusted Issuers**
-
-Features:
-- Add/manage trusted issuers (owner only)
-- View claim requests from users
-- Approve or reject claim requests
-- Download user documents from MongoDB
-- Add review notes
-
-**URL:** http://localhost:4002
-
-### 3. web-token (Port 4003)
-**For Token Creators**
-
-Features:
-- Create RWA tokens with EIP-1167 clone pattern
-- Define required investor claims (KYC, Accreditation, Jurisdiction)
-- Set compliance aggregator automatically
-- View all created tokens
-- MongoDB storage for token registry
-
-**URL:** http://localhost:4003
-
----
-
-## 🏗️ System Architecture
-
-This system implements a comprehensive RWA platform:
-
-1. **IdentityCloneFactory** (`0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
-   - Creates identity contracts using EIP-1167 minimal proxy pattern
-   - Anyone can create an identity for themselves
-   - Gas-efficient: ~45k gas vs ~800k for full deployment
-
-2. **IdentityRegistry** (`0xa513E6E4b8f2a923D98304ec87F64353C4D5C853`)
-   - Centralized registry mapping wallet addresses to identity contracts
-   - **Self-registration enabled**: Users can register their own identities
-   - Used for tracking and managing identity contracts
-
----
-
-## 📋 Prerequisites
-
-### Required Services
-
-1. **MongoDB** - Database for claims, tokens, and documents
-   ```bash
-   brew services start mongodb-community
-   ```
-
-2. **Anvil** - Local Ethereum node
-   ```bash
-   anvil
-   ```
-
-3. **MetaMask** - Browser wallet extension
-
-4. **Node.js** - Runtime environment
-   ```bash
-   node --version  # Should be v18+
-   npm --version
-   ```
-
----
-
-## 🎬 Complete Setup
-
-### Step 1: Install Dependencies
+### Entorno reproducible con Docker
 
 ```bash
-# Install for all applications
-cd web-identity && npm install && cd ..
-cd web-registry-trusted && npm install && cd ..
-cd web-token && npm install && cd ..
+cp .env.compose.example .env.compose   # rellenar secretos
+docker compose --env-file .env.compose up --build
+# identity :4001 · issuer :4002 · token :4003 · PostgreSQL :5432
+# Anvil local opcional: docker compose --profile chain up
 ```
 
-### Step 2: Start Services
+Imágenes multi-stage con `output: "standalone"`, `PORT` configurable y healthcheck HTTP en
+`/api/health` (ver [`Dockerfile`](Dockerfile) y [`docker-compose.yml`](docker-compose.yml)).
+
+---
+
+## 🏗️ Arquitectura
+
+- **Web3**: `wagmi` + `viem` en las 3 apps; **cero `ethers`** y cero `window.ethereum` (conector
+  inyectado). Lecturas con `PublicClient`, escrituras con `WalletClient`.
+- **Datos de cliente**: TanStack Query (claves por entidad, invalidación tras mutaciones).
+- **Datos off-chain**: PostgreSQL (esquema `rwa`) con pool único en `@rwa/shared/db`; documentos KYC
+  en `rwa.document_files`.
+- **Contratos**: direcciones y ABIs **generadas** desde `rwa-sc` (`scripts/sync-contracts.sh`); el gate
+  `check-contract-drift.sh` impide derivas. Red canónica: **Anvil de GCP (chain 31337)**.
+- **Sesión**: SIWE (EIP-4361) con cookie `httpOnly` firmada; autorización por propiedad en las rutas.
+- **Claims**: aprobación con firma **EIP-712** y `addClaim` de 7 argumentos (`uriHash`, D-083).
+
+```
+rwa-web/
+├── apps/
+│   ├── identity/        # identidad + claims (4001)
+│   ├── issuer/          # panel del emisor (4002)
+│   └── token/           # factoría + marketplace (4003)
+├── packages/
+│   ├── shared/          # red, ABIs, db, api, validación, web3
+│   ├── ui/              # componentes compartidos
+│   └── config/          # presets TS/ESLint
+├── RepoTecnico/         # documentación, evidencias y artefactos de datos
+├── scripts/             # gates, CI local y E2E
+├── Dockerfile           # imagen multi-stage (ARG APP=identity|issuer|token)
+├── docker-compose.yml   # 3 apps + PostgreSQL + Anvil opcional
+├── start-all.sh · stop-all.sh · check-status.sh
+└── .env.example
+```
+
+---
+
+## 🧪 Gates y pruebas
 
 ```bash
-# Terminal 1: MongoDB
-brew services start mongodb-community
+pnpm -r typecheck                 # 0 errores TS (6 paquetes)
+pnpm -r lint                     # 0 errores (warnings de deuda declarada)
+./scripts/ci_local.sh            # gates + tsc + lint + build ×3 + tests
 
-# Terminal 2: Anvil (keep this running)
-anvil
-
-# Terminal 3: All Web Apps
-./start-all.sh
+bash scripts/check-network-literals.sh   # 0 literales de red
+bash scripts/check-contract-drift.sh     # ABIs y direcciones sincronizadas con rwa-sc
+bash scripts/test_auth_o1.sh             # 30/30 autorización
+bash scripts/test_review_o1.sh           # 5/5 flujo de revisión firmado
+bash scripts/test_token_o2.sh            # 5/5 flujo de token
+bash scripts/test_e2e_o2.sh              # E2E contra Anvil (requiere despliegue actualizado)
 ```
 
-### Step 3: Access Applications
-
-- 🌐 **Identity Management**: http://localhost:4001
-- 🎫 **Issuer Panel**: http://localhost:4002
-- 🪙 **Token Factory**: http://localhost:4003
-
-## Usage
-
-1. **Connect Wallet**: Click "Connect Wallet" and authorize CodeCrypto/MetaMask
-2. **Create Identity**: Click "Create Identity" to deploy and register your identity
-   - This will create two transactions:
-     - Transaction 1: Create identity contract (via IdentityCloneFactory)
-     - Transaction 2: Register identity in registry (via IdentityRegistry)
-3. **Status**: Once completed, your identity will show as "Registered" ✅
-
-## Test Accounts (Anvil Default)
-
-| Role | Address | Private Key |
-|------|---------|-------------|
-| Admin/Owner | `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266` | `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80` |
-| User 1 | `0x70997970C51812dc3A010C7d01b50e0d17dc79C8` | `0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d` |
-| User 2 | `0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC` | `0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a` |
-
-## Redeploying Contracts
-
-If you restart Anvil, you'll need to redeploy the contracts:
-
-```bash
-cd ../56_RWA_SC/sc
-
-# Deploy IdentityCloneFactory
-PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
-forge script script/DeployIdentityCloneFactory.s.sol:DeployIdentityCloneFactory \
-  --rpc-url http://localhost:8545 \
-  --broadcast
-
-# Deploy IdentityRegistry
-PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
-forge script script/DeployIdentityRegistry.s.sol:DeployIdentityRegistry \
-  --rpc-url http://localhost:8545 \
-  --broadcast
-```
-
-Then update the addresses in:
-- `smart_contract.txt`
-- `web/lib/contracts.ts`
-
-## Contract Addresses
-
-Current deployment on Anvil (Chain ID: 31337):
-
-```
-IdentityRegistry=0xa513E6E4b8f2a923D98304ec87F64353C4D5C853
-IdentityFactory=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
-Implementation=0x75537828f2ce51be7289709686A69CbFDbB714F1
-```
-
-## Troubleshooting
-
-### "Missing revert data" error
-- **Cause**: Contracts don't exist at the specified addresses (Anvil was restarted)
-- **Solution**: Redeploy contracts (see above) and update addresses
-
-### Wallet won't connect
-- **Check**: Anvil is running on `http://localhost:8545`
-- **Check**: Add Anvil network in wallet settings (Chain ID: 31337, RPC: http://localhost:8545)
-- **Try**: Refresh the page and reconnect
-
-## Architecture Notes
-
-### Why Two Contracts?
-
-**IdentityCloneFactory**:
-- Permissionless - anyone can create identities
-- Gas-efficient using EIP-1167 clones (~94% gas savings)
-- Users maintain full ownership of their identity contracts
-- Creates minimal proxy clones pointing to a single implementation
-
-**IdentityRegistry**:
-- Central registry mapping wallet addresses to identity contracts
-- Self-registration enabled - users can register their own identities
-- Provides a lookup service for finding identity contracts
-- Can be queried by other contracts or dApps
-
-This design separates **identity creation** (via factory) from **identity tracking** (via registry), providing flexibility and gas efficiency while maintaining a centralized lookup service.
-
-## 💾 Database Structure (MongoDB)
-
-### Database: `rwa`
-
-**Collections:**
-- `claim_requests` - User claim requests with signatures
-- `claim_documents.files` - Document metadata (GridFS)
-- `claim_documents.chunks` - Document data (GridFS)
-- `tokens` - Created RWA tokens registry
+Estado actual: **build ×3 y 35 tests en verde**. El E2E contra el Anvil de GCP está pendiente del
+redespliegue del stack canónico desde `@sc` (build anterior a D-083); ver
+[`RepoTecnico/pruebas/o2_7_e2e_anvil.md`](RepoTecnico/pruebas/o2_7_e2e_anvil.md).
 
 ---
 
-## 🔐 Security Features
+## 🔑 Red y cuentas de prueba
 
-- ✅ **Digital Signatures**: All claim requests are cryptographically signed
-- ✅ **Document Storage**: Files stored in MongoDB GridFS (not filesystem)
-- ✅ **Compliance Checks**: Automated investor verification via claims
-- ✅ **Authorization**: Issuers can only approve their own requests
-- ✅ **Non-Repudiation**: Signatures prove authenticity
+Red canónica: **Anvil de GCP**, `chainId 31337`, RPC en `NEXT_PUBLIC_RPC_URL`
+(ver [`.env.example`](.env.example)). Cuentas públicas de Anvil (solo desarrollo):
+`ADMIN/Owner`, `User 1 / Issuer`, `User 2` — ver `DEMO_ACCOUNTS` en `@rwa/shared/network`.
 
----
-
-## 📚 Documentation
-
-### Frontend optimization stage (`RepoTecnico/`)
-- [`RepoTecnico/README.md`](RepoTecnico/README.md) - Index of the `@web` development line documentation
-- [`RepoTecnico/INFORME_OPTIMIZACION_WEB_V1.md`](RepoTecnico/INFORME_OPTIMIZACION_WEB_V1.md) - Frontend audit (16 findings)
-- [`RepoTecnico/requerimientos_web.md`](RepoTecnico/requerimientos_web.md) - Web requirements (RF-W / RNF-W / RT-W)
-- [`RepoTecnico/plan_desarrollo_web.md`](RepoTecnico/plan_desarrollo_web.md) - Vertical plan (cycles O0…O5)
-- [`RepoTecnico/pruebas/verificacion_gcp_o0.md`](RepoTecnico/pruebas/verificacion_gcp_o0.md) - GCP services verification (cycle O0)
-
-### General
-- `SCRIPTS_README.md` - Script usage and management
-- `FIRMA_DIGITAL.md` - Digital signature system
-
-### web-identity
-- `CLAIM_REQUESTS_README.md` - Claim request system
-- `TESTING_GUIDE.md` - Testing and debugging
-
-### web-registry-trusted
-- `ISSUER_PANEL_README.md` - Issuer panel features
-- `INTERFAZ_ISSUER.md` - UI/UX guide
-- `DONDE_ESTA_EL_FORMULARIO.md` - Where to find features
-
-### web-token
-- `TOKEN_MANAGEMENT_README.md` - Token management system
-- `DEBUGGING_MONGODB.md` - MongoDB troubleshooting
+**Nunca** usar esas claves en redes reales.
 
 ---
 
-## 🧪 Testing Flow
+## 🎯 Claim topics
 
-### Complete User Journey
-
-1. **Create Identity** (web-identity:4001)
-   - Connect wallet → Create identity → Register
-
-2. **Request Claim** (web-identity:4001)
-   - Select issuer → Select claim topic → Upload document → Sign & Submit
-
-3. **Approve Claim** (web-registry-trusted:4002)
-   - Connect as issuer → View requests → Review details → Approve/Reject
-
-4. **Create Token** (web-token:4003)
-   - Connect wallet → Fill form → Select required claims → Create
-   - Token automatically set with compliance aggregator
+| ID | Nombre | Uso |
+|---|---|---|
+| 1 | KYC | Inversión en tokens |
+| 7 | Accredited Investor | Inversión en tokens |
+| 9 | Jurisdiction | Cumplimiento geográfico |
 
 ---
 
-## 🔧 Useful Commands
+## 🔐 Seguridad
 
-```bash
-# Start everything
-./start-all.sh
-
-# Stop everything
-./stop-all.sh
-
-# View logs
-tail -f logs/*.log
-
-# Check MongoDB
-mongosh --eval "use rwa; db.getCollectionNames()"
-
-# Check running ports
-lsof -i :4001,4002,4003
-
-# Restart a specific app
-# Stop it
-lsof -ti:4001 | xargs kill -9
-# Start it
-cd web-identity && npm run dev -- -p 4001
-```
+- Sesión SIWE + cookies firmadas; rutas de escritura protegidas por propiedad.
+- Documentos KYC servidos solo a su titular/emisor, con `attachment` + `nosniff` y validación por magic bytes.
+- Secretos fuera del repositorio (`.env.local` ignorado, `.env.example` plantilla; Secret Manager en GCP).
+- 0 logs por consola (`no-console: error`); logger estructurado en servidor.
 
 ---
 
-## 🎯 Claim Topics
+## 🌐 Stack
 
-| ID | Name | Description | Required For |
-|----|------|-------------|--------------|
-| **1** | KYC | Know Your Customer | 🪙 Token Investment |
-| **7** | Accreditation | Accredited Investor | 🪙 Token Investment |
-| **9** | Jurisdiction | Geographic Compliance | 🪙 Token Investment |
+Next.js 16 · React 19 · TypeScript · TailwindCSS v4 · wagmi + viem · TanStack Query ·
+PostgreSQL (`pg`) · zod · Foundry/Anvil · pnpm workspaces.
 
----
-
-## 🌐 Technology Stack
-
-- **Smart Contracts**: Solidity 0.8.20, OpenZeppelin, Foundry
-- **Frontend**: Next.js 16, React 19, TypeScript, TailwindCSS v4
-- **Blockchain**: Ethereum (local Anvil testnet)
-- **Database**: MongoDB (native driver, no Mongoose)
-- **File Storage**: MongoDB GridFS
-- **Web3**: ethers.js v6
-- **Wallet**: MetaMask
-
----
-
-## 📦 Repository Structure
-
-```
-57_RWA_WEB/
-├── start-all.sh                    # Launch all apps
-├── stop-all.sh                     # Stop all apps
-├── web-identity/                   # User identity & claims
-├── web-registry-trusted/           # Issuer panel
-├── web-token/                      # Token factory
-├── logs/                           # Application logs
-└── .pids/                          # Process IDs
-```
-
----
-
-## 🤝 Contributing
-
-See individual app READMEs for specific contribution guidelines.
-
-## 📄 License
+## 📄 Licencia
 
 MIT
-
