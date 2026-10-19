@@ -324,7 +324,7 @@ export default function Home() {
       }
 
       // Use the getIdentityClaims function which is more robust
-      const claimsData = await getIdentityClaims(identityAddress, topicsToCheck, provider);
+      const claimsData = await getIdentityClaims(identityAddress, topicsToCheck);
 
       // Convert to the format expected by the component
       const claims = claimsData.map(claim => ({

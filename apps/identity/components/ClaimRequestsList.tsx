@@ -45,7 +45,7 @@ export default function ClaimRequestsList({ userAddress, refreshTrigger, identit
           try {
             const topic = Number(request.claimTopic);
             const issuer = request.issuerAddress;
-            const exists = await claimExists(identityAddress, topic, issuer, provider);
+            const exists = await claimExists(identityAddress, topic, issuer);
             
             if (exists) {
               const claimKey = `${topic}-${issuer.toLowerCase()}`;

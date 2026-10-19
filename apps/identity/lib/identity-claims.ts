@@ -1,11 +1,12 @@
 /**
- * Identity Claims Utilities
- * 
- * Functions to add and read claims from identity contracts
+ * Lectura de claims de identidad on-chain (O4.6): **viem**, sin `ethers`.
+ *
+ * Funciones puras de lectura sobre el RPC canónico; el ABI es el generado desde
+ * `rwa-sc` (`@rwa/shared/contracts`).
  */
 
-import { ethers } from 'ethers';
 import { IdentityCloneableAbi } from '@rwa/shared/contracts';
+import { getPublicClient } from '@rwa/shared/web3';
 
 // ABI única desde el artefacto generado (O2.2)
 export const IDENTITY_CLAIM_ABI = IdentityCloneableAbi;
@@ -19,136 +20,95 @@ export interface IdentityClaim {
   uri: string;
 }
 
-/**
- * Add a claim to an identity contract
- */
-export async function addClaimToIdentity(
-  identityAddress: string,
-  topic: number,
-  issuer: string,
-  issuerSignature: string,
-  requestData: any,
-  expiresAt: bigint | number,
-  signer: ethers.Signer
-): Promise<{ success: boolean; txHash?: string; error?: string }> {
-  try {
-    const identityContract = new ethers.Contract(
-      identityAddress,
-      IDENTITY_CLAIM_ABI,
-      signer
-    );
+type Address = `0x${string}`;
 
-    // Prepare claim data
-    const scheme = 1; // ECDSA signature scheme
-    const data = ethers.AbiCoder.defaultAbiCoder().encode(
-      ['address', 'uint256', 'string'],
-      [issuer, topic, JSON.stringify(requestData)]
-    );
-    const uri = `ipfs://claim-${topic}-${issuer}`; // Could be IPFS hash in production
-
-    
-    const tx = await identityContract.addClaim(
-      topic,
-      scheme,
-      issuer,
-      issuerSignature,
-      data,
-      uri,
-      BigInt(expiresAt)
-    );
-
-        await tx.wait();
-    
-    return {
-      success: true,
-      txHash: tx.hash
-    };
-  } catch (error) {
-        return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-  }
-}
-
-/**
- * Get all claims for an identity
- */
+/** Claims registrados en un contrato de identidad para los topics indicados. */
 export async function getIdentityClaims(
   identityAddress: string,
   topics: number[],
-  provider: ethers.Provider | ethers.Signer
 ): Promise<IdentityClaim[]> {
-  try {
-    const identityContract = new ethers.Contract(
-      identityAddress,
-      IDENTITY_CLAIM_ABI,
-      provider
-    );
+  const client = getPublicClient();
+  const address = identityAddress as Address;
+  const claims: IdentityClaim[] = [];
 
-    const claims: IdentityClaim[] = [];
+  for (const topic of topics) {
+    try {
+      const issuers = (await client.readContract({
+        address,
+        abi: IDENTITY_CLAIM_ABI,
+        functionName: 'getClaimIssuersForTopic',
+        args: [BigInt(topic)],
+      })) as readonly string[];
 
-    for (const topic of topics) {
-      try {
-        // Get all issuers for this topic
-        const issuers = await identityContract.getClaimIssuersForTopic(topic);
-                
-        for (const issuer of issuers) {
-          try {
-            // First check if claim exists
-            const exists = await identityContract.claimExists(topic, issuer);
-            if (!exists) {
-                            continue;
-            }
-            
-            // Get the full claim data
-            const claim = await identityContract.getClaim(topic, issuer);
-            claims.push({
-              topic: claim.topic,
-              scheme: claim.scheme,
-              issuer: claim.issuer,
-              signature: claim.signature,
-              data: claim.data,
-              uri: claim.uri,
-            });
-                      } catch (err) {
-                      }
+      for (const issuer of issuers) {
+        try {
+          const exists = (await client.readContract({
+            address,
+            abi: IDENTITY_CLAIM_ABI,
+            functionName: 'claimExists',
+            args: [BigInt(topic), issuer as Address],
+          })) as boolean;
+          if (!exists) continue;
+
+          // El ABI devuelve 8 salidas planas:
+          // topic, scheme, issuer, signature, data, uri, expiresAt, revoked
+          const claim = (await client.readContract({
+            address,
+            abi: IDENTITY_CLAIM_ABI,
+            functionName: 'getClaim',
+            args: [BigInt(topic), issuer as Address],
+          })) as unknown as readonly [
+            bigint,
+            bigint,
+            string,
+            string,
+            string,
+            string,
+            bigint,
+            boolean,
+          ];
+
+          claims.push({
+            topic: claim[0],
+            scheme: claim[1],
+            issuer: claim[2],
+            signature: claim[3],
+            data: claim[4],
+            uri: claim[5],
+          });
+        } catch {
+          // claim inexistente o ABI distinta: se ignora
         }
-      } catch (err) {
-              }
+      }
+    } catch {
+      // topic sin emisores: se ignora
     }
-
-    return claims;
-  } catch (error) {
-        return [];
   }
+
+  return claims;
 }
 
-/**
- * Check if a specific claim exists
- */
+/** ¿Existe un claim concreto (topic + issuer) en la identidad? */
 export async function claimExists(
   identityAddress: string,
   topic: number,
   issuer: string,
-  provider: ethers.Provider | ethers.Signer
 ): Promise<boolean> {
   try {
-    const identityContract = new ethers.Contract(
-      identityAddress,
-      IDENTITY_CLAIM_ABI,
-      provider
-    );
-
-    return await identityContract.claimExists(topic, issuer);
-  } catch (error) {
-        return false;
+    const client = getPublicClient();
+    return (await client.readContract({
+      address: identityAddress as Address,
+      abi: IDENTITY_CLAIM_ABI,
+      functionName: 'claimExists',
+      args: [BigInt(topic), issuer as Address],
+    })) as boolean;
+  } catch {
+    return false;
   }
 }
 
 export const CLAIM_TOPIC_NAMES: Record<number, string> = {
-  1: "KYC - Know Your Customer",
-  7: "Accreditation - Accredited Investor",
-  9: "Jurisdiction - Geographic Compliance",
+  1: 'KYC - Know Your Customer',
+  7: 'Accreditation - Accredited Investor',
+  9: 'Jurisdiction - Geographic Compliance',
 };
-

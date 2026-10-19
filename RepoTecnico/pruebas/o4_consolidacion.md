@@ -160,3 +160,18 @@ y desinstalar `ethers`. Después, O4.7 (TanStack Query).
 **Verificación:** `tsc` 0 · lint 0 · `./scripts/ci_local.sh` exit 0 (build ×3 + 35 tests).
 
 *Fin de la evidencia — O4.6 (ronda 6)*
+
+
+## Ronda 7 · Capa de lectura a viem
+
+- `@rwa/shared/web3`: **`getPublicClient()`** (viem `createPublicClient` sobre el RPC canónico),
+  sustituto de `ethers.JsonRpcProvider` en lecturas.
+- `apps/identity/lib/identity-claims.ts` reescrito con viem (`readContract`): `getIdentityClaims` y
+  `claimExists` sin `ethers`; se retira `addClaimToIdentity` (código muerto). Los consumidores
+  (`ClaimRequestsList`, `app/app/page.tsx`) ya no pasan provider.
+- **`ethers` restante: 12 ficheros** (escrituras y firmas: marketplace, TokensList, CreateTokenForm,
+  dashboard de emisor, RequestDetailModal, WalletContext, lib/contracts de identidad, app/app/page).
+
+**Verificación:** `tsc` 0 · lint 0 · `./scripts/ci_local.sh` exit 0 (build ×3 + 35 tests).
+
+*Fin de la evidencia — O4.6 (ronda 7)*

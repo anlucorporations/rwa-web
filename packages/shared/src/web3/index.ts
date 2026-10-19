@@ -5,7 +5,7 @@
  * compartida (`@rwa/shared/network`), nunca de literales.
  */
 
-import { defineChain } from 'viem';
+import { createPublicClient, defineChain, http as httpTransport, type PublicClient } from 'viem';
 import { createConfig, http, injected } from 'wagmi';
 import { getAccount } from 'wagmi/actions';
 
@@ -79,4 +79,19 @@ export async function getInjectedEip1193(): Promise<Eip1193Like | null> {
   } catch {
     return null;
   }
+}
+
+
+/**
+ * Cliente público viem para lecturas on-chain (sobre el RPC canónico).
+ * Sustituye a `ethers.JsonRpcProvider` en la capa de lectura.
+ */
+export function getPublicClient(): PublicClient {
+  let url: string | undefined;
+  try {
+    url = getRpcUrl();
+  } catch {
+    url = undefined;
+  }
+  return createPublicClient({ chain: anvilGcpChain, transport: httpTransport(url) });
 }
