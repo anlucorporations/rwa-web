@@ -2,7 +2,7 @@
 
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
 > **Línea:** `@web` (`rwa-web/`) — separada de `@sc` (`rwa-sc/`) por D-102
-> **Versión:** v2.2 · 2026-10-19 · **Fase 3 — O0, O1 y O3 cerrados; O2 pendiente de redespliegue de GCP; O4: 4.1/4.2/4.4/4.5/4.6/4.7 hechos, 4.3 parcial**
+> **Versión:** v2.3 · 2026-10-19 · **Fase 3 — O0, O1, O3 y O4 cerrados; O2 pendiente de redespliegue de GCP; siguiente: O5**
 >
 > **Memoria de trabajo de la etapa.** El registro global del proyecto (contratos + etapa web)
 > sigue en `rwa-sc/RepoTecnico/estado_proyecto.md`; este archivo gobierna el día a día de `@web`.
@@ -134,14 +134,14 @@ el E2E off-chain está en verde, pero el on-chain está bloqueado por el desplie
 | # | Tarea | Estado | Evidencia / gate |
 |---|---|---|---|
 | O4.1 | Monorepo `apps/{identity,issuer,token}` + `packages/shared` | ✅ HECHO | `apps/*` con `@rwa/{identity,issuer,token}`; workspace `packages/* + apps/*` |
-| O4.2 | `packages/shared` completo (red, ABIs, tipos, datos, cliente API, `zod`, logger) | ✅ **Validación zod en todas las rutas + cliente API tipado**; `packages/{ui,config}` van con O4.3/O4.6 | `o4_consolidacion.md` |
-| O4.3 | Eliminar duplicados | 🟡 `TrustedIssuersRegistry` y tipos comunes consolidados; queda `RequestDetailModal` ×2 (requiere `packages/ui`) | `o4_consolidacion.md` |
+| O4.2 | `packages/shared` completo (red, ABIs, tipos, datos, cliente API, `zod`, logger) | ✅ **HECHO** — `packages/{shared,ui,config}` operativos; `@rwa/ui` y `@rwa/config` consumidos por las apps | `o4_consolidacion.md` |
+| O4.3 | Eliminar duplicados | ✅ **HECHO** — `RequestDetailModal` único en `@rwa/ui` (variantes investor/issuer); tipos y registries consolidados | `o4_consolidacion.md` |
 | O4.4 | Destino de `web-registry-trusted2` | ✅ **Retirada** (duplicado experimental) | `o4_consolidacion.md` |
 | O4.5 | Destino de `web-rwa` | ✅ **Retirada** (landing fuera del objetivo de 3 apps) | `o4_consolidacion.md` |
 | O4.6 | Unificar web3 en `wagmi`+`viem`; 0 `window.ethereum` | ✅ **HECHO** — **0 `window.ethereum` y 0 imports de `ethers`** en todo el monorepo; `ethers` desinstalado de las 3 apps; stack único wagmi+viem | `o4_consolidacion.md` |
 | O4.7 | Estado de datos con TanStack Query | ✅ **HECHO** — `useQuery`/`useMutation` + invalidación en las 3 apps (tokens, claim-requests, issuer-requests, trusted issuers, update-request) | `o4_consolidacion.md` |
 
-**Gate del ciclo:** `pnpm -r build && pnpm -r test` en verde + conteo de duplicados = 0. *(Parcial: builds/tests en verde; quedan O4.2 (`packages/ui`/`config`) y O4.3 (`RequestDetailModal`).)*
+**Gate del ciclo:** `pnpm -r build && pnpm -r test` en verde + conteo de duplicados = 0. **Cumplido** (6 paquetes typecheck/lint, build ×3, 35 tests).
 
 ---
 

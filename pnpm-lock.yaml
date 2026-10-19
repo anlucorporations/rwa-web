@@ -10,9 +10,15 @@ importers:
 
   apps/identity:
     dependencies:
+      '@rwa/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@rwa/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@rwa/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@tanstack/react-query':
         specifier: ^5.62.0
         version: 5.104.4(@types/react@19.3.0)(react@19.2.3)
@@ -62,9 +68,15 @@ importers:
 
   apps/issuer:
     dependencies:
+      '@rwa/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@rwa/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@rwa/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@tanstack/react-query':
         specifier: ^5.62.0
         version: 5.104.4(@types/react@19.3.0)(react@19.2.3)
@@ -114,6 +126,9 @@ importers:
 
   apps/token:
     dependencies:
+      '@rwa/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@rwa/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -164,6 +179,12 @@ importers:
         specifier: ^5
         version: 5.9.3
 
+  packages/config:
+    devDependencies:
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
   packages/shared:
     dependencies:
       pg:
@@ -203,6 +224,25 @@ importers:
       vitest:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@20.19.43)(lightningcss@1.32.0)
+
+  packages/ui:
+    dependencies:
+      react:
+        specifier: ^19.0.0
+        version: 19.2.3
+    devDependencies:
+      '@types/react':
+        specifier: ^19
+        version: 19.3.0
+      eslint:
+        specifier: ^9
+        version: 9.39.5(jiti@2.7.0)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+      typescript-eslint:
+        specifier: ^8
+        version: 8.71.2(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
 
 packages:
 

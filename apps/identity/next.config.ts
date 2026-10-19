@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
 
   // Paquete compartido del monorepo (TS fuente) y driver de PostgreSQL solo en servidor.
-  transpilePackages: ["@rwa/shared"],
+  transpilePackages: ["@rwa/shared", "@rwa/ui"],
   serverExternalPackages: ["pg"],
 };
 

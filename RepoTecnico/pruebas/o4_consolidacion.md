@@ -250,3 +250,24 @@ deriva · build ×3 · 35 tests).
 **Verificación:** `tsc` 0 · lint 0 errores · `./scripts/ci_local.sh` **exit 0** (build ×3 + 35 tests).
 
 *Fin de la evidencia — O4.7*
+
+
+## Ronda 11 · O4.2/O4.3: `@rwa/ui`, `@rwa/config` y modal unificado
+
+- **`packages/ui`** (nuevo, `@rwa/ui`): primitivas compartidas (`Modal`, `StatusBadge`,
+  `InfoField`, `CodeBlock`) y **`RequestDetailModal` único** con variante `investor` | `issuer`
+  y slot `actions` para la lógica de cada rol.
+- `apps/identity/components/RequestDetailModal.tsx` y `apps/issuer/components/RequestDetailModal.tsx`
+  pasan a ser envoltorios finos (lógica viem/EIP-712 intacta) sobre `@rwa/ui`: se elimina la
+  duplicación de markup (≈800 líneas → 1 componente + 2 wrappers).
+- Ambos `next.config.ts` transpilan `@rwa/ui`; `@rwa/ui` añadido como dependencia de workspace.
+- **`packages/config`** (nuevo, `@rwa/config`): preset de TypeScript (`typescript/base.json`) y
+  reglas de ESLint compartidas (`eslint/base.mjs`: React Compiler como aviso, `any` como aviso,
+  `no-console` como error). Las 3 apps extienden ambos presets (fuente única de tooling) y el
+  registro de apps/puertos vive en `src/index.ts`.
+- Duplicados restantes del alcance O4.3: **0** (los dos `RequestDetailModal` comparten presentación).
+
+**Verificación:** `tsc` 0 (6 paquetes) · lint 0 errores · `./scripts/ci_local.sh` **exit 0**
+(gates de literales y deriva · build ×3 con `@rwa/ui` · 35 tests).
+
+*Fin de la evidencia — O4.2/O4.3*
