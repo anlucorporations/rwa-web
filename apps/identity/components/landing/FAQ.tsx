@@ -66,7 +66,7 @@ export default function FAQ() {
                     {faq.question}
                   </h3>
                   <ChevronDown
-                    className={`h-5 w-5 flex-shrink-0 text-cyan-600 transition-transform dark:text-cyan-400 ${
+                    className={`h-5 w-5 flex-shrink-0 text-cyan-700 transition-transform dark:text-cyan-400 ${
                       openIdx === idx ? "rotate-180" : ""
                     }`}
                   />
@@ -90,7 +90,7 @@ export default function FAQ() {
           </p>
           <a
             href="mailto:support@codecrypto.dev"
-            className="inline-flex items-center gap-2 font-semibold text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
+            className="inline-flex items-center gap-2 font-semibold text-cyan-700 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
           >
             Contact our support team →
           </a>

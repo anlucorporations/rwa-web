@@ -145,7 +145,7 @@ export default function HeroSection({
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">Verified Issuer</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Status: Active</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">Status: Active</p>
                     </div>
                   </div>
                   <div className="space-y-3 pt-2">
@@ -170,14 +170,14 @@ export default function HeroSection({
                       <div className="w-2 h-2 rounded-full bg-green-500"></div>
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-gray-900 dark:text-white">Trust Network</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">24 Active Issuers</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">24 Active Issuers</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900">
                       <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-gray-900 dark:text-white">Transactions</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">1,234 Verified</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">1,234 Verified</p>
                       </div>
                     </div>
                   </div>

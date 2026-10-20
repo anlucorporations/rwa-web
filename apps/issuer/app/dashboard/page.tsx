@@ -380,7 +380,7 @@ export default function Home() {
                   )}
                   <button
                     onClick={disconnectWallet}
-                    className="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                    className="text-xs text-red-700 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                   >
                     Disconnect
                   </button>
@@ -395,7 +395,7 @@ export default function Home() {
         {(error || queryError) && (
           <div className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
             <h3 className="text-lg font-semibold text-red-800 dark:text-red-400">Error</h3>
-            <p className="text-red-600 dark:text-red-300">{error || queryError?.message}</p>
+            <p className="text-red-700 dark:text-red-300">{error || queryError?.message}</p>
             <button
               onClick={() => void refetch()}
               className="mt-2 rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700"

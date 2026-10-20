@@ -81,7 +81,7 @@ export default function Workflow() {
                 {/* Content */}
                 <div className="flex-1 pt-2 sm:pt-4">
                   <div className="flex items-baseline gap-3 mb-2">
-                    <span className="text-sm font-bold text-cyan-600 dark:text-cyan-400">
+                    <span className="text-sm font-bold text-cyan-700 dark:text-cyan-400">
                       Step {item.step}
                     </span>
                     <h3 className="text-xl font-semibold text-gray-900 dark:text-white">

@@ -82,7 +82,7 @@ export default function Hero() {
               { number: "0ms", label: "Instant" },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
-                <div className="text-4xl font-bold text-cyan-600 dark:text-cyan-400">
+                <div className="text-4xl font-bold text-cyan-700 dark:text-cyan-400">
                   {stat.number}
                 </div>
                 <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">

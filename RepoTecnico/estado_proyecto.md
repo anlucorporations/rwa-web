@@ -2,7 +2,7 @@
 
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
 > **Línea:** `@web` (`rwa-web/`) — separada de `@sc` (`rwa-sc/`) por D-102
-> **Versión:** v2.8 · 2026-10-20 · **Fases 3 y 4 cerradas — O0, O1, O3, O4 cerrados; O5 casi completo (O5.5 validado en Cloud SQL; O5.1/O5.2 pendientes de host con Docker); O2.7 bloqueado por GCP**
+> **Versión:** v2.9 · 2026-10-20 · **Fases 3 y 4 cerradas — O0, O1, O3, O4 y O5 cerrados salvo O5.1/O5.2 (sin Docker en el entorno); O2.7 bloqueado por GCP**
 >
 > **Memoria de trabajo de la etapa.** El registro global del proyecto (contratos + etapa web)
 > sigue en `rwa-sc/RepoTecnico/estado_proyecto.md`; este archivo gobierna el día a día de `@web`.
@@ -154,7 +154,7 @@ el E2E off-chain está en verde, pero el on-chain está bloqueado por el desplie
 | O5.3 | Retirar `docker-build/` y rutas de desarrollador | ✅ HECHO — sin `docker-build/`; scripts `start/stop/check` actualizados al monorepo | `o4_consolidacion.md` |
 | O5.4 | Cifrado AES-256-GCM de documentos KYC + `audit_log` | ✅ **HECHO** — cifrado en subida, descifrado tras autorización, `audit_log` en acceso; 7 tests nuevos | `o4_consolidacion.md` (ronda 13) |
 | O5.5 | Índices, retención de `sessions`/`audit_log` y backup/restore | ✅ **HECHO y ejecutado** en Cloud SQL: `retention_o5.mjs --dry-run`/real y `backup_o5.mjs` + restauración simulada (ROLLBACK) | `scripts/` |
-| O5.6 | Accesibilidad (`axe`) y estados/notificaciones unificados | ✅ **Gate estático axe-core** en CI (7/7 rutas, 0 críticas/graves); auditoría de navegador pendiente | `scripts/a11y_o5.mjs` |
+| O5.6 | Accesibilidad (`axe`) y estados/notificaciones unificados | ✅ **HECHO** — gate estático en CI + **auditoría en navegador real** (7/7 rutas, 0 críticas/graves) contra apps vivas con BD/RPC de GCP | `scripts/a11y_o5.mjs` · `scripts/a11y_browser_o5.mjs` |
 | O5.7 | Presupuesto de rendimiento medido en build de producción | ✅ **HECHO** — First Load JS gzip por ruta (máx. 367.6 KB) con presupuesto 400 KB en CI | `scripts/perf_budget_o5.mjs` |
 | O5.8 | README raíz con el mapa real de apps y puertos | ✅ HECHO — README reescrito con arranque local y Docker | `README.md` |
 

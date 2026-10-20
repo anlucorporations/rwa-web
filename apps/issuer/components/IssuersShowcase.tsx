@@ -37,7 +37,7 @@ const StatCard = ({
         <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">{label}</p>
         <p className="text-4xl font-bold text-gray-900 dark:text-white mt-2">{value}</p>
         {trend && (
-          <p className="text-green-600 dark:text-green-400 text-sm font-medium mt-2">
+          <p className="text-green-700 dark:text-green-400 text-sm font-medium mt-2">
             <span className="inline-flex items-center gap-1">
               <TrendingUp className="w-4 h-4" />
               {trend}
@@ -143,7 +143,7 @@ export default function IssuersShowcase({ stats }: IssuersShowcaseProps) {
                   <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200 text-xs font-semibold">
                     ✓ Verified
                   </span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Topic: 1</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Topic: 1</span>
                 </div>
               </div>
             </div>
@@ -168,7 +168,7 @@ export default function IssuersShowcase({ stats }: IssuersShowcaseProps) {
                   <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200 text-xs font-semibold">
                     ✓ Verified
                   </span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Topic: 2</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Topic: 2</span>
                 </div>
               </div>
             </div>
@@ -193,7 +193,7 @@ export default function IssuersShowcase({ stats }: IssuersShowcaseProps) {
                   <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200 text-xs font-semibold">
                     ✓ Verified
                   </span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Topic: 7</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Topic: 7</span>
                 </div>
               </div>
             </div>

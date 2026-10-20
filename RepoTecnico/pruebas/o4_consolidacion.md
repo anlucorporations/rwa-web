@@ -358,3 +358,26 @@ implementaciones Node con `pg`, y se ejecutan contra el **PostgreSQL real de GCP
 en la BD de desarrollo (requiere ventana de mantenimiento); el camino SQL queda validado con ROLLBACK.
 
 *Fin de la evidencia — O5.5 ejecutado*
+
+
+## Ronda 16 · O5.6 auditoría de navegador real + apps en vivo
+
+Con Chromium/Playwright y las 3 apps de producción sirviendo contra el **PostgreSQL y el Anvil de
+GCP reales** (`scripts/serve_o5.mjs`, puertos 4011/4012/4013; `/api/health` = `status ok` en las 3):
+
+- `node scripts/a11y_browser_o5.mjs` — axe-core inyectado en el DOM hidratado (WCAG 2.0/2.1 A+AA)
+  sobre 7 rutas. Detectó problemas que el gate estático no puede ver (requieren CSS/layout):
+  - `color-contrast` serio en identity landing (`text-cyan-600` sobre blanco, 3.61:1),
+    issuer landing (`text-gray-500` sobre `bg-blue/indigo-50` y `text-green-600`) e issuer
+    dashboard (`text-red-600` sobre `bg-red-50`).
+  - Correcciones: `cyan-600 → cyan-700`, `gray-500 → gray-600` en fondos tintados,
+    `green-600 → green-700`, `red-600 → red-700`.
+- Resultado final: **7/7 rutas, 0 violaciones críticas/graves** en navegador.
+- El script está disponible como `pnpm a11y:browser:o5` (requiere `playwright install chromium`;
+  en este host se completaron las librerías del sistema con `.deb` extraídos en `/tmp`, sin root).
+- `scripts/serve_o5.mjs` levanta/para las 3 apps de producción para verificaciones O5.
+
+**Verificación:** health 3/3 (`chainId 31337`, `database ok`) · `a11y:browser:o5` exit 0 ·
+`./scripts/ci_local.sh` exit 0 (gate estático + build ×3 + 42 tests).
+
+*Fin de la evidencia — O5.6 dinámico*
