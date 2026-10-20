@@ -28,6 +28,7 @@ import {
   TokenCloneableAbi,
   TrustedIssuersRegistryAbi,
 } from '@rwa/shared/contracts';
+import { useToast } from '@rwa/ui';
 
 /** Normaliza errores de wagmi/viem (sin depender de los códigos de `ethers`). */
 function normalizeMarketError(err: unknown): {
@@ -59,6 +60,7 @@ function normalizeMarketError(err: unknown): {
 }
 
 export default function MarketplacePage() {
+  const toast = useToast();
   const { address: wagmiAddress } = useAccount();
   const { data: walletClient } = useWalletClient();
   const {
@@ -165,7 +167,7 @@ export default function MarketplacePage() {
           loadTokenBalances(tokens);
         }
         
-        alert(`✅ Wallet Connected!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🔐 Account:\n${accounts[0]}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+        toast.success(`✅ Wallet Connected!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🔐 Account:\n${accounts[0]}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       }
     } catch (err: any) {
             
@@ -208,7 +210,7 @@ export default function MarketplacePage() {
         }
         
         // Show success message
-        alert(`✅ Account Switched!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🔄 New Account:\n${accounts[0]}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+        toast.success(`✅ Account Switched!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🔄 New Account:\n${accounts[0]}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       }
     } catch (err: any) {
             
@@ -428,7 +430,7 @@ export default function MarketplacePage() {
       void refetch();
 
       setError(null);
-      alert(`✅ Purchase Successful!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Tokens Received: ${amountNum} ${token.symbol}\n💰 Total Price: ${formatEther(totalPriceWei)} ETH\n\n📜 Transaction Hash:\n${hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      toast.success(`✅ Purchase Successful!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Tokens Received: ${amountNum} ${token.symbol}\n💰 Total Price: ${formatEther(totalPriceWei)} ETH\n\n📜 Transaction Hash:\n${hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     } catch (err) {
       const error = normalizeMarketError(err);
       let errorMsg = '';
@@ -790,7 +792,7 @@ export default function MarketplacePage() {
       }
 
       setError(null);
-      alert(`✅ Transfer Successful!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Amount: ${amountNum} ${token.symbol}\n📫 To: ${recipient.substring(0, 10)}...${recipient.substring(recipient.length - 8)}\n\n📜 Transaction Hash:\n${hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      toast.success(`✅ Transfer Successful!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Amount: ${amountNum} ${token.symbol}\n📫 To: ${recipient.substring(0, 10)}...${recipient.substring(recipient.length - 8)}\n\n📜 Transaction Hash:\n${hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     } catch (err) {
       const error = normalizeMarketError(err);
       let errorMsg = '❌ Transfer Failed\n\n';

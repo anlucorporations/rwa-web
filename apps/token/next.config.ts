@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
 
   output: "standalone",
 
-  transpilePackages: ["@rwa/shared"],
+  transpilePackages: ["@rwa/shared", "@rwa/ui"],
   serverExternalPackages: ["pg"],
 };
 

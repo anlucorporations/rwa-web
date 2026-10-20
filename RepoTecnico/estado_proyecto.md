@@ -154,7 +154,7 @@ el E2E off-chain está en verde, pero el on-chain está bloqueado por el desplie
 | O5.3 | Retirar `docker-build/` y rutas de desarrollador | ✅ HECHO — sin `docker-build/`; scripts `start/stop/check` actualizados al monorepo | `o4_consolidacion.md` |
 | O5.4 | Cifrado AES-256-GCM de documentos KYC + `audit_log` | ✅ **HECHO** — cifrado en subida, descifrado tras autorización, `audit_log` en acceso; 7 tests nuevos | `o4_consolidacion.md` (ronda 13) |
 | O5.5 | Índices, retención de `sessions`/`audit_log` y backup/restore | ✅ **HECHO y ejecutado** en Cloud SQL: `retention_o5.mjs --dry-run`/real y `backup_o5.mjs` + restauración simulada (ROLLBACK) | `scripts/` |
-| O5.6 | Accesibilidad (`axe`) y estados/notificaciones unificados | ✅ **HECHO** — gate estático en CI + **auditoría en navegador real** (7/7 rutas, 0 críticas/graves) contra apps vivas con BD/RPC de GCP | `scripts/a11y_o5.mjs` · `scripts/a11y_browser_o5.mjs` |
+| O5.6 | Accesibilidad (`axe`) y estados/notificaciones unificados | ✅ **HECHO** — gate estático + auditoría en navegador real (7/7 rutas, 0 críticas/graves) y **`ToastProvider` unificado** (0 `alert()`) | `scripts/a11y_o5.mjs` · `scripts/a11y_browser_o5.mjs` · `packages/ui/src/Toast.tsx` |
 | O5.7 | Presupuesto de rendimiento medido en build de producción | ✅ **HECHO** — First Load JS gzip por ruta (máx. 367.6 KB) con presupuesto 400 KB en CI | `scripts/perf_budget_o5.mjs` |
 | O5.8 | README raíz con el mapa real de apps y puertos | ✅ HECHO — README reescrito con arranque local y Docker | `README.md` |
 

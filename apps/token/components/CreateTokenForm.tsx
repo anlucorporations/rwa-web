@@ -23,6 +23,7 @@ import { INVESTMENT_CLAIMS, CLAIM_DESCRIPTIONS } from '@/types/token';
 import { ZERO_ADDRESS, assertCanonicalChain } from '@rwa/shared/network';
 import { getPublicClient } from '@rwa/shared/web3';
 import { tokenKeys } from '@/lib/queries';
+import { useToast } from '@rwa/ui';
 
 interface CreateTokenFormProps {
   userAddress: string;
@@ -47,6 +48,7 @@ function normalizeWalletError(err: unknown): { message: string; reason?: string;
 }
 
 export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenFormProps) {
+  const toast = useToast();
   const { data: walletClient } = useWalletClient();
   const chainId = useChainId();
   const queryClient = useQueryClient();
@@ -300,7 +302,7 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
         ? `\n✓ ClaimTopicsRegistry configured with topics: ${selectedClaims.join(', ')}`
         : '';
       
-      alert(`Token "${name}" created successfully!\nAddress: ${tokenAddress}\n\n${registriesMessage}${complianceMessage}${mintMessage}${claimTopicsMessage}\n\n✓ Saved to MongoDB`);
+      toast.success(`Token "${name}" created successfully!\nAddress: ${tokenAddress}\n\n${registriesMessage}${complianceMessage}${mintMessage}${claimTopicsMessage}\n\n✓ Saved to MongoDB`);
       
       // Invalida la lista cacheada de tokens (O4.7)
       await queryClient.invalidateQueries({ queryKey: tokenKeys.all });

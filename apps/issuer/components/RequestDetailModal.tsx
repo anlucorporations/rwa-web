@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { usePublicClient, useWalletClient } from 'wagmi';
 import { toHex } from 'viem';
-import { RequestDetailModal as SharedRequestDetailModal } from '@rwa/ui';
+import { RequestDetailModal as SharedRequestDetailModal, useToast } from '@rwa/ui';
 import { ClaimRequest } from '@/types/claim-request';
 import { IdentityCloneableAbi, IdentityRegistryAbi, getContractAddress } from '@rwa/shared/contracts';
 import { buildClaimTypedData, type ClaimPayload } from '@rwa/shared/claims';
@@ -28,6 +28,7 @@ export default function RequestDetailModal({
   onUpdate,
   issuerAddress,
 }: RequestDetailModalProps) {
+  const toast = useToast();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
   const updateRequest = useUpdateRequestMutation();
@@ -196,7 +197,7 @@ I hereby ${status === 'approved' ? 'APPROVE' : 'REJECT'} this claim request with
         ...(reviewBody.issuerSignature ? { issuerSignature: String(reviewBody.issuerSignature) } : {}),
       });
 
-      alert(`Request ${status} successfully!\n\n✓ Decision cryptographically signed`);
+      toast.success(`Request ${status} successfully!\n\n✓ Decision cryptographically signed`);
       onUpdate();
       onClose();
     } catch (err) {

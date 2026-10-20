@@ -12,7 +12,9 @@ import TokensList from '@/components/TokensList';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@rwa/ui';
 export default function FactoryPage() {
+  const toast = useToast();
   const { address, isConnected: connected } = useAccount();
   const { connectAsync, connectors } = useConnect();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -30,7 +32,7 @@ export default function FactoryPage() {
       }
       await connectAsync({ connector: target });
     } catch {
-      alert('Error al conectar la wallet');
+      toast.error('Error al conectar la wallet');
     }
   };
 

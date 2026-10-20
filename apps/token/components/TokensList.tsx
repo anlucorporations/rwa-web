@@ -16,6 +16,7 @@ import { CLAIM_DESCRIPTIONS } from '@/types/token';
 import { TOKEN_CLONE_FACTORY_ADDRESS } from '@/lib/contracts';
 import { TOKEN_MARKET_ABI } from '@/lib/contracts/market';
 import { useTokensQuery } from '@/lib/queries';
+import { useToast } from '@rwa/ui';
 
 interface TokensListProps {
   adminAddress?: string;
@@ -24,6 +25,7 @@ interface TokensListProps {
 }
 
 export default function TokensList({ adminAddress, onSelectToken, refreshTrigger }: TokensListProps) {
+  const toast = useToast();
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
   const {
@@ -219,7 +221,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       }
 
       setError(null);
-      alert(`✅ Compliance Module Added!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Module Address:\n${complianceModule}\n\n📊 Total Modules: ${updatedModules.length}\n\n📜 Transaction Hash:\n${hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      toast.success(`✅ Compliance Module Added!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Module Address:\n${complianceModule}\n\n📊 Total Modules: ${updatedModules.length}\n\n📜 Transaction Hash:\n${hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
       // Reload tokens
       await refetch();
@@ -237,7 +239,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       }
 
       setError(errorMsg);
-      alert(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setAddingCompliance(null);
     }
@@ -284,7 +286,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       
             
       setError(null);
-      alert(`✅ Module Hidden from UI\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Hidden Module:\n${moduleAddress}\n\n📊 Remaining Modules: ${updatedModules.length}\n\n⚠️ Note: Module still exists on blockchain\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      toast.success(`✅ Module Hidden from UI\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Hidden Module:\n${moduleAddress}\n\n📊 Remaining Modules: ${updatedModules.length}\n\n⚠️ Note: Module still exists on blockchain\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
       // Reload tokens
       await refetch();
@@ -292,7 +294,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
             
       const errorMsg = `❌ Failed to Hide Module\n\n⚠️ Database Error\n\n${err instanceof Error ? err.message : 'Failed to remove module'}`;
       setError(errorMsg);
-      alert(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setRemovingCompliance(null);
     }
@@ -339,7 +341,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       
             
       setError(null);
-      alert(`✅ Claim Removed from UI\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🏷️ Removed: ${claimName}\n📊 Remaining Claims: ${updatedClaims.length}\n\n⚠️ Note: This only updates the UI.\nOn-chain requirements may still be enforced.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      toast.success(`✅ Claim Removed from UI\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🏷️ Removed: ${claimName}\n📊 Remaining Claims: ${updatedClaims.length}\n\n⚠️ Note: This only updates the UI.\nOn-chain requirements may still be enforced.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
       // Reload tokens
       await refetch();
@@ -347,7 +349,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
             
       const errorMsg = `❌ Failed to Remove Claim\n\n⚠️ Database Error\n\n${err instanceof Error ? err.message : 'Failed to remove claim'}`;
       setError(errorMsg);
-      alert(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setRemovingClaim(null);
     }
@@ -365,7 +367,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
       try {
         const priceValue = parseFloat(newPrice);
         if (isNaN(priceValue) || priceValue < 0) {
-          alert('Invalid price');
+          toast.error('Invalid price');
           return;
         }
 
@@ -417,7 +419,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
         }
 
         setError(null);
-        alert(`✅ Price Updated!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n💰 New Price: ${priceValue} ETH\n📦 Token: ${token.symbol}\n\n📜 Transaction Hash:\n${hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+        toast.success(`✅ Price Updated!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n💰 New Price: ${priceValue} ETH\n📦 Token: ${token.symbol}\n\n📜 Transaction Hash:\n${hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
         await refetch();
         setEditingPrice(null);
@@ -435,7 +437,7 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
         }
 
         setError(errorMsg);
-        alert(errorMsg);
+        toast.error(errorMsg);
       }
     } else {
       // Start editing

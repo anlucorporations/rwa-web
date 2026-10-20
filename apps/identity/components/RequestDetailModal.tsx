@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { usePublicClient, useWalletClient } from 'wagmi';
-import { RequestDetailModal as SharedRequestDetailModal } from '@rwa/ui';
+import { RequestDetailModal as SharedRequestDetailModal, useToast } from '@rwa/ui';
 import { ClaimRequest } from '@/types/claim-request';
 import { IdentityCloneableAbi } from '@rwa/shared/contracts';
 import { ZERO_ADDRESS } from '@rwa/shared/network';
@@ -26,6 +26,7 @@ export default function RequestDetailModal({
   identityAddress,
   onClaimAdded,
 }: RequestDetailModalProps) {
+  const toast = useToast();
   const [addingClaim, setAddingClaim] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [claimAdded, setClaimAdded] = useState(false);
@@ -80,7 +81,7 @@ export default function RequestDetailModal({
       await publicClient.waitForTransactionReceipt({ hash });
 
       setClaimAdded(true);
-      alert(
+      toast.success(
         'Claim added to your identity successfully!\n\n✓ You can now use this claim for token investments',
       );
       onClaimAdded?.();

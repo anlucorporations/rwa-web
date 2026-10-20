@@ -11,12 +11,14 @@ import {
   TRUSTED_ISSUERS_REGISTRY_ADDRESS,
   TRUSTED_ISSUERS_REGISTRY_ABI,
 } from '@/lib/contracts';
+import { useToast } from '@rwa/ui';
 
 /**
  * Landing de la app de emisor. Migrada a wagmi+viem (O4.6): cuenta y conexión
  * vienen de los hooks y el contador de emisores es una lectura tipada.
  */
 export default function LandingPage() {
+  const toast = useToast();
   const { address, isConnected } = useAccount();
   const { connectAsync, connectors } = useConnect();
   const { disconnect } = useDisconnect();
@@ -37,7 +39,7 @@ export default function LandingPage() {
       }
       await connectAsync({ connector: target });
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error connecting wallet');
+      toast.error(err instanceof Error ? err.message : 'Error connecting wallet');
     }
   };
 

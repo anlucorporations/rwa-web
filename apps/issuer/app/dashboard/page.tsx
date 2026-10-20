@@ -22,6 +22,7 @@ import { useTrustedIssuersQuery } from '@/lib/queries';
 import IssuerRequestsList from '@/components/IssuerRequestsList';
 import RequestDetailModal from '@/components/RequestDetailModal';
 import { ClaimRequest } from '@/types/claim-request';
+import { useToast } from '@rwa/ui';
 
 /**
  * RPC que se muestra en la guía de configuración. `getRpcUrl()` es perezoso y
@@ -54,6 +55,7 @@ function normalizeWalletError(err: unknown): { message: string; reason?: string;
 }
 
 export default function Home() {
+  const toast = useToast();
   const { address: wagmiAddress } = useAccount();
   const { connectAsync, connectors } = useConnect();
   const { disconnect } = useDisconnect();
@@ -116,9 +118,9 @@ export default function Home() {
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => {
-      alert(`${label} copiado al portapapeles!`);
+      toast.info(`${label} copiado al portapapeles!`);
     }).catch(() => {
-      alert('Error al copiar. Por favor, copia manualmente.');
+      toast.error('Error al copiar. Por favor, copia manualmente.');
     });
   };
 
@@ -126,7 +128,7 @@ export default function Home() {
     try {
       const target = connectors.find((connector) => connector.id === 'injected') ?? connectors[0];
       if (!target) {
-        alert('Please install MetaMask to interact with this application');
+        toast.error('Please install MetaMask to interact with this application');
         return;
       }
       await connectAsync({ connector: target });
@@ -144,22 +146,22 @@ export default function Home() {
     e.preventDefault();
 
     if (!account) {
-      alert('Please connect your wallet first');
+      toast.error('Please connect your wallet first');
       return;
     }
 
     if (!isOwner) {
-      alert('Only the contract owner can add trusted issuers');
+      toast.error('Only the contract owner can add trusted issuers');
       return;
     }
 
     if (!isAddress(newIssuerAddress)) {
-      alert('Please enter a valid Ethereum address');
+      toast.error('Please enter a valid Ethereum address');
       return;
     }
 
     if (!walletClient) {
-      alert('MetaMask no disponible');
+      toast.error('MetaMask no disponible');
       return;
     }
 
@@ -175,7 +177,7 @@ export default function Home() {
         .map(topic => BigInt(topic));
 
       if (claimTopics.length === 0) {
-        alert('Please enter at least one claim topic');
+        toast.error('Please enter at least one claim topic');
         return;
       }
 
@@ -188,7 +190,7 @@ export default function Home() {
 
       await getPublicClient().waitForTransactionReceipt({ hash });
 
-      alert('Trusted issuer added successfully!');
+      toast.success('Trusted issuer added successfully!');
 
       // Reset form
       setNewIssuerAddress('');
@@ -200,7 +202,7 @@ export default function Home() {
       const info = normalizeWalletError(err);
       const message = info.reason || info.message || 'Error adding trusted issuer';
       setError(message);
-      alert(`Error: ${message}`);
+      toast.error(`Error: ${message}`);
     } finally {
       setAddingIssuer(false);
     }

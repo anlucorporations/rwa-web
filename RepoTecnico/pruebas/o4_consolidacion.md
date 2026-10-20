@@ -398,3 +398,22 @@ quedan validados estáticamente (YAML de compose parseado, Dockerfile con stages
 verificados, `.env.compose.example` no ignorado) y el gate real queda pendiente de un host con Docker.
 
 *Fin de la evidencia — O5.1/O5.2 bloqueados por entorno*
+
+
+## Ronda 18 · O5.6: notificaciones unificadas (fin de `alert()`)
+
+- Nuevo `ToastProvider`/`useToast` en **`@rwa/ui`**: notificaciones accesibles
+  (`role="status"`/`role="alert"`, `aria-live`, cierre con `aria-label`), autodescarte
+  (5 s éxito/info, 8 s error) y variantes `success`/`error`/`info`.
+- Montado en los `Web3Providers` de las 3 apps (token pasa a depender de `@rwa/ui` y a
+  transpilarlo).
+- **29 `alert()` sustituidos** en 9 componentes de las 3 apps (`dashboard` del emisor, landings,
+  marketplace/factory, `TokensList`, `CreateTokenForm`, `ClaimRequestForm`, `RequestDetailModal`).
+- `confirm()`/`prompt()` se mantienen (diálogos nativos de decisión/entrada, fuera del alcance de
+  notificaciones).
+
+**Verificación:** `tsc` 0 · lint 0 errores · `./scripts/ci_local.sh` exit 0 (build ×3, axe/perf y
+42 tests con cobertura). La axe de navegador (`a11y:browser:o5`) cubre el contenedor de toasts al
+renderizarse.
+
+*Fin de la evidencia — O5.6 notificaciones*

@@ -13,6 +13,7 @@ import {
   TRUSTED_ISSUERS_REGISTRY_ADDRESS,
   NETWORK_CONFIG,
 } from '@/contracts/TrustedIssuersRegistry';
+import { useToast } from '@rwa/ui';
 
 interface ClaimRequestFormProps {
   userAddress: string;
@@ -20,6 +21,7 @@ interface ClaimRequestFormProps {
 }
 
 export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimRequestFormProps) {
+  const toast = useToast();
   const { data: walletClient } = useWalletClient();
   const {
     data: issuers = [],
@@ -170,7 +172,7 @@ export default function ClaimRequestForm({ userAddress, onSuccess }: ClaimReques
         fileInput.value = '';
       }
 
-      alert('Claim request submitted successfully!');
+      toast.success('Claim request submitted successfully!');
       onSuccess();
     } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to submit claim request');
