@@ -417,3 +417,30 @@ verificados, `.env.compose.example` no ignorado) y el gate real queda pendiente 
 renderizarse.
 
 *Fin de la evidencia — O5.6 notificaciones*
+
+
+## Ronda 19 · O5.1/O5.2: validación estática de Docker (sin daemon)
+
+Con Docker ausente en el entorno se añade un gate estático reproducible para no dejar los assets
+sin verificar:
+
+- `scripts/docker_validate_o5.mjs` (**58/58 comprobaciones OK**):
+  - **Dockerfile**: parseo con `dockerfile-ast`, stages `builder`/`runner`, `ARG APP` en ambos,
+    `pnpm install --frozen-lockfile`, build por app, las 3 rutas `COPY` del standalone/static/public,
+    `HEALTHCHECK` en `/api/health`, `CMD server.js`, usuario no-root y `PORT=3000`.
+  - **Artefactos reales del build**: para las 3 apps existe `.next/standalone/apps/<app>/server.js`
+    (y lee `process.env.PORT`/`HOSTNAME`), `standalone/node_modules`, `.next/static` y `public`.
+  - **docker-compose.yml** validado contra el **esquema oficial compose-spec** (vendorizado en
+    `scripts/schemas/compose-spec.json`, sin red) + semántica: servicios y `build.args.APP`,
+    puertos `4001/4002/4003→3000`, `depends_on: db healthy`, secretos, `db` con init
+    `base_datos.sql` y healthcheck, Anvil en `profile chain` con healthcheck.
+  - **`.env.compose.example`** define todas las variables obligatorias.
+- Integrado en `./scripts/ci_local.sh` (paso 6/7) y como `pnpm docker:validate:o5`.
+- **Build real sigue bloqueado**: `docker: command not found` (sin `podman`/`buildah`, sudo
+  deshabilitado y `unshare -Ur` denegado). Queda pendiente `docker build`/`docker compose up` en un
+  host con Docker.
+
+**Verificación:** `pnpm docker:validate:o5` exit 0 (58/58) · `CI_SKIP_BUILD=1 ./scripts/ci_local.sh`
+exit 0 (incluye el nuevo paso).
+
+*Fin de la evidencia — O5.1/O5.2 validación estática*

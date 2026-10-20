@@ -35,9 +35,10 @@ else
   pnpm -r --workspace-concurrency=1 --if-present build
 fi
 
-step "6/7 · Accesibilidad estática (axe) y presupuesto de rendimiento"
+step "6/7 · Accesibilidad, rendimiento y assets Docker"
 node scripts/a11y_o5.mjs
 node scripts/perf_budget_o5.mjs
+node scripts/docker_validate_o5.mjs
 
 step "7/7 · Tests"
 pnpm -r --workspace-concurrency=1 --if-present test

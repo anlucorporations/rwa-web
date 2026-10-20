@@ -111,6 +111,8 @@ bash scripts/test_review_o1.sh           # 5/5 flujo de revisión firmado
 bash scripts/test_token_o2.sh            # 5/5 flujo de token
 bash scripts/test_e2e_o2.sh              # E2E contra Anvil (requiere despliegue actualizado)
 
+pnpm docker:validate:o5                  # valida Dockerfile, compose-spec y artefactos standalone (sin Docker)
+
 # Auditoría de accesibilidad en navegador (opcional; requiere playwright install chromium)
 pnpm serve:o5                             # apps de producción en 4011/4012/4013
 pnpm a11y:browser:o5                      # axe sobre el DOM hidratado
