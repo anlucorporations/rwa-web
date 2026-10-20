@@ -336,3 +336,25 @@ deriva · build ×3 · 35 tests).
 (build ×3 + 42 tests).
 
 *Fin de la evidencia — O5.6/O5.7*
+
+
+## Ronda 15 · O5.5 ejecutado contra Cloud SQL
+
+Se sustituyen los scripts de shell (dependían de `psql`/`pg_dump`, no instalados) por
+implementaciones Node con `pg`, y se ejecutan contra el **PostgreSQL real de GCP**
+(`scripts/gcp-env.sh --tcp`, Cloud SQL `truekeate-db-dev`):
+
+- `node scripts/retention_o5.mjs --dry-run` → sessions 0, audit_log 0.
+- `node scripts/retention_o5.mjs` (real) → **0 sesiones y 0 registros eliminados** (BD limpia).
+- `node scripts/backup_o5.mjs` → backup lógico de las **10 tablas** de `rwa`
+  (`backups/rwa-2026-10-20T00-39-37-248Z.json`, sha256 `f8224bd6…`, 7 filas: 5 topics +
+  2 migraciones).
+- `node scripts/backup_o5.mjs --restore <dump>` → **simulación de restauración OK (ROLLBACK)**:
+  7 filas insertadas en 10 tablas dentro de una transacción revertida (prueba del camino de
+  restauración sin tocar datos).
+- Scripts raíz: `pnpm db:backup` y `pnpm db:retention`; `backups/` ignorado por git.
+
+**Verificación:** comandos exit 0 contra Cloud SQL real. Restauración con `--commit` no se ejecuta
+en la BD de desarrollo (requiere ventana de mantenimiento); el camino SQL queda validado con ROLLBACK.
+
+*Fin de la evidencia — O5.5 ejecutado*
