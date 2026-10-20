@@ -149,8 +149,8 @@ el E2E off-chain está en verde, pero el on-chain está bloqueado por el desplie
 
 | # | Tarea | Estado | Evidencia / gate |
 |---|---|---|---|
-| O5.1 | `docker-compose`: 3 apps + PostgreSQL + Anvil con healthchecks | 🟡 **Assets listos** (`docker-compose.yml`, init SQL, perfil `chain`); `docker compose up` pendiente de validar en host con Docker | `o4_consolidacion.md` (ronda 12) |
-| O5.2 | Imágenes multi-stage `standalone`, `PORT` y healthcheck | 🟡 **Dockerfile multi-stage** con healthcheck HTTP; build de imagen pendiente de host con Docker | `Dockerfile` |
+| O5.1 | `docker-compose`: 3 apps + PostgreSQL + Anvil con healthchecks | 🟡 **Assets listos**; entorno sin Docker ni user namespaces (probado: docker/podman/buildah ausentes, `unshare -Ur` denegado) → validación pendiente en host con Docker | `o4_consolidacion.md` (rondas 12/17) |
+| O5.2 | Imágenes multi-stage `standalone`, `PORT` y healthcheck | 🟡 **Dockerfile multi-stage** con healthcheck HTTP; build de imagen pendiente de host con Docker (mismo bloqueo de entorno) | `Dockerfile` |
 | O5.3 | Retirar `docker-build/` y rutas de desarrollador | ✅ HECHO — sin `docker-build/`; scripts `start/stop/check` actualizados al monorepo | `o4_consolidacion.md` |
 | O5.4 | Cifrado AES-256-GCM de documentos KYC + `audit_log` | ✅ **HECHO** — cifrado en subida, descifrado tras autorización, `audit_log` en acceso; 7 tests nuevos | `o4_consolidacion.md` (ronda 13) |
 | O5.5 | Índices, retención de `sessions`/`audit_log` y backup/restore | ✅ **HECHO y ejecutado** en Cloud SQL: `retention_o5.mjs --dry-run`/real y `backup_o5.mjs` + restauración simulada (ROLLBACK) | `scripts/` |

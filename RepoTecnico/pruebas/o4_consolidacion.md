@@ -381,3 +381,20 @@ GCP reales** (`scripts/serve_o5.mjs`, puertos 4011/4012/4013; `/api/health` = `s
 `./scripts/ci_local.sh` exit 0 (gate estático + build ×3 + 42 tests).
 
 *Fin de la evidencia — O5.6 dinámico*
+
+
+## Ronda 17 · O5.1/O5.2: bloqueo del entorno para validar contenedores
+
+Comprobaciones realizadas para intentar ejecutar el gate de O5.1/O5.2 en este host:
+
+```text
+command -v docker podman buildah nerdctl   → ninguna disponible
+sudo -n true                               → "no new privileges" (sin root)
+unshare -Ur true                           → Operation not permitted (sin user namespaces)
+```
+
+Por tanto **no es posible** construir las imágenes ni ejecutar `docker compose up` aquí; los assets
+quedan validados estáticamente (YAML de compose parseado, Dockerfile con stages/HEALTHCHECK/CMD
+verificados, `.env.compose.example` no ignorado) y el gate real queda pendiente de un host con Docker.
+
+*Fin de la evidencia — O5.1/O5.2 bloqueados por entorno*
