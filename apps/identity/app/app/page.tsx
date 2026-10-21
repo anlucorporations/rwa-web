@@ -161,6 +161,9 @@ export default function Home() {
             data: log.data,
             topics: log.topics,
           });
+          // `decodeEventLog` puede resolver otros eventos del ABI si el topic coincide:
+          // hay que comprobar el nombre antes de leer `args`.
+          if (decoded.eventName !== "IdentityCreated") continue;
           newIdentityAddress = decoded.args.identity;
           break;
         } catch {

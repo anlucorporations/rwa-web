@@ -144,6 +144,9 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
             data: log.data,
             topics: log.topics,
           });
+          // Otros eventos del ABI (p. ej. OwnershipTransferred) comparten estructura:
+          // hay que comprobar el nombre antes de leer `args`.
+          if (decoded.eventName !== 'TokenCreated') continue;
           tokenAddress = decoded.args.token;
           break;
         } catch {

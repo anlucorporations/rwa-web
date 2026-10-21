@@ -2,7 +2,7 @@
 
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
 > **Línea:** `@web` (`rwa-web/`) — separada de `@sc` (`rwa-sc/`) por D-102
-> **Versión:** v2.9 · 2026-10-20 · **Fases 3 y 4 cerradas — O0, O1, O3, O4 y O5 cerrados salvo O5.1/O5.2 (sin Docker en el entorno); O2.7 bloqueado por GCP**
+> **Versión:** v3.0 · 2026-10-21 · **Fases 3 y 4 cerradas — O0, O1, O3, O4 y O5 cerrados salvo O5.1/O5.2 (sin Docker en el entorno); O2.7 bloqueado por GCP; E2E de claim-flow en verde**
 >
 > **Memoria de trabajo de la etapa.** El registro global del proyecto (contratos + etapa web)
 > sigue en `rwa-sc/RepoTecnico/estado_proyecto.md`; este archivo gobierna el día a día de `@web`.
@@ -119,7 +119,7 @@ el E2E off-chain está en verde, pero el on-chain está bloqueado por el desplie
 | O3.3 | Versión única de `next`/`react` por workspace | ✅ HECHO | **next 16.1.6 · react 19.2.3** · un `pnpm-lock.yaml` |
 | O3.4 | Retirar `ignoreBuildErrors` y saldar tipos | ✅ HECHO | **0 errores tsc** en las 3 apps; builds con type-check |
 | O3.5 | CI con lint/tsc/build/test/gates + runner local | ✅ HECHO | `.gitlab-ci.yml` · `scripts/ci_local.sh` **exit 0** |
-| O3.6 | Tests: Vitest rutas críticas + E2E Playwright | 🟡 **Parcial** — **25 tests Vitest en verde**; el flujo claim→aprobación está cubierto por E2E con criptografía real (`test_review_o1.sh`, `test_e2e_o2.sh`); Playwright de navegador diferido a O5 (requiere automatización de wallet) | `pruebas/o3_verificabilidad.md` |
+| O3.6 | Tests: Vitest rutas críticas + E2E Playwright | ✅ **HECHO** — **42 tests Vitest** con cobertura + **E2E Playwright del claim-flow** contra Anvil local (`e2e:local:o5`: identidad → claim → aprobación EIP-712 → `addClaim`) con wallet inyectada mock | `scripts/e2e_claim_o5.mjs` · `scripts/e2e_local_o5.sh` |
 | O3.7 | Logger estructurado, 0 `console.*` | ✅ HECHO | **224 eliminadas · 0 restantes** · `no-console: error` |
 
 **Gate del ciclo:** `./scripts/ci_local.sh` en verde (literales · deriva · tsc · eslint · build ×3 · tests).

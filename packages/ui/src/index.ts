@@ -8,3 +8,4 @@ export type { RequestDetailModalProps } from './RequestDetailModal';
 export type { ClaimRequestLike, ClaimRequestStatus } from './types';
 export { ToastProvider, useToast } from './Toast';
 export type { ToastApi, ToastVariant } from './Toast';
+export { ensureSiweSession } from './SiweSession';

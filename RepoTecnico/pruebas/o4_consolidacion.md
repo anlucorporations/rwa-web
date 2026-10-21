@@ -487,3 +487,34 @@ ruta protegida, 404 en endpoints retirados, health con `database:ok`).
 (`ci_local.sh`, 7 pasos) sigue en verde.
 
 *Fin de la evidencia — CI remoto*
+
+
+## Ronda 22 · E2E de navegador del claim-flow y dos bugs reales corregidos
+
+Se monta un E2E **real** (Playwright + wallet inyectada mock sobre viem, sin MetaMask) contra un
+**Anvil local efímero** con el stack desplegado desde una copia temporal de `rwa-sc`:
+
+- `scripts/e2e_local_o5.sh` automatiza: Anvil :8546 → despliegue → `deployments.ts` temporal →
+  build ×3 → apps en 4011/4012/4013 (BD real de GCP) → E2E → restauración/limpieza.
+- `scripts/e2e_claim_o5.mjs`: conecta wallet, crea/usa identidad, solicita claim (firma EIP-191 +
+  POST autenticado), el emisor aprueba firmando **EIP-712**, y el inversor añade el claim con
+  `addClaim`; verifica los 4 pasos en UI.
+- **Resultado: E2E en verde** (`✓ E2E claim-flow en verde`), con `update-request` 200 y `addClaim`
+  on-chain confirmado.
+
+Bugs reales encontrados y corregidos por el E2E (no cubiertos por tests unitarios):
+
+1. **La UI no creaba sesión SIWE**: las mutaciones autenticadas devolvían 401. Se añade
+   `ensureSiweSession` en `@rwa/ui` y un `SiweSessionBridge` en cada app que firma el reto al
+   conectar y **invalida las queries** que habían fallado con 401.
+2. **`decodeEventLog` decodificaba el primer evento del ABI con topic coincidente**
+   (`OwnershipTransferred`) y rompía la lectura de `IdentityCreated`/`TokenCreated`. Se comprueba
+   `decoded.eventName` antes de leer `args` en identidad y en `CreateTokenForm`.
+
+Nota de contrato (fuera de D-088): `IdentityRegistry.registerIdentity` es `onlyOwner`; el auto-registro
+del inversor que asume la UI falla si la wallet no es el owner. El E2E usa la cuenta owner y se
+documenta como limitación de producto a resolver en el contrato o con un flujo de registro por admin.
+
+**Verificación:** E2E claim-flow en verde · `./scripts/ci_local.sh` exit 0 (canónico).
+
+*Fin de la evidencia — E2E claim-flow*
