@@ -68,7 +68,7 @@ smoke test en verde.
 | # | Tarea | Estado | Evidencia / gate |
 |---|---|---|---|
 | O1.0 | Sesión SIWE (EIP-4361) + cookie `httpOnly` firmada + `/api/auth/*` | ✅ HECHO | flujo real con `cast`; replay de nonce → 401 |
-| O1.1 | Retirar/condicionar `/api/test-*` (RF-W-07) | ✅ HECHO | 404 sin `ALLOW_DEBUG_ENDPOINTS=1` |
+| O1.1 | Retirar/condicionar `/api/test-*` (RF-W-07) | ✅ HECHO — **endpoints retirados del árbol** (O5, ronda 20); 404 siempre | smoke `test-*` → 404 · `smoke_app_o0.sh` 6/6 |
 | O1.2 | Firma + autorización del emisor e idempotencia en `update-request` (HW-01) | ✅ HECHO | `scripts/test_review_o1.sh` 5/5 (403 tercero/firma ajena, 200 emisor, 409 reintento) |
 | O1.3 | Autenticar/autorizar `GET`/`POST` de claim-requests (HW-02/HW-04) | ✅ HECHO | anónimo 401 · otra dirección 403 |
 | O1.4 | Descarga por propiedad + `attachment`+`nosniff` + magic bytes + `audit_log` | ✅ HECHO | descarga anónima 401; cabeceras saneadas |

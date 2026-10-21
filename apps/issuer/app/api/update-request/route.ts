@@ -41,7 +41,6 @@ import { CANONICAL_CHAIN_ID } from '@rwa/shared/network';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const HEX_RE = /^0x[0-9a-fA-F]*$/;
 
 type Hex = `0x${string}`;

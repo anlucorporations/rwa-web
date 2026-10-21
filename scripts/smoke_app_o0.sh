@@ -37,18 +37,19 @@ trap cleanup EXIT
 
 fail=0
 
-# probe <app-dir> <port> <path> <esperado-substring>
+# probe <app-dir> <port> <path> <status-esperado> <substring-esperada>
 probe() {
-  local app=$1 port=$2 path=$3 expected=$4
+  local app=$1 port=$2 path=$3 expected_status=$4 expected=$5
   local log="/tmp/${app//\//-}-${port}.log"
-  if ! curl -s --max-time 10 "http://localhost:${port}/" -o /dev/null 2>/dev/null; then
-    : # la raíz puede redirigir; el probe real es el de la API
-  fi
   local body status
   body="$(curl -s --max-time 20 -w '\n%{http_code}' "http://localhost:${port}${path}" 2>/dev/null)"
   status="$(printf '%s' "$body" | tail -n1)"
   body="$(printf '%s' "$body" | sed '$d')"
-  if [ "$status" = "200" ] && printf '%s' "$body" | grep -q "$expected"; then
+  local body_ok=1
+  if [ "$expected_status" = "200" ]; then
+    printf '%s' "$body" | grep -q "$expected" || body_ok=0
+  fi
+  if [ "$status" = "$expected_status" ] && [ "$body_ok" -eq 1 ]; then
     echo "✓ ${app} GET ${path} → HTTP ${status} · ${body:0:120}"
   else
     echo "✗ ${app} GET ${path} → HTTP ${status} · ${body:0:200}"
@@ -78,16 +79,17 @@ start_app apps/identity 4101
 start_app apps/token 4103
 sleep 3
 
-probe apps/identity 4101 /api/claim-requests '"success":true'
-probe apps/identity 4101 /api/test-gridfs '"success":true'
-probe apps/identity 4101 /api/health '"chainId":31337'
-probe apps/token 4103 /api/tokens '"success":true'
-probe apps/token 4103 /api/test-db '"database":"rwa"'
-probe apps/token 4103 /api/health '"database":"ok"'
+# Rutas protegidas sin sesión → 401; endpoints de depuración retirados → 404.
+probe apps/identity 4101 /api/claim-requests 401 'UNAUTHORIZED'
+probe apps/identity 4101 /api/test-gridfs 404 'NOT_FOUND'
+probe apps/identity 4101 /api/health 200 '"chainId":31337'
+probe apps/token 4103 /api/tokens 200 '"success":true'
+probe apps/token 4103 /api/test-db 404 'NOT_FOUND'
+probe apps/token 4103 /api/health 200 '"database":"ok"'
 
 echo
 if [ "$fail" -eq 0 ]; then
-  echo "[smoke-app-o0] ✓ 6/6 rutas en verde sobre PostgreSQL (incluye /api/health)"
+  echo "[smoke-app-o0] ✓ 6/6 rutas en verde sobre PostgreSQL (auth + depuración retirada + /api/health)"
   exit 0
 fi
 echo "[smoke-app-o0] ✗ ${fail} ruta(s) fallaron"

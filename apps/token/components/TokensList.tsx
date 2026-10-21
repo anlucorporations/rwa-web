@@ -18,6 +18,23 @@ import { TOKEN_MARKET_ABI } from '@/lib/contracts/market';
 import { useTokensQuery } from '@/lib/queries';
 import { useToast } from '@rwa/ui';
 
+/** Texto/código de un error desconocido (sin `any`). */
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+function errorCode(err: unknown): string | number | undefined {
+  if (err && typeof err === 'object' && 'code' in err) {
+    return (err as { code?: string | number }).code;
+  }
+  return undefined;
+}
+function errorReason(err: unknown): string {
+  if (err && typeof err === 'object' && 'reason' in err) {
+    return String((err as { reason?: unknown }).reason ?? '');
+  }
+  return '';
+}
+
 interface TokensListProps {
   adminAddress?: string;
   onSelectToken?: (token: Token) => void;
@@ -225,17 +242,18 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
 
       // Reload tokens
       await refetch();
-    } catch (err: any) {
+    } catch (err) {
+      const message = errorText(err);
       let errorMsg = '❌ Failed to Add Compliance Module\n\n';
 
-      if (err.message?.includes('execution reverted') || err.message?.includes('revert')) {
+      if (message.includes('execution reverted') || message.includes('revert')) {
         errorMsg += '⚠️ Transaction Reverted\n\nPossible causes:\n• You are not the token owner/admin\n• Module address is invalid\n• Token doesn\'t support compliance modules\n• Gas estimation failed';
-      } else if (err.message?.includes('user rejected') || err.message?.includes('denied')) {
+      } else if (message.includes('user rejected') || message.includes('denied')) {
         errorMsg += '🚫 Transaction Cancelled\n\nYou rejected the transaction in MetaMask';
-      } else if (err.message?.includes('network')) {
+      } else if (message.includes('network')) {
         errorMsg += '🌐 Network Error\n\nPlease check your connection to the blockchain';
       } else {
-        errorMsg += err.message || 'Unknown error occurred';
+        errorMsg += message || 'Unknown error occurred';
       }
 
       setError(errorMsg);
@@ -290,9 +308,8 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
 
       // Reload tokens
       await refetch();
-    } catch (err: any) {
-            
-      const errorMsg = `❌ Failed to Hide Module\n\n⚠️ Database Error\n\n${err instanceof Error ? err.message : 'Failed to remove module'}`;
+    } catch (err) {
+      const errorMsg = `❌ Failed to Hide Module\n\n⚠️ Database Error\n\n${errorText(err) || 'Failed to remove module'}`;
       setError(errorMsg);
       toast.error(errorMsg);
     } finally {
@@ -345,9 +362,8 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
 
       // Reload tokens
       await refetch();
-    } catch (err: any) {
-            
-      const errorMsg = `❌ Failed to Remove Claim\n\n⚠️ Database Error\n\n${err instanceof Error ? err.message : 'Failed to remove claim'}`;
+    } catch (err) {
+      const errorMsg = `❌ Failed to Remove Claim\n\n⚠️ Database Error\n\n${errorText(err) || 'Failed to remove claim'}`;
       setError(errorMsg);
       toast.error(errorMsg);
     } finally {
@@ -424,16 +440,16 @@ export default function TokensList({ adminAddress, onSelectToken, refreshTrigger
         await refetch();
         setEditingPrice(null);
         setNewPrice('');
-      } catch (err: any) {
-        const error = err as { reason?: string; message?: string; code?: string | number; data?: string };
+      } catch (err) {
+        const message = errorText(err);
         let errorMsg = '';
 
-        if (error.message?.includes('user rejected') || error.message?.includes('denied') || String(error.code) === '4001') {
+        if (message.includes('user rejected') || message.includes('denied') || String(errorCode(err)) === '4001') {
           errorMsg = '🚫 Transaction Cancelled\n\nYou rejected the transaction in MetaMask.';
-        } else if (error.message?.includes('execution reverted') || error.message?.includes('revert')) {
-          errorMsg = `⚠️ Transaction Reverted\n\n${error.reason || error.message || 'Contract execution reverted'}\n\n💡 Make sure you are the token admin.`;
+        } else if (message.includes('execution reverted') || message.includes('revert')) {
+          errorMsg = `⚠️ Transaction Reverted\n\n${errorReason(err) || message || 'Contract execution reverted'}\n\n💡 Make sure you are the token admin.`;
         } else {
-          errorMsg = `❌ Failed to Update Price\n\n${error.message || 'Unknown error occurred'}`;
+          errorMsg = `❌ Failed to Update Price\n\n${message || 'Unknown error occurred'}`;
         }
 
         setError(errorMsg);

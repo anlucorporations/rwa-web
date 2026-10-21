@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireSession(request);
+    await requireSession(request);
 
     const address = request.nextUrl.searchParams.get('address');
 

@@ -53,13 +53,13 @@ export default function ClaimRequestsList({ userAddress, refreshTrigger, identit
               const claimKey = `${topic}-${issuer.toLowerCase()}`;
               claimsSet.add(claimKey);
                           }
-          } catch (err) {
+          } catch {
                       }
         })
       );
 
       setClaimsInContract(claimsSet);
-          } catch (err) {
+          } catch {
           }
   }, [requests, identityAddress]);
 

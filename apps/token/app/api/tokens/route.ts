@@ -21,7 +21,6 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /** El esquema exige `^[A-Z0-9]{1,11}$` para `symbol` (CHECK). */
-const SYMBOL_RE = /^[A-Z0-9]{1,11}$/;
 
 export async function GET(request: NextRequest) {
   try {

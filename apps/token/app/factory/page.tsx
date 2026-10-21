@@ -11,7 +11,6 @@ import CreateTokenForm from '@/components/CreateTokenForm';
 import TokensList from '@/components/TokensList';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@rwa/ui';
 export default function FactoryPage() {
   const toast = useToast();

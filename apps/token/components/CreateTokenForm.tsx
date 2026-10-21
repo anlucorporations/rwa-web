@@ -62,7 +62,7 @@ export default function CreateTokenForm({ userAddress, onSuccess }: CreateTokenF
     INVESTMENT_CLAIMS.ACCREDITATION,
     INVESTMENT_CLAIMS.JURISDICTION
   ]);
-  const [addCompliance, setAddCompliance] = useState(false); // Changed to false by default
+  const [addCompliance] = useState(false); // Los módulos se añaden después desde la tarjeta del token
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<string>('');

@@ -444,3 +444,27 @@ sin verificar:
 exit 0 (incluye el nuevo paso).
 
 *Fin de la evidencia — O5.1/O5.2 validación estática*
+
+
+## Ronda 20 · Limpieza de deuda ejecutable (código muerto, warnings y endpoints debug)
+
+- **Marketplace**: retirados `checkCompliance` y `transferToken` (≈380 líneas de código muerto no
+  cableado a la UI) junto con su estado (`transferring`, `checkingCompliance`) e imports que solo
+  usaban ellos.
+- **Endpoints de depuración eliminados del árbol**: `GET /api/test-gridfs` (identity) y
+  `GET /api/test-db` (token); ya no dependen de `ALLOW_DEBUG_ENDPOINTS` (B-2 más fuerte). El smoke
+  `scripts/smoke_app_o0.sh` se actualizó para esperar **404** en ambos y **401** en
+  `/api/claim-requests` sin sesión (6/6 probes).
+- **Warnings accionables eliminados**: constantes de validación sin uso (`SYMBOL_RE`, `ADDRESS_RE`,
+  `PRICE_RE`, `UUID_RE`), imports sin uso (`Button`, `setAddCompliance`), `catch (err)` vacíos y
+  **todos los `any` de `TokensList` y del marketplace** (helpers `errorText/errorCode/errorReason`).
+- Resultado de lint: **45 → 19 warnings**, **0 errores**; los restantes son deuda estructural
+  declarada (React Compiler, `exhaustive-deps`, 2 `any` del primitivo `button.tsx`).
+- `packages/config` mantiene el registro de apps/puertos como API pública del paquete (sin consumo
+  interno; candidato a usarse en scripts de operación).
+
+**Verificación:** `tsc` 0 · lint 0 errores · `./scripts/ci_local.sh` exit 0 (build ×3, axe/perf/
+Docker estático, 42 tests con cobertura) · `scripts/smoke_app_o0.sh` **6/6** contra GCP (401 en
+ruta protegida, 404 en endpoints retirados, health con `database:ok`).
+
+*Fin de la evidencia — limpieza de deuda*

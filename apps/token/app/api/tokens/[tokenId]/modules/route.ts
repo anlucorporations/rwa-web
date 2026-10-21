@@ -19,7 +19,6 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ADDRESS_RE = /^0x[0-9a-f]{40}$/i;
 
 export async function POST(
   request: NextRequest,

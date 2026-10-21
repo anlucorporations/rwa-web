@@ -20,7 +20,6 @@ export const runtime = 'nodejs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Decimal no negativo y sin notación científica (columna `numeric(38,18)`). */
-const PRICE_RE = /^\d+(\.\d+)?$/;
 
 export async function POST(
   request: NextRequest,

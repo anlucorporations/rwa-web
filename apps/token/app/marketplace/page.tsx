@@ -6,7 +6,6 @@ import {
   decodeErrorResult,
   formatEther,
   formatUnits,
-  isAddress,
   parseUnits,
   type Address,
 } from 'viem';
@@ -18,16 +17,8 @@ import { CLAIM_DESCRIPTIONS } from '@/types/token';
 import { TOKEN_CLONE_FACTORY_ADDRESS } from '@/lib/contracts';
 import { TOKEN_MARKET_ABI } from '@/lib/contracts/market';
 import { useTokensQuery } from '@/lib/queries';
-import { ZERO_ADDRESS } from '@rwa/shared/network';
 import { getInjectedEip1193, getPublicClient, isInjectedWalletAvailable } from '@rwa/shared/web3';
-import {
-  ClaimTopicsRegistryAbi,
-  IComplianceAbi,
-  IdentityCloneableAbi,
-  IdentityRegistryAbi,
-  TokenCloneableAbi,
-  TrustedIssuersRegistryAbi,
-} from '@rwa/shared/contracts';
+import { TokenCloneableAbi } from '@rwa/shared/contracts';
 import { useToast } from '@rwa/ui';
 
 /** Normaliza errores de wagmi/viem (sin depender de los códigos de `ethers`). */
@@ -75,8 +66,6 @@ export default function MarketplacePage() {
   const [tokenBalances, setTokenBalances] = useState<Record<string, { adminBalance: string; userBalance: string }>>({});
   const [tokenPrices, setTokenPrices] = useState<Record<string, number>>({});
   const [buying, setBuying] = useState<string | null>(null);
-  const [transferring, setTransferring] = useState<string | null>(null);
-  const [checkingCompliance, setCheckingCompliance] = useState<string | null>(null);
 
   useEffect(() => {
     checkWallet();
@@ -140,8 +129,9 @@ export default function MarketplacePage() {
             loadTokenBalances(tokens);
           }
         }
-      } catch (err) {
-              }
+      } catch {
+        // Sin cuentas accesibles: el usuario conectará manualmente
+      }
     }
   };
 
@@ -169,12 +159,12 @@ export default function MarketplacePage() {
         
         toast.success(`✅ Wallet Connected!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🔐 Account:\n${accounts[0]}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       }
-    } catch (err: any) {
-            
-      if (err.code === 4001) {
+    } catch (err) {
+      const info = normalizeMarketError(err);
+      if (info.code === 4001) {
         setError('🚫 Connection Cancelled\n\nYou rejected the connection request in MetaMask');
       } else {
-        setError(`❌ Failed to Connect Wallet\n\n${err.message || 'Unknown error occurred'}`);
+        setError(`❌ Failed to Connect Wallet\n\n${info.message || 'Unknown error occurred'}`);
       }
     }
   };
@@ -212,12 +202,12 @@ export default function MarketplacePage() {
         // Show success message
         toast.success(`✅ Account Switched!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🔄 New Account:\n${accounts[0]}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       }
-    } catch (err: any) {
-            
-      if (err.code === 4001) {
+    } catch (err) {
+      const info = normalizeMarketError(err);
+      if (info.code === 4001) {
         // User rejected
-              } else {
-        setError(`❌ Failed to Switch Account\n\n${err.message || 'Unknown error occurred'}`);
+      } else {
+        setError(`❌ Failed to Switch Account\n\n${info.message || 'Unknown error occurred'}`);
       }
     }
   };
@@ -528,421 +518,6 @@ export default function MarketplacePage() {
       setError(errorMsg);
     } finally {
       setBuying(null);
-    }
-  };
-
-  const checkCompliance = async (token: Token) => {
-    if (!account) {
-      setError('❌ No Wallet Connected\n\nPlease connect your wallet first');
-      return;
-    }
-
-    try {
-      setCheckingCompliance(token._id || '');
-      setError(null);
-
-      const client = getPublicClient();
-      const userAddress = account as Address;
-      const tokenAddress = token.tokenAddress as Address;
-
-      let diagnostic = '🔍 Compliance Diagnostic Report\n\n';
-      diagnostic += '━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
-      diagnostic += `📍 Your Address: ${userAddress}\n`;
-      diagnostic += `🪙 Token: ${token.name} (${token.symbol})\n`;
-      diagnostic += `📍 Token Address: ${token.tokenAddress}\n\n`;
-      diagnostic += '━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
-
-      // 1. Check if user is verified
-      try {
-        const isVerified = await client.readContract({
-          address: tokenAddress,
-          abi: TokenCloneableAbi,
-          functionName: 'isVerified',
-          args: [userAddress],
-        });
-        diagnostic += `1️⃣ Is Verified: ${isVerified ? '✅ YES' : '❌ NO'}\n`;
-
-        if (!isVerified) {
-          // Get registries to diagnose
-          const identityRegistryAddress = await client.readContract({
-            address: tokenAddress,
-            abi: TokenCloneableAbi,
-            functionName: 'identityRegistry',
-          });
-          const claimTopicsRegistryAddress = await client.readContract({
-            address: tokenAddress,
-            abi: TokenCloneableAbi,
-            functionName: 'claimTopicsRegistry',
-          });
-          const trustedIssuersRegistryAddress = await client.readContract({
-            address: tokenAddress,
-            abi: TokenCloneableAbi,
-            functionName: 'trustedIssuersRegistry',
-          });
-
-          // Convert to string and normalize
-          const identityRegStr = identityRegistryAddress.toLowerCase();
-          const claimTopicsRegStr = claimTopicsRegistryAddress.toLowerCase();
-          const trustedIssuersRegStr = trustedIssuersRegistryAddress.toLowerCase();
-
-          diagnostic += `\n📍 Identity Registry: ${identityRegStr}\n`;
-          diagnostic += `📍 Claim Topics Registry: ${claimTopicsRegStr}\n`;
-          diagnostic += `📍 Trusted Issuers Registry: ${trustedIssuersRegStr}\n\n`;
-
-          // Check Identity Registry
-          if (identityRegStr === ZERO_ADDRESS || identityRegStr === '0x0') {
-            diagnostic += '❌ ERROR: Identity Registry not set on token\n\n';
-            diagnostic += '⚠️ This token needs to be configured with compliance registries.\n';
-            diagnostic += 'The token admin needs to call:\n';
-            diagnostic += '  • token.setIdentityRegistry(<REGISTRY_ADDRESS>)\n';
-            diagnostic += '  • token.setClaimTopicsRegistry(<REGISTRY_ADDRESS>)\n';
-            diagnostic += '  • token.setTrustedIssuersRegistry(<REGISTRY_ADDRESS>)\n\n';
-            diagnostic += 'Without these registries, compliance checks cannot work.\n';
-            diagnostic += '\n💡 Contact the token admin to configure these registries.\n';
-          } else {
-            const identityRegistryAddress = identityRegStr as Address;
-            const isRegistered = await client.readContract({
-              address: identityRegistryAddress,
-              abi: IdentityRegistryAbi,
-              functionName: 'isRegistered',
-              args: [userAddress],
-            });
-            diagnostic += `2️⃣ Registered in Identity Registry: ${isRegistered ? '✅ YES' : '❌ NO'}\n`;
-
-            if (!isRegistered) {
-              diagnostic += '   ⚠️ You need to register your identity first\n';
-            } else {
-              const identityAddress = await client.readContract({
-                address: identityRegistryAddress,
-                abi: IdentityRegistryAbi,
-                functionName: 'getIdentity',
-                args: [userAddress],
-              });
-              diagnostic += `3️⃣ Identity Contract: ${identityAddress}\n`;
-
-              if (identityAddress === ZERO_ADDRESS) {
-                diagnostic += '   ❌ ERROR: Identity contract not found\n';
-              } else {
-                // Check Claim Topics Registry
-                if (claimTopicsRegStr === ZERO_ADDRESS || claimTopicsRegStr === '0x0') {
-                  diagnostic += '4️⃣ Claim Topics Registry: Not set (no claims required)\n';
-                } else {
-                  const claimTopicsRegistryAddress = claimTopicsRegStr as Address;
-                  const requiredTopics = await client.readContract({
-                    address: claimTopicsRegistryAddress,
-                    abi: ClaimTopicsRegistryAbi,
-                    functionName: 'getClaimTopics',
-                  });
-                  diagnostic += `4️⃣ Required Claim Topics: ${requiredTopics.length > 0 ? requiredTopics.join(', ') : 'None'}\n\n`;
-
-                  // Check Trusted Issuers Registry
-                  if (trustedIssuersRegStr === ZERO_ADDRESS || trustedIssuersRegStr === '0x0') {
-                    diagnostic += '❌ ERROR: Trusted Issuers Registry not set\n';
-                    diagnostic += '   The token admin needs to call:\n';
-                    diagnostic += '   token.setTrustedIssuersRegistry(<REGISTRY_ADDRESS>)\n\n';
-                  } else {
-                    const trustedIssuersRegistryAddress = trustedIssuersRegStr as Address;
-
-                    diagnostic += '📋 Claim Verification:\n';
-                    for (const topic of requiredTopics) {
-                      const topicNum = Number(topic);
-                      const topicName = CLAIM_DESCRIPTIONS[topicNum]?.name || `Claim ${topicNum}`;
-
-                      try {
-                        const claimIssuers = await client.readContract({
-                          address: identityAddress,
-                          abi: IdentityCloneableAbi,
-                          functionName: 'getClaimIssuersForTopic',
-                          args: [topic],
-                        });
-                        diagnostic += `\n  Topic ${topicNum} (${topicName}):\n`;
-
-                        if (claimIssuers.length === 0) {
-                          diagnostic += `    ❌ No claim found in your identity\n`;
-                        } else {
-                          let hasValidIssuer = false;
-                          for (const issuer of claimIssuers) {
-                            const issuerAddress = issuer as Address;
-                            const isTrusted = await client.readContract({
-                              address: trustedIssuersRegistryAddress,
-                              abi: TrustedIssuersRegistryAbi,
-                              functionName: 'isTrustedIssuer',
-                              args: [issuerAddress],
-                            });
-                            const canIssueTopic = await client.readContract({
-                              address: trustedIssuersRegistryAddress,
-                              abi: TrustedIssuersRegistryAbi,
-                              functionName: 'hasClaimTopic',
-                              args: [issuerAddress, topic],
-                            });
-
-                            if (isTrusted && canIssueTopic) {
-                              diagnostic += `    ✅ Claim found from trusted issuer: ${issuer.substring(0, 10)}...\n`;
-                              hasValidIssuer = true;
-                              break;
-                            } else {
-                              diagnostic += `    ⚠️ Claim found but issuer not trusted: ${issuer.substring(0, 10)}...\n`;
-                              diagnostic += `       - Is trusted: ${isTrusted}\n`;
-                              diagnostic += `       - Can issue topic ${topicNum}: ${canIssueTopic}\n`;
-                            }
-                          }
-                          if (!hasValidIssuer) {
-                            diagnostic += `    ❌ No trusted issuer found for this claim\n`;
-                          }
-                        }
-                      } catch (err) {
-                        diagnostic += `    ❌ Error checking claim: ${err instanceof Error ? err.message : 'Unknown'}\n`;
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      } catch (err) {
-        diagnostic += `\n❌ Error checking verification: ${err instanceof Error ? err.message : 'Unknown'}\n`;
-      }
-
-      // 2. Check canTransfer
-      try {
-        const adminAddress = token.adminAddress as Address;
-        const testAmount = parseUnits('1', token.decimals);
-        const canTransfer = await client.readContract({
-          address: tokenAddress,
-          abi: TokenCloneableAbi,
-          functionName: 'canTransfer',
-          args: [adminAddress, userAddress, testAmount],
-        });
-        diagnostic += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-        diagnostic += `5️⃣ Can Transfer: ${canTransfer ? '✅ YES' : '❌ NO'}\n`;
-        if (!canTransfer) {
-          // Check if frozen
-          const isFrozen = await client.readContract({
-            address: tokenAddress,
-            abi: TokenCloneableAbi,
-            functionName: 'isFrozen',
-            args: [userAddress],
-          });
-          if (isFrozen) {
-            diagnostic += `   ⚠️ Your account is frozen\n`;
-          }
-        }
-      } catch (err) {
-        diagnostic += `\n⚠️ Error checking canTransfer: ${err instanceof Error ? err.message : 'Unknown'}\n`;
-      }
-
-      diagnostic += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-
-      setError(diagnostic);
-    } catch (err: any) {
-      setError(`❌ Error Checking Compliance\n\n${err.message || 'Unknown error occurred'}`);
-    } finally {
-      setCheckingCompliance(null);
-    }
-  };
-
-  const transferToken = async (token: Token) => {
-    const recipient = prompt('Enter recipient address:');
-    if (!recipient) {
-      return;
-    }
-
-    // Validate address format
-    if (!isAddress(recipient)) {
-      setError('❌ Invalid Address\n\nThe address you entered is not a valid Ethereum address.\n\nPlease check and try again.');
-      return;
-    }
-
-    const amount = prompt('Enter amount to transfer:');
-    if (!amount) {
-      return;
-    }
-
-    const amountNum = parseFloat(amount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      setError('❌ Invalid Amount\n\nPlease enter a positive number');
-      return;
-    }
-
-    const client = getPublicClient();
-    const tokenAddress = token.tokenAddress as Address;
-    const recipientAddress = recipient as Address;
-
-    try {
-      setTransferring(token._id || '');
-      setError(null);
-
-      if (!walletClient) {
-        throw new Error('MetaMask is not installed.\n\nPlease install MetaMask to transfer tokens.');
-      }
-
-      const hash = await walletClient.writeContract({
-        address: tokenAddress,
-        abi: TokenCloneableAbi,
-        functionName: 'transfer',
-        args: [recipientAddress, parseUnits(amountNum.toString(), token.decimals)],
-      });
-
-      await client.waitForTransactionReceipt({ hash });
-
-      // Reload balances after successful transfer
-      if (tokens.length > 0) {
-        loadTokenBalances(tokens);
-      }
-
-      setError(null);
-      toast.success(`✅ Transfer Successful!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📦 Amount: ${amountNum} ${token.symbol}\n📫 To: ${recipient.substring(0, 10)}...${recipient.substring(recipient.length - 8)}\n\n📜 Transaction Hash:\n${hash}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    } catch (err) {
-      const error = normalizeMarketError(err);
-      let errorMsg = '❌ Transfer Failed\n\n';
-
-      // Check for specific error messages
-      if (error.reason === 'Transfer not compliant' || error.message.includes('Transfer not compliant')) {
-        errorMsg = '🚫 Compliance Check Failed\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
-
-        // Do detailed diagnostic
-        try {
-          const userAddress = account as Address;
-          const transferAmount = parseUnits(amountNum.toString(), token.decimals);
-
-          // Check if paused
-          const isPaused = await client.readContract({
-            address: tokenAddress,
-            abi: TokenCloneableAbi,
-            functionName: 'paused',
-          });
-          if (isPaused) {
-            errorMsg += '❌ Token is PAUSED by admin\n\n';
-            errorMsg += 'The token contract has been paused. Contact the token admin to unpause.\n';
-            errorMsg += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━';
-          } else {
-            // Check if frozen
-            const senderFrozen = await client.readContract({
-              address: tokenAddress,
-              abi: TokenCloneableAbi,
-              functionName: 'isFrozen',
-              args: [userAddress],
-            });
-            const recipientFrozen = await client.readContract({
-              address: tokenAddress,
-              abi: TokenCloneableAbi,
-              functionName: 'isFrozen',
-              args: [recipientAddress],
-            });
-
-            if (senderFrozen) {
-              errorMsg += `❌ YOUR account (${userAddress.substring(0, 10)}...) is FROZEN\n\n`;
-              errorMsg += 'Contact the token admin to unfreeze your account.\n';
-            } else if (recipientFrozen) {
-              errorMsg += `❌ RECIPIENT account (${recipient.substring(0, 10)}...) is FROZEN\n\n`;
-              errorMsg += 'The recipient\'s account is frozen. They need to contact the token admin.\n';
-            } else {
-              // Check verification status
-              const senderVerified = await client.readContract({
-                address: tokenAddress,
-                abi: TokenCloneableAbi,
-                functionName: 'isVerified',
-                args: [userAddress],
-              });
-              const recipientVerified = await client.readContract({
-                address: tokenAddress,
-                abi: TokenCloneableAbi,
-                functionName: 'isVerified',
-                args: [recipientAddress],
-              });
-
-              errorMsg += `📍 Sender (${userAddress.substring(0, 10)}...):\n`;
-              errorMsg += `   Verified: ${senderVerified ? '✅ YES' : '❌ NO'}\n\n`;
-
-              errorMsg += `📍 Recipient (${recipient.substring(0, 10)}...):\n`;
-              errorMsg += `   Verified: ${recipientVerified ? '✅ YES' : '❌ NO'}\n\n`;
-
-              if (!senderVerified) {
-                errorMsg += '⚠️ YOU need to:\n';
-                errorMsg += '  1. Register your identity in Identity app (port 4001)\n';
-                errorMsg += '  2. Obtain required claims\n';
-                errorMsg += '  3. Load claims to your identity contract\n\n';
-              }
-
-              if (!recipientVerified) {
-                errorMsg += '⚠️ RECIPIENT needs to:\n';
-                errorMsg += '  1. Register their identity in Identity app (port 4001)\n';
-                errorMsg += '  2. Obtain required claims\n';
-                errorMsg += '  3. Load claims to their identity contract\n\n';
-              }
-
-              // Check compliance modules
-              try {
-                const complianceModules = await client.readContract({
-                  address: tokenAddress,
-                  abi: TokenCloneableAbi,
-                  functionName: 'getComplianceModules',
-                });
-                if (complianceModules.length > 0) {
-                  errorMsg += `🔒 Compliance Modules: ${complianceModules.length}\n`;
-
-                  for (let i = 0; i < complianceModules.length; i++) {
-                    const moduleAddr = complianceModules[i] as Address;
-                    errorMsg += `   Module ${i + 1}: ${moduleAddr.substring(0, 10)}...\n`;
-
-                    try {
-                      // Try to call canTransfer on each module
-                      const moduleCanTransfer = await client.readContract({
-                        address: moduleAddr,
-                        abi: IComplianceAbi,
-                        functionName: 'canTransfer',
-                        args: [userAddress, recipientAddress, transferAmount],
-                      });
-                      if (!moduleCanTransfer) {
-                        errorMsg += `      ❌ This module is BLOCKING the transfer\n`;
-                      }
-                    } catch {
-                      errorMsg += `      ⚠️ Could not check module status\n`;
-                    }
-                  }
-                }
-              } catch {
-                // Ignore if can't get modules
-              }
-
-              // Show required claims
-              if (token.requiredClaims && token.requiredClaims.length > 0) {
-                errorMsg += '\n📋 Required Claims:\n';
-                token.requiredClaims.forEach(topic => {
-                  const claimName = CLAIM_DESCRIPTIONS[topic]?.name || `Claim ${topic}`;
-                  errorMsg += `  • ${claimName}\n`;
-                });
-              }
-            }
-
-            errorMsg += '\n💡 Use "Check Compliance" button for detailed diagnostic\n';
-            errorMsg += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━';
-          }
-        } catch {
-          // Fallback to simple message if diagnostic fails
-          errorMsg += `Transfer failed compliance check.\n\n`;
-          errorMsg += `Possible causes:\n`;
-          errorMsg += `  • Token is paused\n`;
-          errorMsg += `  • Account(s) are frozen\n`;
-          errorMsg += `  • Sender or recipient not verified\n`;
-          errorMsg += `  • Compliance module restrictions\n`;
-          errorMsg += `\nUse "Check Compliance" button for detailed info.\n`;
-          errorMsg += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━';
-        }
-      } else if (error.message.includes('insufficient')) {
-        errorMsg += '💸 Insufficient Balance\n\nYou don\'t have enough tokens to transfer';
-      } else if (error.message.includes('revert')) {
-        errorMsg += '⚠️ Transaction Reverted\n\nPossible causes:\n• Token is paused by admin\n• Transfer restrictions active\n• Invalid recipient address';
-      } else if (error.message.includes('user rejected') || error.message.includes('denied') || String(error.code) === '4001') {
-        errorMsg += '🚫 Transaction Cancelled\n\nYou rejected the transaction in MetaMask';
-      } else {
-        errorMsg += error.message || 'Unknown error occurred';
-      }
-
-      setError(errorMsg);
-    } finally {
-      setTransferring(null);
     }
   };
 
