@@ -468,3 +468,22 @@ Docker estático, 42 tests con cobertura) · `scripts/smoke_app_o0.sh` **6/6** c
 ruta protegida, 404 en endpoints retirados, health con `database:ok`).
 
 *Fin de la evidencia — limpieza de deuda*
+
+
+## Ronda 21 · Endurecimiento del CI remoto (GitLab)
+
+`.gitlab-ci.yml` iguala el gate local:
+
+- nuevo job **`quality:test`** (`pnpm -r test` con umbrales de cobertura 90/90/90/60).
+- **`build:apps`** ejecuta además los gates de assets sobre el build: accesibilidad estática
+  (`a11y_o5.mjs`), presupuesto de rendimiento (`perf_budget_o5.mjs`) y validación estática de Docker
+  (`docker_validate_o5.mjs`).
+- job **manual opcional `quality:a11y-browser`** con la imagen oficial
+  `mcr.microsoft.com/playwright:v1.64.1-noble`: construye, arranca las 3 apps con `serve:o5`, espera
+  readiness y ejecuta `a11y:browser:o5`; se marca `allow_failure` para no bloquear si no hay
+  secretos/RPC en el runner.
+
+**Verificación:** YAML válido (`yaml.safe_load`) y jobs listados; el gate equivalente local
+(`ci_local.sh`, 7 pasos) sigue en verde.
+
+*Fin de la evidencia — CI remoto*

@@ -1,8 +1,10 @@
 # =============================================================================
 # CI de `rwa-web` (O3.5 · RF-W-15)
 # =============================================================================
-# Gates: check-network-literals · check-contract-drift · lint · tsc --noEmit ·
-#        build · test.
+# Gates: check-network-literals · check-contract-drift · typecheck · lint · test
+#        (con cobertura) · build ×3 · accesibilidad estática · presupuesto de
+#        rendimiento · validación estática de assets Docker.
+#        Auditoría de accesibilidad en navegador: job manual `quality:a11y-browser`.
 #
 # El gate `check-abi-drift` necesita el repo `rwa-sc` (fuente de sc/abis y
 # deployments). Se clona con `RWA_SC_REPO_URL` (variable de CI, con token de
@@ -62,8 +64,38 @@ quality:lint:
   script:
     - pnpm -r --workspace-concurrency=1 --if-present lint
 
+quality:test:
+  stage: quality
+  script:
+    - pnpm -r --workspace-concurrency=1 --if-present test
+
+# Auditoría de accesibilidad en navegador real (opcional/manual: requiere imagen
+# con Chromium y arrancar las 3 apps; la gate estática ya corre en build:apps).
+quality:a11y-browser:
+  stage: build
+  image: mcr.microsoft.com/playwright:v1.64.1-noble
+  when: manual
+  allow_failure: true
+  script:
+    - pnpm -r --workspace-concurrency=1 --if-present build
+    - pnpm serve:o5
+    - |
+      for _ in $(seq 1 60); do
+        if curl -fsS http://127.0.0.1:4011/ >/dev/null 2>&1 \
+          && curl -fsS http://127.0.0.1:4012/ >/dev/null 2>&1 \
+          && curl -fsS http://127.0.0.1:4013/ >/dev/null 2>&1; then
+          echo "apps listas"; break
+        fi
+        sleep 2
+      done
+    - pnpm a11y:browser:o5
+    - pnpm exec node scripts/serve_o5.mjs --stop
+
 # --- Build de producción ------------------------------------------------------
 build:apps:
   stage: build
   script:
     - pnpm -r --workspace-concurrency=1 --if-present build
+    - node scripts/a11y_o5.mjs
+    - node scripts/perf_budget_o5.mjs
+    - node scripts/docker_validate_o5.mjs
