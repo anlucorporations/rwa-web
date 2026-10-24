@@ -1,9 +1,8 @@
-# Evidencia O2.7 — E2E del flujo completo (2026-10-17)
+# Evidencia O2.7 — E2E del flujo completo (2026-10-17 · cerrado 2026-10-23)
 
-> **Tarea:** O2.7 del plan §O2 — prueba de integración del flujo completo contra un Anvil.
-> **Resultado:** ✅ **E2E en verde contra un Anvil con el build FINAL de los contratos.**
-> ⛔ **El Anvil de GCP sigue ejecutando un build anterior a D-083**; alinearlo exige redesplegar
-> el stack canónico desde `@sc` (fuera del alcance D-088 de `@web`, pendiente de autorización).
+> **Tarea:** O2.7 del plan §O2 — prueba de integración del flujo completo contra el Anvil de GCP.
+> **Resultado:** ✅ **E2E en verde contra el Anvil de GCP el 2026-10-23** tras redesplegar el stack
+> canónico desde `@sc` (artefacto `31337-20261023T185622Z.json`, `CLAIM_TYPEHASH` con `uriHash`).
 
 ## 1. E2E implementado (`scripts/test_e2e_o2.sh`)
 
@@ -53,28 +52,53 @@ O2_ARTIFACT=/tmp/o2-sc/deployments/31337-o2local.json \
 
 `rwa-sc` quedó **intacto** (`git status` limpio) y el Anvil temporal se detuvo al terminar.
 
-## 3. Bloqueo restante: el Anvil de GCP está desactualizado
+## 3. Cierre en el Anvil de GCP (2026-10-23)
 
-```
-CLAIM_TYPEHASH esperado (código actual, 7 campos con uriHash)
-  0x65c6cda5a06929bfdef28339b542f297fa9c29c42c29dea189fd85441d8301fc
-CLAIM_TYPEHASH on-chain en el Anvil de GCP (desplegado)
-  0x8f719673d99f0733a2d1b85addf49c9a7b0dd6360023e749aa7c0494375a6ead
-```
-`0x8f71…` es `keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce)")`
-— build **post-Ciclo 8c (nonce) y pre-AF-03 (uriHash)**. El artefacto versionado
-`31337-20261010T162639Z.json` (bloque 524) es el único de `rwa-sc` y corresponde a ese build.
-Sobre él, `addClaim` revierte `"Signature signer mismatch"`; el script lo detecta como precondición (exit 2).
-
-## 4. Acción necesaria (fuera de D-088)
-
-Redesplegar el stack canónico desde `@sc` y resincronizar:
+Con autorización del usuario se redesplegó el stack canónico desde `@sc`:
 
 ```bash
-cd /home/dsh/workspace/RWA/rwa-sc && sc/script/deploy.sh   # build final → nuevo deployments/*.json
-cd ../rwa-web && ./scripts/sync-contracts.sh && ./scripts/test_e2e_o2.sh
+cd /home/dsh/workspace/RWA/rwa-sc
+source /home/dsh/workspace/gcp-env.sh      # RPC_URL + CHAIN_ID=31337 + ADMIN_PRIVATE_KEY
+sc/script/deploy.sh                        # artefacto 31337-20261023T185622Z.json
+cd ../rwa-web && ./scripts/sync-contracts.sh
+PG_POOL_MAX=2 ./scripts/test_e2e_o2.sh
 ```
 
-El E2E ya toma el artefacto más reciente y quedará en verde sin cambios de código.
+- **Artefacto nuevo:** `rwa-sc/sc/deployments/31337-20261023T185622Z.json` (bloque 549).
+- **Direcciones nuevas:** `IdentityRegistry 0xA3f7BF5b…`, `TrustedIssuersRegistry 0x25A1DF48…`,
+  `Identity 0x9B2B010a…`, `Token 0x7d5dC037…`.
+- **Diagnóstico [0]:** `CLAIM_TYPEHASH = 0x65c6cda5…` (incluye `uriHash`, D-083) — ya coincide.
+- **Nota de `deploy.sh`:** con Foundry 1.8.3, `cast call` devuelve los enteros con sufijo humano
+  (`1000000000000000000000000 [1e24]`), por lo que la comparación del smoke test falla y el script
+  termina con `exit 1` **después** de escribir el artefacto y verificar `cast code` en los 10
+  contratos. El despliegue es válido: el E2E completo y las llamadas on-chain lo confirman.
+- **Ajuste operativo:** `PG_POOL_MAX=2` en el E2E. Cloud SQL de desarrollo admite ~25 conexiones y
+  los dos `next start` con pool por defecto (10) agotaban los slots; el pool por defecto bajó a 5
+  (`packages/shared/src/db/pool.ts`) y el E2E fija 2.
+
+**Salida real (exit 0):**
+
+```
+[setup] ✓ identidad ya existente: 0x43FaAa331e25df1Be98ACE4364B8c87DB7B3f21B
+        ✓ issuer autorizado para el topic 1
+[0]     ✓ CLAIM_TYPEHASH on-chain alineado con el código (uriHash incluido)
+[1]     ✓ solicitud: 61f5a8eb-42bd-4697-a26c-43dc966cc5dd
+[2]     ✓ POST /api/update-request (EIP-712) → 200
+[3]     ✓ addClaim confirmado on-chain
+[4]     ✓ identidad.hasValidClaim(1, issuer) → true
+        ✓ token.isVerified(inversor) → true
+[test-e2e-o2] ✓ E2E COMPLETO EN VERDE contra el Anvil de GCP
+```
+
+## 4. Reproducir
+
+El script toma siempre el artefacto más reciente de `rwa-sc/sc/deployments/`. Si se vuelve a
+redesplegar, basta con:
+
+```bash
+cd rwa-web && ./scripts/sync-contracts.sh && PG_POOL_MAX=2 ./scripts/test_e2e_o2.sh
+```
+
+`rwa-sc` queda intacto salvo el artefacto de despliegue nuevo (esperado).
 
 *Fin de la evidencia — O2.7*

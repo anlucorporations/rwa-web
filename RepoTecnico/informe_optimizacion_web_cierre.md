@@ -1,6 +1,6 @@
 # Informe de cierre — etapa `@web` (optimización del frontend RWA)
 
-> **Fecha:** 2026-10-19 · **Línea:** `rwa-web` · **Versión del estado:** v2.7
+> **Fecha:** 2026-10-19 · actualizado 2026-10-23 · **Línea:** `rwa-web` · **Versión del estado:** v3.1
 > **Base:** `INFORME_OPTIMIZACION_WEB_V1.md` (16 hallazgos) · `requerimientos_web.md` v1.2 ·
 > `plan_desarrollo_web.md` (ciclos O0…O5) · evidencia en `RepoTecnico/pruebas/`.
 
@@ -8,9 +8,9 @@
 
 La etapa pasa de **5 directorios de app duplicados con MongoDB, `ethers` y `window.ethereum`**
 a un **monorepo de 3 apps + 3 paquetes** sobre PostgreSQL, `wagmi`+`viem` y un pipeline único de
-calidad. Los ciclos **O0, O1, O3 y O4 están cerrados**; **O5 está prácticamente cerrado** salvo la
-validación en infraestructura real (Docker/PostgreSQL) y **O2.7** está bloqueado por el
-redespliegue del stack canónico en GCP (fuera de D-088).
+calidad. Los ciclos **O0, O1, O2, O3 y O4 están cerrados** (O2.7 incluido tras redesplegar el stack
+canónico en el Anvil de GCP el 2026-10-23) y **O5 está cerrado salvo O5.1/O5.2**, pendientes de un
+host con Docker.
 
 ## 2. Antes / después medido
 
@@ -24,13 +24,16 @@ redespliegue del stack canónico en GCP (fuera de D-088).
 | ABIs/direcciones | copias inline divergentes | **generadas desde `rwa-sc`** + gate de deriva | O2.1/O2.2 |
 | Sesión | sin sesión | **SIWE + cookie HMAC** y autorización por propiedad | O1 |
 | Documentos KYC | GridFS sin cifrar | **bytea cifrado AES-256-GCM** + `audit_log` | O5.4 |
-| Tests | 0 | **42 tests** (cobertura crítica 97.16 % líneas) | O3.6/Fase 4 |
+| Tests | 0 | **55 tests** (cobertura crítica 97.16 % líneas) | O3.6/Fase 4/R-23 |
 | Accesibilidad | sin medir | **axe WCAG A/AA**: 0 críticas/graves en 7 rutas | O5.6 |
-| Rendimiento | sin medir | **First Load JS ≤ 367.6 KB gzip** (presupuesto 400 KB) | O5.7 |
+| Rendimiento | sin medir | **First Load JS ≤ 367.6 KB gzip** (presupuesto 400 KB, D-104) | O5.7 |
+| Cabeceras de seguridad | sin cabeceras | **CSP + X-Frame-Options + Referrer-Policy + HSTS** en las 3 apps | R-23.3 |
+| Errores y correlación | sin `requestId` ni boundaries | `error.tsx`/`loading.tsx` + `x-request-id` y `requestId` en errores | R-23.5 |
+| Límites de subida | solo 10 MB | **tamaño + tasa/hora + cuota por wallet** | R-23.4 |
 | Ergonomía | 3 `npm install`, 3 `npm run dev` | `pnpm install` + `./start-all.sh` / `docker compose` | O5.1/O5.3/O5.8 |
 
-Gate reproducible: `./scripts/ci_local.sh` → **exit 0** (7 pasos: literales · deriva · tsc ·
-lint · build ×3 · axe/perf · 42 tests con cobertura).
+Gate reproducible: `./scripts/ci_local.sh` → **exit 0** (literales · deriva · tsc · lint ·
+build ×3 · axe/perf/assets Docker · cabeceras · 55 tests con cobertura).
 
 ## 3. Requisitos y criterios
 
@@ -46,16 +49,14 @@ lint · build ×3 · axe/perf · 42 tests con cobertura).
 
 | # | Pendiente | Responsable / condición |
 |---|---|---|
-| 1 | **O2.7** E2E contra Anvil de GCP (build anterior a D-083) | redesplegar desde `@sc` y relanzar `test_e2e_o2.sh` |
-| 2 | **O5.1/O5.2** `docker compose up` + build de imágenes | host con Docker (el entorno de desarrollo no lo tiene) |
-| 3 | **O5.5** ejecutar retención/backup | PostgreSQL/`psql` real (Cloud SQL o compose) |
-| 4 | **O5.6** auditoría de navegador (foco/estados/lectores) | herramienta de browser; la estática axe ya está en CI |
-| 5 | **R-9** revisión independiente | auditoría externa previa a producción |
-| 6 | **Fase 5 (manuales)** | omitible por D-087; no se generan manuales en esta etapa |
+| 1 | **O5.1/O5.2** `docker compose up` + build de imágenes | host con Docker (el entorno de desarrollo no lo tiene) |
+| 2 | **R-9** revisión independiente | auditoría externa previa a producción |
+| 3 | **Fase 5 (manuales)** | omitible por D-087; no se generan manuales en esta etapa |
+| 4 | Legal / indexer / multisig (fuera de `@web`) | línea `@sc`; no lo cierra el equipo técnico de frontend |
 
 ## 5. Veredicto
 
 **Etapa de desarrollo y verificación cerrada a nivel de código y CI.** El frontend queda
-**candidato a producción** a falta de: redespliegue de contratos en GCP, validación del entorno
-Docker/PostgreSQL en un host real y la auditoría independiente R-9. Hasta entonces se mantiene la
-calificación del informe: **no apto para activos reales sin esas validaciones**.
+**candidato a producción** a falta de: validación del entorno Docker en un host real y la
+auditoría independiente R-9. Hasta entonces se mantiene la calificación del informe:
+**no apto para activos reales sin esas validaciones**.

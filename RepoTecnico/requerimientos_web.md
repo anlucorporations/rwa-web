@@ -6,9 +6,14 @@
 > línea `@sc` permanece en `rwa-sc/RepoTecnico/`.
 >
 > **Proyecto:** RWA (security token inspirado en ERC-3643 / T-REX) · **Área:** `rwa-web/`
-> **Etapa:** Optimización del frontend · **Versión:** v1.2 · **Fecha:** 2026-10-14
+> **Etapa:** Optimización del frontend · **Versión:** v1.3 · **Fecha:** 2026-10-24
 > **Insumo auditado:** `INFORME_OPTIMIZACION_WEB_V1.md` (16 hallazgos: 3 críticos, 5 altos, 6 medios, 2 bajos; verificación adversarial 15/15 confirmados)
 > **Alcance aprobado:** D-088 = solo frontend. Los contratos quedan cerrados (394/394 en verde, cobertura `src/` 97,05 %).
+>
+> **Changelog v1.3 (2026-10-24):** (a) registradas **D-102** (separación de líneas `@sc`/`@web`),
+> **D-103** (cabeceras de seguridad y límites de subida), **D-104** (presupuesto de rendimiento 400 KB gzip)
+> y **D-105** (registro de identidades `onlyOwner` como limitación conocida); (b) RF-W-17/RNF-W-04/RNF-W-06
+> actualizados a PostgreSQL y al presupuesto de 400 KB; (c) alineación de versión con `estado_proyecto.md` v3.1.
 >
 > **Changelog v1.2 (2026-10-14):** (a) **reubicación** del documento a `rwa-web/RepoTecnico/` al separar las líneas
 > `@sc`/`@web` (los artefactos de datos mantienen canónico en `rwa-sc` + espejo aquí, con gate de sincronización);
@@ -48,6 +53,10 @@ Optimizar `rwa-web/` hasta que sea **apto para un entorno real de uso interno** 
 | **D-099** | **Arranque limpio:** sin ETL desde MongoDB; esquema vacío + catálogo de topics sembrado |
 | **D-100** | **Se añade el ciclo O0 (fundación) como primer ciclo**, antes de O1 |
 | **D-101** | **Conexión a Cloud SQL:** socket unix canónico (`/cloudsql/truekeate-main:southamerica-east1:truekeate-db-dev`) para Cloud Run/Auth Proxy; TCP a la IP pública `34.39.180.101` en hosts autorizados. Fijado en `rwa-web/scripts/gcp-env.sh` (`--tcp`) |
+| **D-102** | **Separación de líneas `@sc`/`@web`:** repositorios y documentación independientes; los tres artefactos de datos se mantienen idénticos byte a byte (canónico en `rwa-sc` + espejo en `rwa-web`) |
+| **D-103** | **Seguridad de respuestas y límites de subida (2026-10-23):** cabeceras `Content-Security-Policy`, `X-Frame-Options`, `Referrer-Policy` y `Strict-Transport-Security` en las 3 apps (verificadas por `scripts/headers_o5.mjs`) y límites de subida por tamaño/tasa/cuota por wallet (`UPLOAD_MAX_MB`, `UPLOAD_MAX_PER_HOUR`, `UPLOAD_QUOTA_MB`) |
+| **D-104** | **Presupuesto de rendimiento (2026-10-23):** se fija en **400 KB gzip por ruta** (First Load JS). Sustituye el objetivo de 300 KB de RNF-W-06, no alcanzable con el stack actual (Next 16 + wagmi/viem; máximo medido 367,6 KB). Un objetivo de 300 KB exigiría una ronda específica de optimización |
+| **D-105** | **Registro de identidades (2026-10-23):** `IdentityRegistry.registerIdentity` es `onlyOwner`; el alta de inversores queda como operación del admin (wallet owner) y se documenta como limitación conocida. No se reabre el contrato en el alcance D-088 |
 
 ---
 
@@ -71,7 +80,7 @@ Optimizar `rwa-web/` hasta que sea **apto para un entorno real de uso interno** 
 | **RF-W-14** | El código deberá quedar consolidado en un monorepo pnpm con un paquete compartido (config de red, ABIs generados, tipos, cliente Mongo, cliente de API, esquemas de validación) consumido por las 3 apps finales. | HW-06, HW-09, D-089 |
 | **RF-W-15** | El repositorio `rwa-web` deberá existir con CI que ejecute lint, `tsc --noEmit`, build y tests en cada MR, y publicarse en GitLab.com. | HW-05, D-094 |
 | **RF-W-16** | El sistema deberá registrar logs estructurados con `requestId` correlacionado y disponer de `error.tsx`/`loading.tsx` por ruta. | HW-13 |
-| **RF-W-17** | Deberá existir un entorno local reproducible con una orden (`docker-compose`: 3 apps + MongoDB + nodo) y un build de producción contenedorizado con healthcheck. | HW-11, HW-12 |
+| **RF-W-17** | Deberá existir un entorno local reproducible con una orden (`docker-compose`: 3 apps + PostgreSQL + nodo Anvil) y un build de producción contenedorizado con healthcheck. | HW-11, HW-12 |
 | **RF-W-18** | `web-rwa` y `web-registry-trusted2` deberán absorberse o eliminarse: `web-rwa` queda como portal con enlaces correctos y configurables, o se retira. | HW-10 |
 
 ---
@@ -83,9 +92,9 @@ Optimizar `rwa-web/` hasta que sea **apto para un entorno real de uso interno** 
 | **RNF-W-01** | Seguridad | **0 rutas sin autenticación** y 0 rutas sin autorización por recurso, verificado por test automatizado que recorre el manifiesto de rutas. Cabeceras `Content-Security-Policy`, `X-Frame-Options`, `Referrer-Policy`, `Strict-Transport-Security` presentes en todas las respuestas. |
 | **RNF-W-02** | Seguridad de la información / privacidad | Documentos KYC cifrados en reposo (AES-256-GCM) en `rwa.document_files`, con clave fuera del código; **0** endpoints públicos que devuelvan PII; cada acceso a documento queda en `rwa.audit_log`; política de retención y borrado aplicada. |
 | **RNF-W-03** | Mantenibilidad | Una sola versión de `next` y `react` en el workspace; `typescript.ignoreBuildErrors` ausente; `tsc --noEmit` en verde; **0 copias duplicadas** de `lib/mongodb.ts` y `TrustedIssuersRegistry`; 0 ficheros muertos. |
-| **RNF-W-04** | Fiabilidad | Ante caída de MongoDB o del RPC, la API responde `503` con error tipado en < 2 s; **0** respuestas `200` con colección vacía por error. |
+| **RNF-W-04** | Fiabilidad | Ante caída de PostgreSQL o del RPC, la API responde `503` con error tipado en < 2 s; **0** respuestas `200` con colección vacía por error. |
 | **RNF-W-05** | Usabilidad / accesibilidad | WCAG 2.1 AA: **0 violaciones críticas** en `axe` sobre las rutas principales; notificaciones y estados de carga/error unificados; navegación por teclado verificada. |
-| **RNF-W-06** | Eficiencia de desempeño | Presupuesto verificado en build de producción: JS por ruta ≤ 300 KB gzip; LCP ≤ 2,5 s en entorno local; imágenes con `next/image`. |
+| **RNF-W-06** | Eficiencia de desempeño | Presupuesto verificado en build de producción: **First Load JS ≤ 400 KB gzip por ruta** (D-104); LCP ≤ 2,5 s en entorno local; imágenes con `next/image`. |
 | **RNF-W-07** | Portabilidad | Dev/prod seleccionables por variables de entorno; **0** literales `0x…` (40 hex), `localhost:` o `http://` de servicio en el código fuente (verificado por gate). |
 | **RNF-W-08** | Verificabilidad | Cobertura de tests ≥ **70 %** de líneas en `packages/shared` y en las rutas de API críticas (claims, tokens, documentos); el flujo claim→aprobación cubierto por 1 test E2E. |
 

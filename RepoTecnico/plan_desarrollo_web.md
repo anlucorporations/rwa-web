@@ -193,15 +193,15 @@ flowchart LR
 |---|---|---|---|
 | O0 | ✅ **Cerrado** — PostgreSQL + Anvil de GCP, capa de datos y smoke tests | 2026-10-14 | `pruebas/verificacion_gcp_o0.md`, `o0_2_capa_datos.md`, `o0_3_migracion_postgres.md` |
 | O1 | ✅ **Cerrado** — SIWE, autorización por propiedad, errores tipados y suite 30/30 | 2026-10-16 | `scripts/test_auth_o1.sh`, `test_review_o1.sh` |
-| O2 | 🟡 **Cerrado salvo O2.7 en el Anvil de GCP** — ABIs generadas, EIP-712, factoría y gates; el nodo de GCP requiere redespliegue desde `@sc` | 2026-10-18 | `pruebas/o2_1…o2_7` |
+| O2 | ✅ **Cerrado** — ABIs generadas, EIP-712, factoría y gates; **O2.7 cerrado** tras redesplegar el stack canónico en el Anvil de GCP (2026-10-23) | 2026-10-23 | `pruebas/o2_1…o2_7` |
 | O3 | ✅ **Cerrado** — monorepo, CI (7 pasos), tsc/lint/build/tests y 0 `console.*` | 2026-10-17 | `pruebas/o3_verificabilidad.md`, `scripts/ci_local.sh` |
 | O4 | ✅ **Cerrado** — 3 apps + 3 paquetes, 0 `ethers`/`window.ethereum`, TanStack Query y modal unificado | 2026-10-19 | `pruebas/o4_consolidacion.md` |
 | O5 | 🟡 **Cerrado salvo O5.1/O5.2** — cifrado KYC, retención/backup ejecutados, axe (estático + navegador), notificaciones, README; Docker pendiente de host con Docker | 2026-10-20 | `pruebas/fase4_verificacion.md`, `informe_optimizacion_web_cierre.md` |
 | Fase 4 | ✅ **Verificación en verde** — gate CI, cobertura 97.16 % crítica, axe AA y perf budget | 2026-10-20 | `pruebas/fase4_verificacion.md` |
 | Fase 5 | ⏭️ **Omitida** por D-087 (decisión registrada en el informe de cierre) | 2026-10-20 | `informe_optimizacion_web_cierre.md` |
 
-**Pendiente para el cierre definitivo:** validar O5.1/O5.2 en un host con Docker, redesplegar el
-stack canónico en el Anvil de GCP (O2.7) y superar la auditoría independiente R-9.
+**Pendiente para el cierre definitivo:** validar O5.1/O5.2 en un host con Docker y superar la
+auditoría independiente R-9. O2.7 quedó cerrado el 2026-10-23.
 
 ---
 

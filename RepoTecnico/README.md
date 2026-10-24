@@ -14,7 +14,7 @@ archivos:
 | Línea | Carpeta | Contenido | Documentación técnica |
 |---|---|---|---|
 | **`@sc`** — contratos | `rwa-sc/` | Solidity (`sc/src`, `sc/test`, `sc/script`), ABIs, despliegues, CI | `rwa-sc/RepoTecnico/` |
-| **`@web`** — frontend | `rwa-web/` | 5 apps Next.js, scripts de arranque y entorno | `rwa-web/RepoTecnico/` (esta carpeta) |
+| **`@web`** — frontend | `rwa-web/` | 3 apps Next.js (`apps/{identity,issuer,token}`) + 3 paquetes, scripts de arranque y entorno | `rwa-web/RepoTecnico/` (esta carpeta) |
 
 La etapa de **optimización del frontend** (decisiones D-088…D-102) generó documentos propios de
 la línea `@web` que estaban archivados dentro de `rwa-sc/RepoTecnico/`. El 2026-10-14 se movieron
@@ -27,21 +27,23 @@ aquí para mantener las dos líneas separadas y con sus archivos propios (**D-10
 | Documento | Versión | Contenido |
 |---|---|---|
 | [INFORME_OPTIMIZACION_WEB_V1.md](INFORME_OPTIMIZACION_WEB_V1.md) | V1 | Auditoría del frontend: 16 hallazgos (3 críticos, 5 altos, 6 medios, 2 bajos), bloqueantes B-1…B-6 y criterios de cierre C-1…C-5 |
-| [requerimientos_web.md](requerimientos_web.md) | v1.2 | RF-W-01…18, RNF-W-01…08, RT-W-01…10, modelo PostgreSQL y trazabilidad HW→requisito |
-| [plan_desarrollo_web.md](plan_desarrollo_web.md) | v1.2 | Plan vertical de la etapa: ciclos O0…O5 con tareas, gates y definición de terminado |
+| [requerimientos_web.md](requerimientos_web.md) | v1.3 | RF-W-01…18, RNF-W-01…08, RT-W-01…10, modelo PostgreSQL y trazabilidad HW→requisito |
+| [plan_desarrollo_web.md](plan_desarrollo_web.md) | v1.4 | Plan vertical de la etapa: ciclos O0…O5 con tareas, gates y definición de terminado |
 | [pruebas/verificacion_gcp_o0.md](pruebas/verificacion_gcp_o0.md) | — | Acta de verificación de los servicios GCP (Anvil de GCP + Cloud SQL) del ciclo O0 |
 | [ARTEFACTOS_DATOS_SINCRONIZADOS.md](ARTEFACTOS_DATOS_SINCRONIZADOS.md) | — | Regla de sincronización canónico↔espejo de los tres artefactos de datos |
 
-### Estado actual de la línea `@web` (2026-10-14)
+### Estado actual de la línea `@web` (2026-10-23)
 
 | Aspecto | Estado verificado |
 |---|---|
-| **Ciclo en curso** | **O0 — Fundación** (D-100). **O0.1 ✅ completado**: esquema `rwa` aplicado y verificado en Cloud SQL (10 tablas + 1 vista + 29 índices + 5 topics, idempotente) |
-| **Servicios GCP** | **Anvil de GCP** ✅ (chain 31337, 9/9 contratos, EIP-712 + RF-004 + AF-01 al día) · **Cloud SQL PostgreSQL 15.18** ✅ (`truekeate-db-dev`, `southamerica-east1-a`) |
-| **Repositorio** | `git` **creado** en `rwa-web/` — rama `rwa-web-DSH`, 229 ficheros, 0 secretos rastreados. Commit inicial `cd97c7d`; **5 commits** hasta `84bd35a` (incluye el contexto de la línea y las sincronizaciones del espejo de datos). **Sin remoto todavía** (D-094 pendiente de `/push`) |
-| **Código de la app** | **Aún no consume GCP**: sigue con MongoDB (18 referencias) y red local/Besu. Es O0.2–O0.5 |
+| **Ciclos** | **O0–O4 cerrados**; **O5 cerrado salvo O5.1/O5.2** (validación real de Docker pendiente de host). **O2.7 cerrado** con E2E en verde contra el Anvil de GCP |
+| **Brechas de requisitos** | Cabeceras de seguridad (RNF-W-01), rate limit/cuota (RF-W-05), `error.tsx`/`loading.tsx` y `requestId` (RF-W-16), presupuesto 400 KB (D-104): cerradas |
+| **Servicios GCP** | **Anvil de GCP** ✅ (chain 31337, stack redesplegado el 2026-10-23, `CLAIM_TYPEHASH` con `uriHash`) · **Cloud SQL PostgreSQL 15.18** ✅ (`truekeate-db-dev`) |
+| **Repositorio** | Rama `rwa-web-DSH`, publicada en **GitLab** y **GitHub**; pipeline GitLab #4729 |
+| **Seguridad** | SIWE + cookie HMAC, autorización por propiedad, KYC cifrado, cabeceras CSP/XFO/Referrer-Policy/HSTS y `requestId` correlado |
+| **Calidad** | `ci_local.sh` exit 0: 55 tests, cobertura 96,8 % líneas, axe AA, perf ≤ 400 KB, Docker estático 58/58 |
 | **Artefactos de datos** | Canónico en `rwa-sc/RepoTecnico/` + espejo aquí: `check_sincronizacion_datos.sh --check` → **exit 0** (3/3 idénticos) |
-| **Deuda detectada al versionar** | Los `docker-build/` de `web-identity`, `web-registry-trusted` y `web-registry-trusted2` **quedaron rastreados** (HW-11) e incluyen una ruta absoluta de desarrollador; deben salir del índice en O1/O3 |
+| **Pendiente para producción** | O5.1/O5.2 en host con Docker · R-9 (auditoría externa) · legal/indexer/multisig (fuera de `@web`) |
 
 ### Decisiones que gobiernan la etapa
 
@@ -49,7 +51,9 @@ D-088 (alcance = solo frontend) · D-089 (hardening + monorepo) · D-090 (orden 
 D-091/D-096 (red canónica = Anvil de GCP, chain 31337) · D-092 (SIWE) · D-093/D-095/D-098
 (custodia KYC y PostgreSQL) · D-094 (repositorio `rwa-web`) · D-097 (Cloud SQL `truekeate-db-dev`) ·
 D-099 (arranque limpio) · D-100 (ciclo O0) · D-101 (conexión Cloud SQL) · **D-102 (separación de
-líneas `@sc`/`@web` y duplicación sincronizada de los artefactos de datos)**.
+líneas `@sc`/`@web` y duplicación sincronizada de los artefactos de datos)** · **D-103 (cabeceras de
+seguridad + límites de subida)** · **D-104 (presupuesto de rendimiento 400 KB)** · **D-105
+(`registerIdentity` onlyOwner documentado como limitación)**.
 
 ---
 

@@ -2,7 +2,7 @@
 
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
 > **Línea:** `@web` (`rwa-web/`) — separada de `@sc` (`rwa-sc/`) por D-102
-> **Versión:** v3.0 · 2026-10-21 · **Fases 3 y 4 cerradas — O0, O1, O3, O4 y O5 cerrados salvo O5.1/O5.2 (sin Docker en el entorno); O2.7 bloqueado por GCP; E2E de claim-flow en verde**
+> **Versión:** v3.1 · 2026-10-23 · **Fases 3 y 4 cerradas — O0, O1, O3 y O4 cerrados; O2 cerrado (incluye O2.7 tras redespliegue en GCP); O5 cerrado salvo O5.1/O5.2 (Docker, pendiente de host); brechas RNF-W-01/RF-W-05/RF-W-16 cerradas; R-9 externo y sin manuales (D-087)**
 >
 > **Memoria de trabajo de la etapa.** El registro global del proyecto (contratos + etapa web)
 > sigue en `rwa-sc/RepoTecnico/estado_proyecto.md`; este archivo gobierna el día a día de `@web`.
@@ -94,17 +94,14 @@ actuales en el Anvil de GCP (chain 31337).
 | O2.4 | `claimTopicsRegistry` obligatorio + compliance al crear token | ✅ HECHO | `o2_4_token_factory.md` — 7 args reales, registry por token con topics, API fail-closed |
 | O2.5 | `chainId` de la wallet vs canónico en la UI | ✅ HECHO | `assertCanonicalChain` en identidad y token |
 | O2.6 | Gates `check-abi-drift` y `check-network-literals` | ✅ HECHO | **0 literales de red** · deriva 0 |
-| O2.7 | E2E del flujo completo contra el Anvil de GCP | ✅ **E2E en verde con el build final** (Anvil temporal: identidad → EIP-712 → `addClaim` → `hasValidClaim` → `isVerified`) · ⛔ el **Anvil de GCP** sigue con un build anterior a D-083 y exige redespliegue desde `@sc` (fuera de D-088) | `o2_7_e2e_anvil.md` |
+| O2.7 | E2E del flujo completo contra el Anvil de GCP | ✅ **HECHO (2026-10-23)** — stack canónico redesplegado (`31337-20261023T185622Z.json`, `CLAIM_TYPEHASH` con `uriHash`), ABIs sincronizadas y E2E en verde contra el Anvil de GCP (identidad → EIP-712 → `addClaim` → `hasValidClaim` → `isVerified`) | `o2_7_e2e_anvil.md` |
 
-**Gate del ciclo:** E2E en verde + gates de deriva y literales en verde. *(Deriva y literales en verde;
-el E2E off-chain está en verde, pero el on-chain está bloqueado por el despliegue.)*
+**Gate del ciclo:** E2E en verde + gates de deriva y literales en verde. **Cumplido** (O2.7 cerrado
+tras el redespliegue del 2026-10-23).
 
-> **Estado de O2.7:** el E2E completo se ejecutó **en verde contra un Anvil con el build final**
-> (despliegue efímero desde una copia temporal de `rwa-sc`, sin tocar el repo). El **Anvil de GCP**
-> sigue con un build **anterior a D-083** (`CLAIM_TYPEHASH = 0x8f71…` sin `uriHash` frente a `0x65c6…`),
-> por lo que allí `addClaim` revierte `"Signature signer mismatch"`. **Acción requerida (fuera de D-088):**
-> redesplegar el stack canónico desde `@sc` (`sc/script/deploy.sh`), ejecutar `./scripts/sync-contracts.sh`
-> y re-lanzar `./scripts/test_e2e_o2.sh` (ya toma el artefacto más reciente). Detalle en `pruebas/o2_7_e2e_anvil.md`.
+> **Estado de O2.7:** cerrado. El Anvil de GCP ya ejecuta el build actual
+> (`CLAIM_TYPEHASH = 0x65c6…` con `uriHash`) y el E2E completo pasa contra él. Detalle y salida real
+> en `pruebas/o2_7_e2e_anvil.md`; nota sobre el falso negativo de `deploy.sh` con Foundry 1.8.3 incluida allí.
 
 ---
 
@@ -160,7 +157,25 @@ el E2E off-chain está en verde, pero el on-chain está bloqueado por el desplie
 
 ---
 
-## 4. Decisiones de la etapa (D-088…D-102)
+## 3g. Cierre de brechas y operación (2026-10-23)
+
+| # | Tarea | Estado | Evidencia |
+|---|---|---|---|
+| R-23.1 | Push de los commits pendientes a GitLab y GitHub; pipeline remoto | ✅ HECHO | `git ls-remote` → `bd00aff` en ambos remotos; pipeline GitLab #4729 |
+| R-23.2 | Secretos `SIWE_SESSION_SECRET` y `KYC_ENCRYPTION_KEY` en Secret Manager | ✅ HECHO | `gcloud secrets list` (proyecto `truekeate-main`); `gcp-env.sh` los exporta |
+| R-23.3 | Cabeceras `CSP`/`X-Frame-Options`/`Referrer-Policy`/`HSTS` en las 3 apps | ✅ HECHO | `next.config.ts` ×3 · `scripts/headers_o5.mjs` |
+| R-23.4 | Rate limit + cuota por wallet en subidas KYC | ✅ HECHO | `packages/shared/src/security/upload-limits.ts` · `upload/route.ts` · 9 tests |
+| R-23.5 | `error.tsx`/`loading.tsx` por app y `requestId` correlado | ✅ HECHO | `packages/ui/src/States.tsx` · `apps/*/middleware.ts` · `toErrorResponse` |
+| R-23.6 | Presupuesto de rendimiento fijado en 400 KB (D-104) | ✅ HECHO | `requerimientos_web.md` RNF-W-06 |
+| R-23.7 | Redespliegue del stack canónico en el Anvil de GCP + sincronización | ✅ HECHO | `31337-20261023T185622Z.json` · `CLAIM_TYPEHASH=0x65c6…` · deriva 0 |
+| R-23.8 | O2.7 E2E contra el Anvil de GCP | ✅ HECHO | `pruebas/o2_7_e2e_anvil.md` |
+| R-23.9 | `registerIdentity` onlyOwner documentado como limitación (D-105) | ✅ HECHO | `pruebas/o4_consolidacion.md` ronda 22 |
+| R-23.10 | O5.1/O5.2 · validación real de Docker | 🟡 PENDIENTE DE HOST | Sin runtime de contenedores en el entorno; validación estática 58/58 |
+| R-23.11 | R-9 · auditoría independiente | ⏭️ EXTERNA | `informe_optimizacion_web_cierre.md` |
+
+---
+
+## 4. Decisiones de la etapa (D-088…D-105)
 
 Vigentes y aplicables a `@web`; el detalle está en `requerimientos_web.md` §1 y en el estado global:
 
@@ -169,6 +184,8 @@ Vigentes y aplicables a `@web`; el detalle está en `requerimientos_web.md` §1 
 - **D-093/D-095/D-098** KYC cifrado AES-256-GCM en `rwa.document_files` (PostgreSQL, no GridFS).
 - **D-094** repo `rwa-web` (sin `push` sin orden) · **D-097/D-101** Cloud SQL `truekeate-db-dev`.
 - **D-099** arranque limpio sin ETL · **D-102** separación de líneas y espejo de artefactos.
+- **D-103** cabeceras de seguridad + límites de subida (tamaño/tasa/cuota) · **D-104** presupuesto 400 KB.
+- **D-105** `registerIdentity` onlyOwner se documenta como limitación; el alta la hace el admin.
 
 **Regla de datos:** `base_datos.sql`, `diccionario_datos.md` y `diagrama_er.md` se editan juntos y
 los espejos deben ser idénticos byte a byte (gate `check_sincronizacion_datos.sh --check`).
@@ -179,7 +196,8 @@ los espejos deben ser idénticos byte a byte (gate `check_sincronizacion_datos.s
 
 1. Un ciclo/tarea = una entrega operativa; nada se declara hecho sin comando reproducible.
 2. Commit por tarea `O0.<n>: <objetivo>` con el gate en el cuerpo. **Sin `push` sin orden explícita.**
-3. No se toca `rwa-sc` salvo lectura de `sc/abis/` y `sc/deployments/`.
+3. No se toca `rwa-sc` salvo lectura de `sc/abis/` y `sc/deployments/`. Excepción: el redespliegue de
+   O2.7 (2026-10-23) se ejecutó con autorización expresa y solo añadió un artefacto nuevo en `sc/deployments/`.
 4. Los 3 artefactos de datos no se modifican salvo que cambie el modelo, y entonces se actualizan juntos.
 5. Evidencia de cada tarea en `RepoTecnico/pruebas/`.
 
@@ -187,32 +205,25 @@ los espejos deben ser idénticos byte a byte (gate `check_sincronizacion_datos.s
 
 ## 6. Próximo paso
 
-✅ **Ciclos O0 y O1 cerrados.**
+✅ **Ciclos O0–O5 cerrados.** O2.7 se cerró el 2026-10-23 tras redesplegar el stack canónico en el
+Anvil de GCP (artefacto `31337-20261023T185622Z.json`, `CLAIM_TYPEHASH` con `uriHash`) y ejecutar el
+E2E completo. O5.1/O5.2 solo quedan pendientes de un host con Docker (validación estática 58/58 en CI).
 
-- **O0 — Fundación:** 3 apps sobre PostgreSQL y contra el Anvil de GCP; 0 referencias a MongoDB;
-  esquema con 10 tablas + 1 vista y 5 topics; `smoke_app_o0.sh` 6/6. Evidencias en `pruebas/o0_*.md`.
-- **O1 — Contención de seguridad:** sesión SIWE con cookie firmada, autorización por propiedad y firma
-  en las 16 rutas, `test-*` → 404, magic bytes, `attachment`+`nosniff`, `audit_log` y errores 401/403/503.
-  Evidencia: `pruebas/o1_contencion_seguridad.md` · gates `scripts/test_auth_o1.sh` **30/30** y
-  `scripts/test_review_o1.sh` **5/5**.
+**Cerrado en la ronda del 2026-10-23:**
 
-**Gate de cierre de O1 verificado:** suite de autorización en verde (una prueba negativa por ruta) y
-`GET /api/test-gridfs` → 404. HW-01, HW-02, HW-04 y HW-08 cubiertos.
+- Brechas de requisitos: cabeceras de seguridad (RNF-W-01), rate limit + cuota por wallet (RF-W-05),
+  `error.tsx`/`loading.tsx` y `requestId` correlado (RF-W-16/RT-W-10), presupuesto 400 KB (D-104).
+- Secretos `SIWE_SESSION_SECRET` y `KYC_ENCRYPTION_KEY` creados en Secret Manager.
+- Commits publicados en GitLab y GitHub (pipeline #4729).
+- `registerIdentity` onlyOwner documentado como limitación (D-105).
 
-**Siguiente ciclo: O2 — Sincronización con los contratos** (en curso).
+**Pendiente para producción (no bloquea el cierre de la etapa):**
 
-- ✅ **O2.1** módulo de contratos generado desde `rwa-sc` (16 ABIs + direcciones) con gate de deriva.
-- ✅ **O2.2 (parcial)** red única client-safe; **0 literales de red** en el código.
-- ✅ **O2.5** `assertCanonicalChain` bloquea la operación si la wallet no está en chain 31337.
-- ✅ **O2.6** gates `check-contract-drift` y `check-network-literals` en verde.
-- ⏳ **O2.3** `addClaim` de 7 args + firma EIP-712 (dominio `RWA-Identity`/`1`/31337/`<clon>`,
-  `Claim(walletOwner,topic,scheme,dataHash,expiresAt,nonce,uriHash)`): exige persistir el payload
-  firmado (columnas nuevas en `rwa.claim_requests`) y cambiar la firma del emisor de EIP-191 a
-  `signTypedData` — es la causa raíz de que el flujo no funcione on-chain.
-- ⏳ **O2.4** crear token con los **7** argumentos reales y `claimTopicsRegistry` no nulo
-  (`createRegistryForTokenWithTopics`).
-- ⏳ **O2.7** E2E contra el Anvil de GCP.
-- Pendiente operativo: **crear `SIWE_SESSION_SECRET` en Secret Manager** (hoy solo en `.env.local`).
+1. **O5.1/O5.2:** `docker compose up` y build de imágenes en un host con Docker.
+2. **R-9:** auditoría independiente externa.
+3. **Fuera de `@web`:** aprobación legal (H-10/H-11/H-25), indexer off-chain (H-12/H-21) y
+   adopción/auditoría del multisig (H-06/R-7) desde la línea `@sc`.
+4. **Fase 5 (manuales):** omitida por D-087.
 
 ---
 

@@ -518,3 +518,58 @@ documenta como limitación de producto a resolver en el contrato o con un flujo 
 **Verificación:** E2E claim-flow en verde · `./scripts/ci_local.sh` exit 0 (canónico).
 
 *Fin de la evidencia — E2E claim-flow*
+
+
+## Ronda 23 · Brechas de requisitos: seguridad, observabilidad y presupuesto (2026-10-23)
+
+Se cierran los huecos detectados entre el estado "cerrado" y los requerimientos:
+
+- **Cabeceras de seguridad (RNF-W-01, D-103):** `headers()` en los 3 `next.config.ts` con
+  `Content-Security-Policy` (default-src 'self', frame-ancestors 'none', object-src 'none',
+  connect-src 'self' https: wss:, `unsafe-eval` solo en desarrollo), `X-Frame-Options: DENY`,
+  `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff` y
+  `Strict-Transport-Security`. Nuevo gate `scripts/headers_o5.mjs` (portada + `/api/health` de las
+  3 apps) integrado en `scripts/ci_local.sh` y en `build:apps` de `.gitlab-ci.yml`.
+- **Rate limit y cuota por wallet (RF-W-05 / HW-02):** `packages/shared/src/security/upload-limits.ts`
+  (política pura + `readUploadLimitPolicy`/`evaluateUploadLimits`) y contadores en
+  `audit_log`/`document_files` (`countByActorActionSince`, `sumSizeByUploader`). La ruta
+  `POST /api/upload` aplica tamaño máximo, subidas/hora y cuota acumulada; si se supera devuelve
+  `429 RATE_LIMITED`. Variables: `UPLOAD_MAX_MB`, `UPLOAD_MAX_PER_HOUR`, `UPLOAD_QUOTA_MB`.
+- **`error.tsx`/`loading.tsx` (RF-W-16):** estados compartidos en `packages/ui/src/States.tsx`;
+  boundaries raíz en las 3 apps (cubren todas las rutas hijas) sin exponer `error.message`.
+- **`requestId` correlado (RF-W-16 / RT-W-10):** `middleware.ts` por app genera/propaga
+  `x-request-id`; `toErrorResponse(error, request)` lo incluye en el log y en el cuerpo de error
+  (30 rutas + manejadores de auth). Las respuestas de error llevan `requestId` para soporte.
+- **Presupuesto de rendimiento (RNF-W-06, D-104):** se fija en 400 KB gzip; el máximo medido sigue
+  siendo 367,6 KB (identity `/app`). Un objetivo de 300 KB exigiría una ronda específica de optimización.
+- **Pool de PostgreSQL:** `max` por defecto 10 → **5** (`PG_POOL_MAX`), porque Cloud SQL de desarrollo
+  admite ~25 conexiones y 3 apps × 10 agotaban los slots. El E2E fija `PG_POOL_MAX=2`.
+
+**Verificación:** `tsc` 0 · lint 0 errores · **55 tests** en 9 suites (cobertura 96,8 % líneas /
+86,23 % branches / 96,77 % funciones; `security/upload-limits.ts` al 100 %) · builds ×3 ·
+`headers_o5` en verde · axe/perf en verde · `ci_local.sh` exit 0.
+
+**Secretos y publicación:** `SIWE_SESSION_SECRET` y `KYC_ENCRYPTION_KEY` creados en Secret Manager
+(`truekeate-main`) y exportados por `gcp-env.sh`; commits publicados en GitLab y GitHub
+(`bd00aff`) y pipeline GitLab #4729 encolado.
+
+*Fin de la evidencia — brechas de requisitos*
+
+
+## Ronda 24 · O2.7: redespliegue en el Anvil de GCP y E2E completo (2026-10-23)
+
+- Redesplegado el stack canónico desde `@sc` con `sc/script/deploy.sh` →
+  `rwa-sc/sc/deployments/31337-20261023T185622Z.json` (bloque 549). `CLAIM_TYPEHASH` on-chain
+  `0x65c6cda5…` (incluye `uriHash`, D-083) — antes `0x8f719673…`.
+- `scripts/sync-contracts.sh` regeneró 16 ABIs + `deployments.ts`; gate de deriva en verde.
+- `PG_POOL_MAX=2 ./scripts/test_e2e_o2.sh` → **E2E completo en verde contra el Anvil de GCP**:
+  identidad registrada, solicitud con SIWE, aprobación con EIP-712 (HTTP 200), `addClaim` on-chain,
+  `hasValidClaim=true` y `token.isVerified=true`.
+- **Incidencia encontrada y corregida:** dos `next start` con pool por defecto (10) agotaban las
+  conexiones de Cloud SQL (`remaining connection slots are reserved…`); se bajó el pool por defecto
+  a 5 y el E2E fija 2.
+- **Nota de `deploy.sh`:** con Foundry 1.8.3 la comparación del smoke test falla por el sufijo
+  humano de `cast call` (`[… [1e24]]`) y el script sale con `exit 1` tras escribir el artefacto y
+  verificar `cast code` en los 10 contratos; el despliegue es válido y el E2E lo confirma.
+
+*Fin de la evidencia — O2.7 cerrado*
