@@ -33,8 +33,11 @@ cleanup() {
 trap cleanup EXIT
 
 echo "▶ 1/7 · Entorno GCP (DATABASE_URL) y copia temporal de rwa-sc"
-# shellcheck disable=SC1091
-source scripts/gcp-env.sh --tcp >/dev/null
+if [ -z "${DATABASE_URL:-}" ]; then
+  # En local se obtiene de Secret Manager; en CI se inyecta como variable (H-06).
+  # shellcheck disable=SC1091
+  source scripts/gcp-env.sh --tcp >/dev/null
+fi
 cp -a "$ROOT/../rwa-sc" "$TMP/rwa-sc"
 
 echo "▶ 2/7 · Anvil efímero en ${RPC}"

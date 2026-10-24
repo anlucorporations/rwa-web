@@ -18,6 +18,7 @@ stages:
   - validate
   - quality
   - build
+  - e2e
 
 default:
   image: node:22-bookworm
@@ -118,3 +119,26 @@ build:apps:
     - pnpm serve:o5
     - node scripts/headers_o5.mjs
     - pnpm exec node scripts/serve_o5.mjs --stop
+
+# --- E2E contrato↔interfaz (H-06, O3.6) --------------------------------------
+# Manual/nocturno: requiere un runner con red, Foundry (instalado en el job),
+# Chromium (imagen Playwright) y DATABASE_URL con el esquema `rwa` aplicado
+# (variable de CI `E2E_DATABASE_URL`). No bloquea el pipeline (allow_failure).
+e2e:claim-flow:
+  stage: e2e
+  image: mcr.microsoft.com/playwright:v1.64.1-noble
+  when: manual
+  allow_failure: true
+  needs: []
+  variables:
+    DATABASE_URL: "$E2E_DATABASE_URL"
+  before_script:
+    - corepack enable
+    - corepack prepare pnpm@9.15.9 --activate
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install --frozen-lockfile
+    - apt-get update -y && apt-get install -y --no-install-recommends jq curl
+    - curl -L https://foundry.paradigm.xyz | bash
+    - export PATH="$HOME/.foundry/bin:$PATH" && foundryup
+  script:
+    - bash scripts/ci_e2e.sh
