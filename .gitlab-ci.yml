@@ -1,9 +1,9 @@
 # =============================================================================
 # CI de `rwa-web` (O3.5 · RF-W-15)
 # =============================================================================
-# Gates: check-network-literals · check-contract-drift · typecheck · lint · test
-#        (con cobertura) · build ×3 · accesibilidad estática · presupuesto de
-#        rendimiento · validación estática de assets Docker.
+# Gates: check-network-literals · check-contract-drift · check_sincronizacion_datos
+#        · typecheck · lint · test (con cobertura) · build ×3 · accesibilidad estática
+#        · presupuesto de rendimiento · validación estática de assets Docker.
 #        Auditoría de accesibilidad en navegador: job manual `quality:a11y-browser`.
 #
 # El gate `check-abi-drift` necesita el repo `rwa-sc` (fuente de sc/abis y
@@ -52,6 +52,8 @@ validate:abi-drift:
       fi
     - git clone --depth 1 "$RWA_SC_REPO_URL" ../rwa-sc
     - bash scripts/check-contract-drift.sh
+    # H-04: el espejo de artefactos de datos (D-102) también se protege en CI
+    - bash RepoTecnico/check_sincronizacion_datos.sh --check
 
 # --- Calidad estática ---------------------------------------------------------
 quality:typecheck:
@@ -99,3 +101,6 @@ build:apps:
     - node scripts/a11y_o5.mjs
     - node scripts/perf_budget_o5.mjs
     - node scripts/docker_validate_o5.mjs
+    - pnpm serve:o5
+    - node scripts/headers_o5.mjs
+    - pnpm exec node scripts/serve_o5.mjs --stop

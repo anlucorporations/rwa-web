@@ -6,7 +6,8 @@
 #   ./scripts/ci_local.sh            # pipeline completo (incluye builds)
 #   CI_SKIP_BUILD=1 ./scripts/ci_local.sh   # sin builds (más rápido)
 #
-# Orden: gates de integridad → typecheck → lint → build → test.
+# Orden: gates de integridad (literales · deriva · datos) → typecheck → lint →
+#        build → a11y/perf/docker → cabeceras → test.
 # Falla en el primer paso que falle (set -e).
 # =============================================================================
 set -euo pipefail
@@ -16,31 +17,45 @@ cd "$ROOT"
 
 step() { printf '\n\033[1;34m▶ %s\033[0m\n' "$1"; }
 
-step "1/7 · Gate de literales de red"
+step "1/8 · Gate de literales de red"
 bash scripts/check-network-literals.sh
 
-step "2/7 · Gate de deriva de ABIs (requiere ../rwa-sc)"
+step "2/8 · Gate de deriva de ABIs (requiere ../rwa-sc)"
 bash scripts/check-contract-drift.sh
 
-step "3/7 · TypeScript (tsc --noEmit)"
+step "3/8 · Gate de sincronización de artefactos de datos (D-102, H-04)"
+bash RepoTecnico/check_sincronizacion_datos.sh --check
+
+step "4/8 · TypeScript (tsc --noEmit)"
 pnpm -r --workspace-concurrency=1 --if-present typecheck
 
-step "4/7 · ESLint"
+step "5/8 · ESLint"
 pnpm -r --workspace-concurrency=1 --if-present lint
 
 if [ "${CI_SKIP_BUILD:-0}" = "1" ]; then
-  step "5/7 · Build (OMITIDO por CI_SKIP_BUILD=1)"
+  step "6/8 · Build (OMITIDO por CI_SKIP_BUILD=1)"
 else
-  step "5/7 · Build de producción"
+  step "6/8 · Build de producción"
   pnpm -r --workspace-concurrency=1 --if-present build
 fi
 
-step "6/7 · Accesibilidad, rendimiento y assets Docker"
+step "7/8 · Accesibilidad, rendimiento y assets Docker"
 node scripts/a11y_o5.mjs
 node scripts/perf_budget_o5.mjs
 node scripts/docker_validate_o5.mjs
 
-step "7/7 · Tests"
+if [ -d apps/identity/.next ] && [ -d apps/issuer/.next ] && [ -d apps/token/.next ]; then
+  step "7b/8 · Cabeceras de seguridad y correlación (build servido)"
+  node scripts/serve_o5.mjs
+  trap 'node scripts/serve_o5.mjs --stop >/dev/null 2>&1 || true' EXIT
+  node scripts/headers_o5.mjs
+  node scripts/serve_o5.mjs --stop
+  trap - EXIT
+else
+  step "7b/8 · Cabeceras de seguridad (OMITIDO: falta el build)"
+fi
+
+step "8/8 · Tests"
 pnpm -r --workspace-concurrency=1 --if-present test
 
 printf '\n\033[1;32m✓ CI local en verde\033[0m\n'
