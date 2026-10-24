@@ -1,9 +1,10 @@
 # =============================================================================
 # CI de `rwa-web` (O3.5 · RF-W-15)
 # =============================================================================
-# Gates: check-network-literals · check-contract-drift · check_sincronizacion_datos
-#        · typecheck · lint · test (con cobertura) · build ×3 · accesibilidad estática
-#        · presupuesto de rendimiento · validación estática de assets Docker.
+# Gates: check-network-literals · check-no-private-keys · check-contract-drift
+#        · check_sincronizacion_datos · typecheck · lint · test (con cobertura)
+#        · build ×3 · accesibilidad estática · presupuesto de rendimiento
+#        · validación estática de assets Docker.
 #        Auditoría de accesibilidad en navegador: job manual `quality:a11y-browser`.
 #
 # El gate `check-abi-drift` necesita el repo `rwa-sc` (fuente de sc/abis y
@@ -40,6 +41,7 @@ validate:network-literals:
   stage: validate
   script:
     - bash scripts/check-network-literals.sh
+    - bash scripts/check-no-private-keys.sh
 
 validate:abi-drift:
   stage: validate

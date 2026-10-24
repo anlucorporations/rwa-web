@@ -17,8 +17,9 @@ cd "$ROOT"
 
 step() { printf '\n\033[1;34m▶ %s\033[0m\n' "$1"; }
 
-step "1/8 · Gate de literales de red"
+step "1/8 · Gates de literales de red y claves privadas"
 bash scripts/check-network-literals.sh
+bash scripts/check-no-private-keys.sh
 
 step "2/8 · Gate de deriva de ABIs (requiere ../rwa-sc)"
 bash scripts/check-contract-drift.sh

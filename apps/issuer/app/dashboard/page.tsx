@@ -274,20 +274,14 @@ export default function Home() {
                       </code>
                     </div>
                     <div>
-                      <div className="mb-1 flex items-center justify-between">
-                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                          Private Key:
-                        </p>
-                        <button
-                          onClick={() => copyToClipboard(DEMO_ACCOUNTS[0].privateKey, 'Private Key')}
-                          className="rounded bg-green-100 px-2 py-1 text-xs text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-300"
-                        >
-                          📋 Copiar
-                        </button>
-                      </div>
-                      <code className="block break-all text-xs text-gray-900 dark:text-white">
-                        {DEMO_ACCOUNTS[0].privateKey}
-                      </code>
+                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                        Private Key:
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        No se muestra ni se versiona (H-07). Usa la cuenta por defecto de Anvil
+                        desde la documentación de entorno: <code>cast wallet private-key</code> o
+                        el keystore local.
+                      </p>
                     </div>
                   </div>
                   <ol className="mt-3 list-inside list-decimal space-y-1 text-sm text-green-800 dark:text-green-300">
@@ -308,7 +302,6 @@ export default function Home() {
                       <div key={demoAccount.address} className="rounded bg-white p-2 dark:bg-gray-800">
                         <p className="font-semibold">{demoAccount.role}:</p>
                         <code className="block break-all">{demoAccount.address}</code>
-                        <code className="block break-all text-gray-500">PK: {demoAccount.privateKey}</code>
                       </div>
                     ))}
                   </div>
