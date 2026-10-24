@@ -39,7 +39,7 @@ variables:
   NEXT_TELEMETRY_DISABLED: "1"
   # H-05: SHA/tag de rwa-sc que valida `validate:abi-drift`. Fijado al commit
   # publicado (reproducibilidad); vacío = HEAD de la rama por defecto.
-  RWA_SC_REF: "f946b1ea47bb0ffd8bb2cf771e072249c1793588"
+  RWA_SC_REF: "d57c535daf1d198482b753d8bac30539bb460f4b"
 
 # --- Gates de integridad con los contratos -----------------------------------
 validate:network-literals:

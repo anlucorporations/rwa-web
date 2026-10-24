@@ -77,8 +77,8 @@ Los ficheros generados llevan cabecera `NO EDITAR`; el commit debe incluir **a l
 
 | # | Pendiente | Referencia |
 |---|---|---|
-| 1 | ✅ **Resuelto:** `rwa-sc` publicado (`f946b1e`) y `RWA_SC_REF` fijado a ese SHA | H-02 del informe |
-| 2 | `e2e:claim-flow` pendiente de verificar en un runner real (imagen Playwright + Foundry + PostgreSQL); la ejecución local detectó el defecto **H-11** de `@sc` (`deploy.sh` vs Foundry 1.8.3) | H-06 / §5 del registro de resolución |
+| 1 | ✅ **Resuelto:** `rwa-sc` publicado (`d57c535`) y `RWA_SC_REF` fijado a ese SHA | H-02 del informe |
+| 2 | ✅ **Validado en local:** `e2e:claim-flow` en verde (identidad → claim → aprobación/firma → `addClaim`, `E2E_EXIT=0`). Detectados y corregidos **H-11** (`@sc`, `deploy.sh` vs Foundry 1.8.3) y **H-12** (`@web`, CSP bloqueaba el RPC). Pendiente: repetirlo en un runner de CI | H-06 / §5 del registro de resolución |
 | 3 | ✅ **Resuelto:** WIP de `@web` commiteado (`080d2ea`, `b17867d`) y versiones documentales alineadas | H-10 |
 
 ---
