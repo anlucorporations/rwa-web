@@ -46,6 +46,24 @@ export class AuditLogRepository {
     return rows;
   }
 
+  /**
+   * Cuenta las acciones de un actor desde una fecha (RF-W-05, rate limit de subidas).
+   * El índice `idx_audit_log_actor_at` de `base_datos.sql` cubre esta consulta.
+   */
+  async countByActorActionSince(
+    actorAddress: string,
+    action: string,
+    since: Date,
+  ): Promise<number> {
+    const actor = normalizeAddressOrUndefined(actorAddress) ?? actorAddress.toLowerCase();
+    const { rows } = await query<{ total: string }>(
+      `SELECT count(*)::text AS total FROM rwa.audit_log
+        WHERE actor_address = $1 AND action = $2 AND at >= $3`,
+      [actor, action, since],
+    );
+    return Number(rows[0]?.total ?? 0);
+  }
+
   async list(filter: { actorAddress?: string; limit?: number; offset?: number } = {}): Promise<AuditLogRow[]> {
     const actor = normalizeAddressOrUndefined(filter.actorAddress);
     const limit = Math.min(Math.max(filter.limit ?? 100, 1), 500);

@@ -111,4 +111,17 @@ export class DocumentFilesRepository {
     );
     return Number(rows[0]?.total ?? 0);
   }
+
+  /**
+   * Almacenamiento acumulado (en bytes) subido por una wallet (RF-W-05, cuota).
+   * `size_bytes` es el tamaño del texto plano, que es lo que se factura/cuota.
+   */
+  async sumSizeByUploader(uploadedBy: string): Promise<number> {
+    const { rows } = await query<{ total: string }>(
+      `SELECT coalesce(sum(size_bytes), 0)::text AS total
+         FROM rwa.document_files WHERE lower(uploaded_by) = lower($1)`,
+      [uploadedBy],
+    );
+    return Number(rows[0]?.total ?? 0);
+  }
 }

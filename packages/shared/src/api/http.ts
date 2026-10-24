@@ -10,26 +10,40 @@
  */
 
 import { AppError } from '../errors';
-import { logger } from '../logging/index';
+import { getRequestId, logger, type RequestWithHeaders } from '../logging/index';
 
-export type ApiErrorBody = { success: false; message: string; code: string };
+export type ApiErrorBody = {
+  success: false;
+  message: string;
+  code: string;
+  /** Correlación con el log del servidor (RF-W-16 / RT-W-10). */
+  requestId?: string;
+};
 
 export type ErrorResponse = { status: number; body: ApiErrorBody };
 
-export function toErrorResponse(error: unknown): ErrorResponse {
+export function toErrorResponse(error: unknown, request?: RequestWithHeaders): ErrorResponse {
+  const requestId = request ? getRequestId(request) : undefined;
+  const withRequestId = requestId ? { requestId } : {};
+
   if (error instanceof AppError) {
     if (error.httpStatus >= 500) {
-      logger.error({ code: error.code, err: error }, error.message);
+      logger.error({ code: error.code, err: error, requestId }, error.message);
     }
     return {
       status: error.httpStatus,
-      body: { success: false, message: error.message, code: error.code },
+      body: { success: false, message: error.message, code: error.code, ...withRequestId },
     };
   }
-  logger.error({ err: error }, 'error no controlado');
+  logger.error({ err: error, requestId }, 'error no controlado');
   return {
     status: 500,
-    body: { success: false, message: 'Error interno del servidor', code: 'INTERNAL_ERROR' },
+    body: {
+      success: false,
+      message: 'Error interno del servidor',
+      code: 'INTERNAL_ERROR',
+      ...withRequestId,
+    },
   };
 }
 

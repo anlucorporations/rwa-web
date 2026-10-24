@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       created,
     });
   } catch (error) {
-    const { status, body } = toErrorResponse(error);
+    const { status, body } = toErrorResponse(error, request);
     return NextResponse.json(body, { status });
   }
 }
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
       data: issuer ? toIssuerDto(issuer) : null,
     });
   } catch (error) {
-    const { status, body } = toErrorResponse(error);
+    const { status, body } = toErrorResponse(error, request);
     return NextResponse.json(body, { status });
   }
 }

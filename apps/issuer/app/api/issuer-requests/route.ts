@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       count: data.length,
     });
   } catch (error) {
-    const { status, body } = toErrorResponse(error);
+    const { status, body } = toErrorResponse(error, request);
     return NextResponse.json(body, { status });
   }
 }

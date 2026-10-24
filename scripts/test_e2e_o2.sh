@@ -24,6 +24,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 export SIWE_SESSION_SECRET="test-e2e-o2-secret-0123456789abcdef0123456789abcdef"
+# Cloud SQL de desarrollo tiene pocas conexiones: 2 por app es suficiente para el E2E.
+export PG_POOL_MAX="${PG_POOL_MAX:-2}"
 export PATH="$HOME/.foundry/bin:$PATH"
 # shellcheck disable=SC1091
 source "$ROOT/scripts/gcp-env.sh" --tcp >/dev/null 2>&1

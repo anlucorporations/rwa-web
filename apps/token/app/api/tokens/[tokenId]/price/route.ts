@@ -54,7 +54,7 @@ export async function POST(
       data: { price },
     });
   } catch (error) {
-    const { status, body } = toErrorResponse(error);
+    const { status, body } = toErrorResponse(error, request);
     return NextResponse.json(body, { status });
   }
 }

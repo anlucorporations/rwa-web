@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       count: rows.length,
     });
   } catch (error) {
-    const { status, body } = toErrorResponse(error);
+    const { status, body } = toErrorResponse(error, request);
     return NextResponse.json(body, { status });
   }
 }

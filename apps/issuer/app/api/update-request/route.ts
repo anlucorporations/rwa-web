@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
       message: 'Request updated',
     });
   } catch (error) {
-    const { status, body } = toErrorResponse(error);
+    const { status, body } = toErrorResponse(error, request);
     return NextResponse.json(body, { status });
   }
 }

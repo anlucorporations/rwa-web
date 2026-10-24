@@ -18,9 +18,11 @@ export default defineConfig({
       include: [
         'src/claims/**/*.ts',
         'src/media/**/*.ts',
+        'src/security/**/*.ts',
         'src/validation/**/*.ts',
         'src/api/serializers.ts',
         'src/api/client.ts',
+        'src/api/http.ts',
       ],
       exclude: ['**/*.test.ts', 'src/contracts/**'],
       thresholds: {

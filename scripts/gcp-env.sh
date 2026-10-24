@@ -30,7 +30,7 @@ export PATH="$HOME/bin:$HOME/google-cloud-sdk/bin:$HOME/.foundry/bin:$PATH"
 export NEXT_PUBLIC_CHAIN_ID=31337
 export NEXT_PUBLIC_RPC_URL="${NEXT_PUBLIC_RPC_URL:-https://mcc-foundry-anvil-1095249147821.europe-west1.run.app}"
 export RPC_URL="$NEXT_PUBLIC_RPC_URL"
-export NEXT_PUBLIC_DEPLOYMENT_JSON="${NEXT_PUBLIC_DEPLOYMENT_JSON:-rwa-sc/sc/deployments/31337-20261010T162639Z.json}"
+export NEXT_PUBLIC_DEPLOYMENT_JSON="${NEXT_PUBLIC_DEPLOYMENT_JSON:-rwa-sc/sc/deployments/31337-20261023T185622Z.json}"
 
 # --- 2. PostgreSQL en GCP ----------------------------------------------------
 DBURL="$(timeout 60 gcloud secrets versions access latest --secret="$GCP_DB_SECRET" \

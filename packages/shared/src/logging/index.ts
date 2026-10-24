@@ -15,3 +15,17 @@ export const logger = pino({
 });
 
 export type Logger = typeof logger;
+
+/** Cabecera de correlación de peticiones (RF-W-16 / RT-W-10). */
+export const REQUEST_ID_HEADER = 'x-request-id';
+
+/**
+ * Interfaz mínima de una petición con cabeceras: la cumplen tanto el
+ * `Request`/`NextRequest` del servidor como la `Request` estándar web.
+ */
+export type RequestWithHeaders = { headers: { get(name: string): string | null } };
+
+/** Devuelve el `requestId` propagado por el middleware, si existe. */
+export function getRequestId(request: RequestWithHeaders): string | undefined {
+  return request.headers.get(REQUEST_ID_HEADER) ?? undefined;
+}

@@ -33,8 +33,8 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-function errorResponse(error: unknown): Response {
-  const { status, body } = toErrorResponse(error);
+function errorResponse(request: Request, error: unknown): Response {
+  const { status, body } = toErrorResponse(error, request);
   return json(body, status);
 }
 
@@ -54,7 +54,7 @@ export async function handleNonce(request: Request): Promise<Response> {
       },
     });
   } catch (error) {
-    return errorResponse(error);
+    return errorResponse(request, error);
   }
 }
 
@@ -79,7 +79,7 @@ export async function handleVerify(request: Request): Promise<Response> {
     );
     return response;
   } catch (error) {
-    return errorResponse(error);
+    return errorResponse(request, error);
   }
 }
 
@@ -89,7 +89,7 @@ export async function handleSession(request: Request): Promise<Response> {
     const identity = await requireSession(request);
     return json({ success: true, data: publicSession(identity) });
   } catch (error) {
-    return errorResponse(error);
+    return errorResponse(request, error);
   }
 }
 
@@ -106,6 +106,6 @@ export async function handleLogout(request: Request): Promise<Response> {
     response.headers.append('Set-Cookie', serializeClearCookie(requestOrigin(request).secure));
     return response;
   } catch (error) {
-    return errorResponse(error);
+    return errorResponse(request, error);
   }
 }

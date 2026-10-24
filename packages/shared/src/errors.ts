@@ -63,6 +63,13 @@ export class ForbiddenError extends AppError {
   }
 }
 
+/** Límite de tasa o cuota superado (429, RF-W-05 / HW-02). */
+export class RateLimitError extends AppError {
+  constructor(message = 'Límite de uso alcanzado') {
+    super('RATE_LIMITED', message, 429);
+  }
+}
+
 /** Dependencia caída: PostgreSQL o el RPC (503, RNF-W-04). */
 export class ServiceUnavailableError extends AppError {
   constructor(message: string, options?: { cause?: unknown }) {

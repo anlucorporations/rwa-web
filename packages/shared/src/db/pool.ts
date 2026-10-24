@@ -21,7 +21,9 @@ function createPool(): Pool {
   const { databaseUrl } = getServerConfig();
   const pool = new Pool({
     connectionString: databaseUrl,
-    max: Number(process.env.PG_POOL_MAX ?? 10),
+    // Cloud SQL de desarrollo tiene un `max_connections` bajo (25): 5 por app
+    // deja margen a las 3 apps + scripts. Ajustable con `PG_POOL_MAX`.
+    max: Number(process.env.PG_POOL_MAX ?? 5),
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
     application_name: 'rwa-web',

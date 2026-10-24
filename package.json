@@ -24,6 +24,7 @@
     "ci": "bash scripts/ci_local.sh",
     "a11y:o5": "node scripts/a11y_o5.mjs",
     "perf:o5": "node scripts/perf_budget_o5.mjs",
+    "headers:o5": "node scripts/headers_o5.mjs",
     "test:coverage": "pnpm --filter @rwa/shared test",
     "db:backup": "node scripts/backup_o5.mjs",
     "db:retention": "node scripts/retention_o5.mjs",
