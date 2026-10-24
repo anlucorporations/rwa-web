@@ -37,9 +37,9 @@ default:
 variables:
   PNPM_HOME: "$CI_PROJECT_DIR/.pnpm"
   NEXT_TELEMETRY_DISABLED: "1"
-  # H-05: SHA/tag de rwa-sc que valida `validate:abi-drift`. Fíjalo al commit
+  # H-05: SHA/tag de rwa-sc que valida `validate:abi-drift`. Fijado al commit
   # publicado (reproducibilidad); vacío = HEAD de la rama por defecto.
-  RWA_SC_REF: ""
+  RWA_SC_REF: "f946b1ea47bb0ffd8bb2cf771e072249c1793588"
 
 # --- Gates de integridad con los contratos -----------------------------------
 validate:network-literals:
