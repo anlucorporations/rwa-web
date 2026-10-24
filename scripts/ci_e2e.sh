@@ -17,6 +17,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 export PATH="$HOME/.foundry/bin:$PATH"
 
+# En hosts sin las librerías de Chromium en el sistema, el proyecto las tiene en
+# /home/dsh/tools/libs/usr/lib/x86_64-linux-gnu (ver entornos_globales.md).
+# En la imagen de CI de Playwright no hace falta; se puede sobreescribir con CHROMIUM_LIBS.
+CHROMIUM_LIBS="${CHROMIUM_LIBS:-/home/dsh/tools/libs/usr/lib/x86_64-linux-gnu}"
+if [ -d "$CHROMIUM_LIBS" ]; then
+  export LD_LIBRARY_PATH="$CHROMIUM_LIBS${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+
 MISSING=()
 for tool in node pnpm jq anvil forge cast; do
   command -v "$tool" >/dev/null 2>&1 || MISSING+=("$tool")

@@ -70,7 +70,11 @@ cp "$TMP/contracts/deployments.ts" packages/shared/src/contracts/deployments.ts
 
 export NEXT_PUBLIC_RPC_URL="$RPC"
 export NEXT_PUBLIC_CHAIN_ID=31337
-pnpm -r --workspace-concurrency=1 --if-present build
+if [ "${E2E_SKIP_BUILD:-0}" = "1" ]; then
+  echo "  (build omitido por E2E_SKIP_BUILD=1: se reutiliza el .next existente)"
+else
+  pnpm -r --workspace-concurrency=1 --if-present build
+fi
 
 echo "▶ 5/7 · Apps de producción en 4011/4012/4013 contra el Anvil temporal"
 node scripts/serve_o5.mjs

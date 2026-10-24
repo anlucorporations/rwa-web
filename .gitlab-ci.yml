@@ -141,4 +141,15 @@ e2e:claim-flow:
     - curl -L https://foundry.paradigm.xyz | bash
     - export PATH="$HOME/.foundry/bin:$PATH" && foundryup
   script:
+    - |
+      if [ -z "${RWA_SC_REPO_URL:-}" ]; then
+        echo "RWA_SC_REPO_URL no definida: el E2E necesita el repo rwa-sc." >&2
+        exit 1
+      fi
+    - git clone --depth 1 "$RWA_SC_REPO_URL" ../rwa-sc
+    - |
+      if [ -n "${RWA_SC_REF:-}" ]; then
+        git -C ../rwa-sc fetch --depth 1 origin "$RWA_SC_REF"
+        git -C ../rwa-sc checkout --detach FETCH_HEAD
+      fi
     - bash scripts/ci_e2e.sh

@@ -10,6 +10,28 @@ const SCRIPT_SRC =
     ? "script-src 'self' 'unsafe-inline'"
     : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
 
+/**
+ * Orígenes permitidos en `connect-src`: además de HTTPS/WSS, el RPC configurado
+ * (`NEXT_PUBLIC_RPC_URL`), para que el flujo on-chain funcione con Anvil local
+ * por HTTP (desarrollo y E2E). En desarrollo se permiten además los puertos
+ * locales habituales (H-12).
+ */
+function rpcConnectSources(): string {
+  const extra: string[] = [];
+  const rpc = process.env.NEXT_PUBLIC_RPC_URL;
+  if (rpc) {
+    try {
+      extra.push(new URL(rpc).origin);
+    } catch {
+      /* URL inválida: se ignora */
+    }
+  }
+  if (process.env.NODE_ENV !== "production") {
+    extra.push("http://localhost:*", "http://127.0.0.1:*");
+  }
+  return ["'self'", "https:", "wss:", ...extra].join(" ");
+}
+
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -19,7 +41,7 @@ const CONTENT_SECURITY_POLICY = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self' https: wss:",
+  `connect-src ${rpcConnectSources()}`,
   "form-action 'self'",
 ].join("; ");
 

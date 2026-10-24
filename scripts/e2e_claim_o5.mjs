@@ -149,6 +149,16 @@ async function newWalletPage(browser, account, url) {
   const page = await context.newPage();
   page.setDefaultTimeout(60_000);
 
+  // Diagnóstico opcional (E2E_DEBUG=1): consola del navegador, errores de página y
+  // peticiones fallidas. Útil para depurar cuelgues de recepción de transacciones.
+  if (process.env.E2E_DEBUG === '1') {
+    page.on('console', (m) => console.log(`  [browser:${m.type()}] ${m.text()}`));
+    page.on('pageerror', (e) => console.log(`  [pageerror] ${e.message}`));
+    page.on('requestfailed', (r) =>
+      console.log(`  [reqfailed] ${r.method()} ${r.url()} → ${r.failure()?.errorText}`),
+    );
+  }
+
   await page.goto(url, { waitUntil: 'domcontentloaded' });
   return { context, page };
 }
