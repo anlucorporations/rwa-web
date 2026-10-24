@@ -10,7 +10,8 @@
 # El gate `check-abi-drift` necesita el repo `rwa-sc` (fuente de sc/abis y
 # deployments). Se clona con `RWA_SC_REPO_URL` (variable de CI, con token de
 # lectura); si no está definida, el job lo indica y falla de forma explícita,
-# salvo que se marque como manual.
+# salvo que se marque como manual. `RWA_SC_REF` fija el SHA/tag de rwa-sc que se
+# valida (recomendado: el commit publicado); vacío = HEAD de la rama por defecto.
 # =============================================================================
 
 stages:
@@ -35,6 +36,9 @@ default:
 variables:
   PNPM_HOME: "$CI_PROJECT_DIR/.pnpm"
   NEXT_TELEMETRY_DISABLED: "1"
+  # H-05: SHA/tag de rwa-sc que valida `validate:abi-drift`. Fíjalo al commit
+  # publicado (reproducibilidad); vacío = HEAD de la rama por defecto.
+  RWA_SC_REF: ""
 
 # --- Gates de integridad con los contratos -----------------------------------
 validate:network-literals:
@@ -53,6 +57,14 @@ validate:abi-drift:
         exit 1
       fi
     - git clone --depth 1 "$RWA_SC_REPO_URL" ../rwa-sc
+    - |
+      if [ -n "${RWA_SC_REF:-}" ]; then
+        echo "Fijando rwa-sc a $RWA_SC_REF"
+        git -C ../rwa-sc fetch --depth 1 origin "$RWA_SC_REF"
+        git -C ../rwa-sc checkout --detach FETCH_HEAD
+      else
+        echo "RWA_SC_REF no definida: se usa HEAD de la rama por defecto (no reproducible)"
+      fi
     - bash scripts/check-contract-drift.sh
     # H-04: el espejo de artefactos de datos (D-102) también se protege en CI
     - bash RepoTecnico/check_sincronizacion_datos.sh --check

@@ -23,6 +23,12 @@ OUT="${1:-$ROOT/packages/shared/src/contracts}"
 SC_ABIS="$ROOT/../rwa-sc/sc/abis"
 SC_DEPLOYMENTS="$ROOT/../rwa-sc/sc/deployments"
 
+# Preflight H-09: dependencia explícita de jq (generación determinista de JSON→TS)
+command -v jq >/dev/null 2>&1 || {
+  echo "✗ sync-contracts: se requiere 'jq' y no está en PATH (instálalo o usa la imagen de CI)" >&2
+  exit 1
+}
+
 [ -d "$SC_ABIS" ] || { echo "✗ No existe $SC_ABIS" >&2; exit 1; }
 [ -d "$SC_DEPLOYMENTS" ] || { echo "✗ No existe $SC_DEPLOYMENTS" >&2; exit 1; }
 
