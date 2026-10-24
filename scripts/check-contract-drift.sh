@@ -32,7 +32,13 @@ if ! grep -qF "$DEP_ARTIFACT" "$ROOT/.env.example"; then
   echo "✗ check-contract-drift: .env.example no referencia el artefacto canónico $DEP_ARTIFACT (H-01/H-03)" >&2
   exit 1
 fi
-echo "✓ check-contract-drift: artefacto de despliegue versionado y referenciado ($DEP_ARTIFACT)"
+# --- Gate documental H-03: la doc viva de @sc debe citar el artefacto canónico ----
+SC_DOC="$ROOT/../rwa-sc/RepoTecnico/entornos_globales.md"
+if [ -f "$SC_DOC" ] && ! grep -qF "$DEP_ARTIFACT" "$SC_DOC"; then
+  echo "✗ check-contract-drift: rwa-sc/RepoTecnico/entornos_globales.md no cita el artefacto canónico $DEP_ARTIFACT (H-03)" >&2
+  exit 1
+fi
+echo "✓ check-contract-drift: artefacto de despliegue versionado, referenciado y documentado ($DEP_ARTIFACT)"
 
 if ! "$ROOT/scripts/sync-contracts.sh" "$TMP/contracts" >/dev/null 2>&1; then
   echo "✗ check-contract-drift: fallo la generación" >&2
