@@ -16,6 +16,24 @@ COMMITTED="$ROOT/packages/shared/src/contracts"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
+# --- Preflight H-01: el artefacto de despliegue debe estar VERSIONADO en rwa-sc ----
+SC_DEPLOYMENTS="$ROOT/../rwa-sc/sc/deployments"
+DEP_ARTIFACT="$(ls "$SC_DEPLOYMENTS"/*.json 2>/dev/null | sort | tail -1 | xargs -r basename)"
+if [ -z "$DEP_ARTIFACT" ]; then
+  echo "✗ check-contract-drift: no hay artefactos de despliegue en rwa-sc" >&2
+  exit 1
+fi
+if ! git -C "$ROOT/../rwa-sc" ls-files --error-unmatch "sc/deployments/$DEP_ARTIFACT" >/dev/null 2>&1; then
+  echo "✗ check-contract-drift: el artefacto de despliegue $DEP_ARTIFACT NO está versionado en rwa-sc (H-01)" >&2
+  echo "  Versiona el artefacto en rwa-sc antes de consumirlo desde @web." >&2
+  exit 1
+fi
+if ! grep -qF "$DEP_ARTIFACT" "$ROOT/.env.example"; then
+  echo "✗ check-contract-drift: .env.example no referencia el artefacto canónico $DEP_ARTIFACT (H-01/H-03)" >&2
+  exit 1
+fi
+echo "✓ check-contract-drift: artefacto de despliegue versionado y referenciado ($DEP_ARTIFACT)"
+
 if ! "$ROOT/scripts/sync-contracts.sh" "$TMP/contracts" >/dev/null 2>&1; then
   echo "✗ check-contract-drift: fallo la generación" >&2
   exit 1
