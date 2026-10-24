@@ -227,4 +227,18 @@ E2E completo. O5.1/O5.2 solo quedan pendientes de un host con Docker (validació
 
 ---
 
+## 7. Componente off-chain añadido (2026-10-24): `@rwa/indexer` (H-12/H-21)
+
+La nueva etapa técnica de `@sc` entrega el **indexer off-chain** en este monorepo
+(`apps/indexer`, paquete `@rwa/indexer`):
+
+- Tablas `rwa.chain_events` e `rwa.indexer_state` (base_datos **v1.2 §4b**, espejo sincronizado).
+- Catálogo de eventos generado desde las ABIs canónicas; `eth_getLogs` por chunks; decodificación por
+  `topic0` (incluye clones dinámicos); persistencia idempotente y clasificación de riesgo.
+- 14 tests unitarios + drill de integración (`scripts/indexer_drill.sh`): 26 eventos, idempotente;
+  dry-run contra el Anvil canónico: 235 eventos.
+- Evidencia: `RepoTecnico/pruebas/h12_indexer.md`; operación: `apps/indexer/README.md`.
+
+---
+
 *Fin del documento — estado_proyecto.md (etapa `@web`) v2.0*

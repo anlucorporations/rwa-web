@@ -32,7 +32,11 @@
     "a11y:browser:o5": "node scripts/a11y_browser_o5.mjs",
     "docker:validate:o5": "node scripts/docker_validate_o5.mjs",
     "e2e:claim:o5": "node scripts/e2e_claim_o5.mjs",
-    "e2e:local:o5": "bash scripts/e2e_local_o5.sh"
+    "e2e:local:o5": "bash scripts/e2e_local_o5.sh",
+    "indexer": "pnpm --filter @rwa/indexer start",
+    "indexer:once": "pnpm --filter @rwa/indexer index:once",
+    "indexer:init": "pnpm --filter @rwa/indexer start -- --init",
+    "indexer:test": "pnpm --filter @rwa/indexer test"
   },
   "devDependencies": {
     "ajv": "^8.20.0",

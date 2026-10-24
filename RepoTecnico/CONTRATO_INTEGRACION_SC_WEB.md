@@ -14,6 +14,7 @@
 | Direcciones / despliegue | `rwa-sc/sc/deployments/<chainId>-<timestamp>.json` (el más reciente) | Generado en `packages/shared/src/contracts/deployments.ts` y `.env.example` |
 | Modelo de datos | `rwa-sc/RepoTecnico/{base_datos.sql,diccionario_datos.md,diagrama_er.md}` (canónico) | Espejo byte a byte en `rwa-web/RepoTecnico/` |
 | Esquema off-chain | `rwa-sc/RepoTecnico/base_datos.sql` | PostgreSQL (Cloud SQL, esquema `rwa`) |
+| Catálogo de eventos on-chain | `rwa-sc/sc/abis/*.json` | `apps/indexer` (`@rwa/indexer`) decodifica por `topic0` y persiste en `rwa.chain_events` (H-12/H-21) |
 
 **Regla de oro:** `@web` **nunca** escribe ABIs ni direcciones a mano. Se regeneran con `scripts/sync-contracts.sh` y el gate `check-contract-drift.sh` falla si hay deriva.
 
@@ -51,6 +52,7 @@ Los ficheros generados llevan cabecera `NO EDITAR`; el commit debe incluir **a l
 | Deriva ABI/direcciones + despliegue versionado + doc | `scripts/check-contract-drift.sh` | exit 0 contra `RWA_SC_REF` | CI (`validate:abi-drift`) · `ci_local` 2/8 |
 | Espejo de datos (D-102) | `RepoTecnico/check_sincronizacion_datos.sh --check` | 3/3 idénticos | CI (`validate:abi-drift`) · `ci_local` 3/8 |
 | Typecheck / lint / test | `pnpm -r … typecheck|lint|test` | exit 0 | CI (`quality:*`) · `ci_local` 4–5, 8 |
+| Indexer de eventos | `pnpm --filter @rwa/indexer test` · `scripts/indexer_drill.sh` | tests en verde · drill 26 eventos idempotente | CI (`quality:test`, unitarios) · local (`RUN_INDEXER_DRILL=1`) |
 | E2E contrato↔interfaz | `scripts/ci_e2e.sh` | claim-flow en verde | CI (`e2e:claim-flow`, manual/nocturno) |
 
 ## 6. Propiedad y roles

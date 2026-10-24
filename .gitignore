@@ -44,3 +44,7 @@ backups/
 
 # Cobertura de tests (generada)
 coverage/
+
+# Artefactos de TypeScript (tsc --incremental)
+*.tsbuildinfo
+

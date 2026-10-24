@@ -1,0 +1,25 @@
+{
+  "name": "@rwa/indexer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Indexer off-chain de eventos on-chain (H-12/H-21, RNF-401..404).",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "index:once": "tsx src/main.ts --once",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@rwa/shared": "workspace:*",
+    "pg": "^8.13.0",
+    "viem": "^2.57.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5",
+    "vitest": "^2.1.0"
+  }
+}

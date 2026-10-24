@@ -41,13 +41,13 @@ rwa-web/RepoTecnico/check_sincronizacion_datos.sh --sync --from web
 rwa-web/RepoTecnico/check_sincronizacion_datos.sh --hashes
 ```
 
-## ✅ Estado verificado (última sincronización: commit `84bd35a`)
+## ✅ Estado verificado (última sincronización: 2026-10-24, indexer H-12/H-21)
 
 | Artefacto | Versión | sha256 (idéntico en ambos lados) |
 |---|---|---|
-| `base_datos.sql` | v1.0 | `732ec81ce52589e4af5db3e85a5c6dab292c84d0fdabf52cc4e405b67785614f` |
-| `diccionario_datos.md` | v1.2 (catálogo canónico H-13) | `bc998d6b43d9622b56b33af1dc7a56b9e9b1cf8b802f8bc699783e75f7d5d584` |
-| `diagrama_er.md` | v1.2 | `32e71fc2dc46afc20c00fd49cc516ec17f90e9e0c6d42aca14020d3ea7f08990` |
+| `base_datos.sql` | v1.2 | `835a9dac829bae4f09e5f15d04b96014e325e0b464f059c885506e9906082f8e` |
+| `diccionario_datos.md` | v1.4 | `4cc5c3ac6a2dcebdfc3e742e903f2f9693ebb1a147da95d07d96caddb8989f04` |
+| `diagrama_er.md` | v1.4 | `7a583661b508a9a4a9fddef0094e8dbe71c6ab5b68937c9a513b9f1461d084c9` |
 
 > Los hashes cambian en cada actualización de datos; regéneralos con `check_sincronizacion_datos.sh --hashes`.
 > Verificación reproducible: `rwa-web/RepoTecnico/check_sincronizacion_datos.sh --check` → 3× `✓ … sincronizados`, exit `0`.

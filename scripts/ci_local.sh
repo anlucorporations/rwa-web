@@ -59,4 +59,9 @@ fi
 step "8/8 · Tests"
 pnpm -r --workspace-concurrency=1 --if-present test
 
+if [ "${RUN_INDEXER_DRILL:-0}" = "1" ]; then
+  step "8b/8 · Drill indexer off-chain (opt-in; requiere psql + DATABASE_URL)"
+  bash scripts/indexer_drill.sh
+fi
+
 printf '\n\033[1;32m✓ CI local en verde\033[0m\n'
