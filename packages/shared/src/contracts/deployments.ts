@@ -1,41 +1,44 @@
 /**
- * GENERADO por scripts/sync-contracts.sh desde rwa-sc/sc/deployments/31337-20261010T162639Z.json — NO EDITAR.
+ * GENERADO por scripts/sync-contracts.sh desde rwa-sc/sc/deployments/31337-20261023T185622Z.json — NO EDITAR.
  *
  * Fuente de verdad de direcciones (RF-W-09): no se escriben literales a mano en el código.
  */
 
 export const DEPLOYMENT_METADATA = {
-  artifact: '31337-20261010T162639Z.json',
+  artifact: '31337-20261023T185622Z.json',
   chainId: 31337,
-  block: 524,
-  timestamp: 1791649539,
+  block: 549,
+  timestamp: 1792207197,
 } as const;
 
 /** Direcciones de los contratos del despliegue canónico. */
 export const CONTRACT_ADDRESSES = {
-  ClaimTopicsRegistry: "0xafAC6756b04A92C5C4a68cE3882b99531995eBBA",
-  ClaimTopicsRegistryCloneFactory: "0xD2D5e508C82EFc205cAFA4Ad969a4395Babce026",
-  ComplianceAggregator: "0x2b639Cc84e1Ad3aA92D4Ee7d2755A6ABEf300D72",
-  Identity: "0x47d480c84C1223D914D99872a2738bDE05F191e5",
-  IdentityCloneFactory: "0x73C68f1f41e4890D06Ba3e71b9E9DfA555f1fb46",
-  IdentityRegistry: "0xF5b81Fe0B6F378f9E6A3fb6A6cD1921FCeA11799",
-  Token: "0x382F74873b3798BEca33Cf69623d0CF35dE0f369",
-  TokenCloneFactory: "0x6533158b042775e2FdFeF3cA1a782EFDbB8EB9b1",
-  TrustedIssuersRegistry: "0x67baFF31318638F497f4c4894Cd73918563942c8",
+  ClaimTopicsRegistry: "0x6f25545058AE90D2A2168B1e62C37063013d290E",
+  ClaimTopicsRegistryCloneFactory: "0x22b1c5C2C9251622f7eFb76E356104E5aF0e996A",
+  ComplianceAggregator: "0x5A569Ad19272Afa97103fD4DbadF33B2FcbaA175",
+  Identity: "0x9B2B010a6F61Ea07eB102DaDB2C07A10d09b881b",
+  IdentityCloneFactory: "0xF45B1CdbA9AACE2e9bbE80bf376CE816bb7E73FB",
+  IdentityRegistry: "0xA3f7BF5b0fa93176c260BBa57ceE85525De2BaF4",
+  Token: "0x7d5dC0378b776A63D479869d22711df1b20672c9",
+  TokenCloneFactory: "0xD855cE0C298537ad5b5b96060Cf90e663696bbf6",
+  TrustedIssuersRegistry: "0x25A1DF485cFBb93117f12fc673D87D1cddEb845a",
 } as const;
 
 /** Token de demostración desplegado por DeployFullStack (registries y compliance ya configurados). */
 export const DEMO_TOKEN = {
-  address: "0x382F74873b3798BEca33Cf69623d0CF35dE0f369",
-  claimTopicsRegistry: "0xafAC6756b04A92C5C4a68cE3882b99531995eBBA",
-  complianceAggregator: "0x2b639Cc84e1Ad3aA92D4Ee7d2755A6ABEf300D72",
-  complianceModule: "0xB468647B04bF657C9ee2de65252037d781eABafD",
+  address: "0x7d5dC0378b776A63D479869d22711df1b20672c9",
+  authorizedDestination: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  claimTopicsRegistry: "0x6f25545058AE90D2A2168B1e62C37063013d290E",
+  complianceAggregator: "0x5A569Ad19272Afa97103fD4DbadF33B2FcbaA175",
+  complianceModule: "0x5c932424AcBfab036969b3B9D94bA9eCbae7565D",
   complianceModuleCount: 1,
   decimals: 18,
-  identityRegistry: "0xF5b81Fe0B6F378f9E6A3fb6A6cD1921FCeA11799",
+  identityRegistry: "0xA3f7BF5b0fa93176c260BBa57ceE85525De2BaF4",
+  maxBurnPerTx: 1000000000000000000000000,
+  maxForcedPerTx: 1000000000000000000000000,
   name: "RWA Demo Token",
   symbol: "RWAD",
-  trustedIssuersRegistry: "0x67baFF31318638F497f4c4894Cd73918563942c8",
+  trustedIssuersRegistry: "0x25A1DF485cFBb93117f12fc673D87D1cddEb845a",
 } as const;
 
 export type ContractName = keyof typeof CONTRACT_ADDRESSES;
