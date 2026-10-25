@@ -82,6 +82,7 @@ líneas de desarrollo con sus propios archivos.
 | Documento | Contenido |
 |-----------|-----------|
 | [RepoTecnico/INFORME_OPTIMIZACION_WEB_V1.md](RepoTecnico/INFORME_OPTIMIZACION_WEB_V1.md) | Auditoría del frontend: 16 hallazgos y criterios de cierre |
+| [RepoTecnico/INFORME_EVALUACION_GUIAS_ESTUDIANTE_V1.md](RepoTecnico/INFORME_EVALUACION_GUIAS_ESTUDIANTE_V1.md) | Evaluación del proyecto frente a las guías estudiantiles (122 criterios, porcentajes por guía) — **espejo** del canónico en `rwa-sc/` |
 | [RepoTecnico/requerimientos_web.md](RepoTecnico/requerimientos_web.md) | RF-W / RNF-W / RT-W y modelo PostgreSQL |
 | [RepoTecnico/plan_desarrollo_web.md](RepoTecnico/plan_desarrollo_web.md) | Ciclos O0…O5 con tareas, gates y DoD |
 | [RepoTecnico/pruebas/verificacion_gcp_o0.md](RepoTecnico/pruebas/verificacion_gcp_o0.md) | Acta de verificación de GCP (Anvil + Cloud SQL) |
