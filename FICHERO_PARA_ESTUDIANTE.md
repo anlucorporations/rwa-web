@@ -2,6 +2,12 @@
 
 **Para Estudiantes y Desarrolladores**
 
+> 🔄 **Actualizada (2026-10-28):** esta guía ya refleja el estado real del monorepo:
+> **PostgreSQL** (esquema `rwa`) sustituye a MongoDB/GridFS (D-095/D-093), **wagmi + viem**
+> sustituye a ethers.js, las apps son `apps/identity|issuer|token` + `apps/indexer`, el claim
+> on-chain se firma con **EIP-712** y hay **SIWE** para sesiones. Las ABIs citadas se alinean
+> con `../rwa-sc/CHANGELOG_ABIS.md`. El marketplace se marca explícitamente como **legacy**.
+
 ---
 
 ## 📖 Índice
@@ -10,11 +16,11 @@
 2. [Arquitectura del Sistema](#arquitectura-del-sistema)
 3. [Configuración e Instalación](#configuración-e-instalación)
 4. [Aplicación 1: Identity (Puerto 4001)](#aplicación-1-identity)
-5. [Aplicación 2: Registry Trusted (Puerto 4002)](#aplicación-2-registry-trusted)
+5. [Aplicación 2: Issuer (Puerto 4002)](#aplicación-2-registry-trusted)
 6. [Aplicación 3: Token Factory & Marketplace (Puerto 4003)](#aplicación-3-token-factory)
 7. [Flujo Completo de Uso](#flujo-completo-de-uso)
 8. [Smart Contracts](#smart-contracts)
-9. [Base de Datos MongoDB](#base-de-datos-mongodb)
+9. [Base de Datos PostgreSQL](#base-de-datos-postgresql)
 10. [Sistema de Firmas Digitales](#sistema-de-firmas-digitales)
 11. [Troubleshooting](#troubleshooting)
 
@@ -47,32 +53,35 @@ Esta plataforma permite:
 ### Estructura de las Aplicaciones
 
 ```
-RWA Platform
+rwa-web (monorepo pnpm)
 │
-├── web-identity (Puerto 4001)
+├── apps/identity (Puerto 4001)
 │   ├── Crear identidad on-chain
 │   ├── Solicitar claims a issuers
-│   └── Cargar claims aprobados al contrato
+│   └── Cargar claims aprobados al contrato (addClaim)
 │
-├── web-registry-trusted (Puerto 4002)
+├── apps/issuer (Puerto 4002)
 │   ├── Ver issuers de confianza
 │   ├── Aprobar/Rechazar claim requests
-│   └── Firmar digitalmente las decisiones
+│   └── Firmar el claim (EIP-712) y cargarlo on-chain
 │
-└── web-token (Puerto 4003)
-    ├── Crear tokens RWA con factory
-    ├── Gestionar compliance modules
-    ├── Establecer precios
-    └── Marketplace para comprar/transferir
+├── apps/token (Puerto 4003)
+│   ├── Crear tokens RWA con factory (EIP-1167)
+│   ├── Gestionar compliance modules y required claims
+│   ├── Establecer precios ⚠️ (módulo legacy)
+│   └── Marketplace para comprar/transferir ⚠️ (compra legacy)
+│
+└── apps/indexer (CLI)
+    └── Copia eventos on-chain a PostgreSQL (rwa.chain_events)
 ```
 
 ### Stack Tecnológico
 
-- **Frontend:** Next.js 16, React, TypeScript, TailwindCSS
-- **Blockchain:** Ethereum (Anvil local), ethers.js v6
-- **Base de Datos:** MongoDB (nativo, sin Mongoose)
-- **Storage:** GridFS para documentos
-- **Wallets:** MetaMask
+- **Frontend:** Next.js 16 + React 19, TypeScript, TailwindCSS (App Router)
+- **Blockchain:** Ethereum (Anvil local / Anvil en GCP), **wagmi + viem** (sin ethers)
+- **Base de Datos:** PostgreSQL 16, esquema `rwa` (D-095)
+- **Storage:** documentos cifrados AES-256-GCM en `rwa.document_files` (`bytea`, D-093; sin GridFS)
+- **Auth:** SIWE (EIP-4361) · **Wallets:** MetaMask y otras vía conector inyectado wagmi
 
 ---
 
@@ -81,11 +90,12 @@ RWA Platform
 ### Requisitos Previos
 
 ```bash
-# Node.js v18+
+# Node.js v20+ y pnpm v9+
 node --version
+pnpm --version
 
-# MongoDB
-mongod --version
+# Docker (para PostgreSQL)
+docker --version
 
 # Anvil (Foundry)
 anvil --version
@@ -94,16 +104,14 @@ anvil --version
 ### Instalación
 
 ```bash
-# 1. Clonar/navegar al proyecto
-cd "57_RWA_WEB"
+# 1. Navegar a la raíz del monorepo pnpm
+cd rwa-web
 
-# 2. Instalar dependencias en cada app
-cd web-identity && npm install
-cd ../web-registry-trusted && npm install
-cd ../web-token && npm install
+# 2. Instalar dependencias del monorepo completo (una sola vez)
+pnpm install
 
-# 3. Iniciar MongoDB (en otra terminal)
-mongod
+# 3. Iniciar PostgreSQL (docker-compose del monorepo, esquema `rwa`)
+docker compose up -d
 
 # 4. Iniciar Anvil (en otra terminal)
 anvil
@@ -117,9 +125,9 @@ cd ..
 
 | Aplicación | Puerto | URL |
 |------------|--------|-----|
-| **web-identity** | 4001 | http://localhost:4001 |
-| **web-registry-trusted** | 4002 | http://localhost:4002 |
-| **web-token** | 4003 | http://localhost:4003 |
+| **apps/identity** | 4001 | http://localhost:4001 |
+| **apps/issuer** | 4002 | http://localhost:4002 |
+| **apps/token** | 4003 | http://localhost:4003 |
 
 ### Scripts de Gestión
 
@@ -147,13 +155,14 @@ Gestionar identidades digitales y solicitar claims (certificaciones) a issuers v
 #### 1. Crear Identidad
 
 ```
-1. Conectar MetaMask
-2. Click "Deploy Identity Contract"
+1. Conectar wallet (MetaMask vía wagmi)
+2. Click "Crear identidad"
 3. Firmar transacción
-4. ✅ Identidad creada on-chain
+4. ✅ Identidad creada y registrada on-chain
 ```
 
-**Resultado:** Contrato de identidad desplegado con tu address como owner.
+**Resultado:** tu wallet queda asociada a su contrato de identidad mediante
+`IdentityRegistry.registerIdentity(wallet, identity)`.
 
 #### 2. Solicitar Claim a un Issuer
 
@@ -165,7 +174,7 @@ Gestionar identidades digitales y solicitar claims (certificaciones) a issuers v
 5. Adjuntar documento (opcional)
 6. Sistema firma digitalmente (requester + fecha)
 7. Click "Submit Request"
-8. ✅ Request guardado en MongoDB
+8. ✅ Request guardado en PostgreSQL (tabla `rwa.claim_requests`)
 ```
 
 **Datos guardados:**
@@ -173,7 +182,7 @@ Gestionar identidades digitales y solicitar claims (certificaciones) a issuers v
 - Issuer address
 - Claim topic
 - Mensaje
-- Documento (GridFS)
+- Documento (cifrado AES-256-GCM en `rwa.document_files`)
 - Firma digital del requester
 
 #### 3. Ver Mis Requests
@@ -190,11 +199,14 @@ Lista de requests con estados:
 ```
 1. Request aprobado aparece con botón verde
 2. Click "⬆️ Add Claim to Identity Contract"
-3. Sistema llama a identity.addClaim() con:
+3. Sistema llama a identity.addClaim() con (7 argumentos):
    - Claim topic
+   - Scheme (1 = ECDSA / EIP-712)
    - Issuer address
-   - Signature del issuer
+   - Signature EIP-712 del issuer
    - Data (mensaje, fecha, etc.)
+   - URI
+   - expiresAt (0 = sin caducidad)
 4. ✅ Claim cargado on-chain
 5. Aparece en "Account Status"
 ```
@@ -307,7 +319,7 @@ Crear tokens RWA con compliance y gestionar un marketplace para compra/transfere
 4. Click "Create Token"
 5. MetaMask firma transacción
 6. ✅ Token creado con EIP-1167 (clone pattern)
-7. ✅ Guardado en MongoDB
+7. ✅ Guardado en PostgreSQL (tabla `rwa.tokens`)
 ```
 
 **Gas Savings:** ~98.3% menos gas usando clones vs deployment completo
@@ -321,7 +333,7 @@ Crear tokens RWA con compliance y gestionar un marketplace para compra/transfere
 3. Prompt: Pegar dirección del módulo
 4. MetaMask firma
 5. Blockchain: addComplianceModule(0x...)
-6. MongoDB: Añade a array complianceModules
+6. PostgreSQL: guarda en `rwa.tokens.compliance_modules`
 7. ✅ Módulo añadido
 ```
 
@@ -350,7 +362,12 @@ Required Claims for Investment (3):
 Click [✕] en badge → Remueve de UI (puede seguir on-chain)
 ```
 
-#### 4. Establecer Precio
+#### 4. Establecer Precio — ⚠️ Módulo LEGACY
+
+> ❗ El precio del marketplace usa un ABI legacy (`pricePerToken`/`setPrice`, declarado a mano
+> en `apps/token/lib/contracts/market.ts`) que el `TokenCloneable` actual **no expone**.
+> Es material de demostración de UI; el flujo operativo hoy es la transferencia directa
+> sujeta a compliance.
 
 ```
 1. Token card → "Price per Token: Not set"
@@ -358,8 +375,8 @@ Click [✕] en badge → Remueve de UI (puede seguir on-chain)
 3. Input aparece: [0.5] ETH
 4. Cambiar valor
 5. Click [💾 Save]
-6. MongoDB actualizado
-7. ✅ Precio visible en Marketplace
+6. PostgreSQL actualizado (rwa.tokens.price)
+7. ✅ Precio visible en Marketplace (solo UI)
 ```
 
 #### 5. Marketplace - Comprar Tokens
@@ -370,7 +387,9 @@ Factory → Click [🏪 Marketplace]
 O visitar: http://localhost:4003/marketplace
 ```
 
-**Comprar Token:**
+**Comprar Token:** ⚠️ LEGACY — `buyToken` no existe en el `TokenCloneable` actual
+(`apps/token/lib/contracts/market.ts`); la compra no es operativa.
+
 ```
 1. Conectar wallet (si no está)
 2. Buscar token con precio
@@ -518,7 +537,11 @@ Admin: Token Creator (0xf39Fd...)
 6. ✅ Precio: 0.5 ETH
 ```
 
-#### Paso 6: Investor Compra Token (Marketplace)
+#### Paso 6: Investor Compra Token (Marketplace) — ⚠️ LEGACY
+
+> Step pendiente de alinear: la compra usa el ABI legacy de `market.ts` que el contrato
+> actual no expone. Hoy el flujo verificado termina en transferencias directas sujetas a
+> compliance (ver `RepoTecnico/INFORME_EVALUACION_GUIAS_ESTUDIANTE_V1.md`).
 
 ```
 Usuario: Investor (0x70997...) - Con claims cargados
@@ -554,43 +577,47 @@ Usuario: Investor (0x70997...) - Con claims cargados
 
 **Funciones principales:**
 ```solidity
-// Desplegar identidad para un usuario
-function deployIdentity(address _user) external returns (address);
+// Registrar el wallet con su contrato de identidad
+function registerIdentity(address wallet, address identity) external;
 
 // Obtener identidad de un usuario
-function identity(address _user) external view returns (address);
+function getIdentity(address wallet) external view returns (address);
+
+// ¿Está registrado?
+function isRegistered(address wallet) external view returns (bool);
 ```
 
 ### Trusted Issuers Registry
 
 **Funciones principales:**
 ```solidity
-// Ver issuers de confianza
-function getTrustedIssuers() external view returns (address[]);
+// Añadir issuer de confianza con sus topics
+function addTrustedIssuer(address _issuer, uint256[] memory _claimTopics) external;
 
 // Verificar si es issuer
 function isTrustedIssuer(address _issuer) external view returns (bool);
 
 // Ver claim topics que puede emitir un issuer
-function getTrustedIssuerClaimTopics(address _issuer) external view returns (uint256[]);
+function getIssuerClaimTopics(address _issuer) external view returns (uint256[] memory);
 ```
 
 ### Identity Contract (Individual)
 
 **Funciones principales:**
 ```solidity
-// Añadir claim
+// Añadir claim (7 argumentos; el issuer firmó EIP-712)
 function addClaim(
     uint256 _topic,
     uint256 _scheme,
     address _issuer,
-    bytes _signature,
-    bytes _data,
-    string _uri
-) external returns (bytes32);
+    bytes memory _signature,
+    bytes memory _data,
+    string memory _uri,
+    uint256 _expiresAt
+) external;
 
-// Verificar claim
-function getClaim(bytes32 _claimId) external view returns (...);
+// Verificar claim (por topic + issuer, no por claimId)
+function getClaim(uint256 _topic, address _issuer) external view returns (...);
 
 // Obtener issuers para un topic
 function getClaimIssuersForTopic(uint256 _topic) external view returns (address[]);
@@ -598,141 +625,98 @@ function getClaimIssuersForTopic(uint256 _topic) external view returns (address[
 
 ### Token Clone Factory
 
-**Address:** (ver DEPLOYMENT_INFO.md)
+**Address:** (fuente canónica de ABIs: `../rwa-sc/CHANGELOG_ABIS.md`)
 
 **Funciones principales:**
 ```solidity
-// Crear token clone (gas efficient)
-function createToken(
-    string name_,
-    string symbol_,
-    uint8 decimals_,
-    address admin
-) external returns (address token);
-
-// Ver total de tokens
-function getTotalTokens() external view returns (uint256);
-
-// Ver tokens de un admin
-function getTokensByAdmin(address admin) external view returns (address[]);
+// Crear token clone (gas efficient; ver createToken / createTokenWithRegistries
+// y la firma exacta vigente en ../rwa-sc/CHANGELOG_ABIS.md)
+function createToken(...) external returns (address token);
 ```
 
 ### Token Cloneable (Individual)
 
 **Funciones principales:**
 ```solidity
-// Añadir módulo de compliance
+// Añadir módulo de compliance (COMPLIANCE_ROLE)
 function addComplianceModule(address _module) external;
 
-// Transferir tokens
+// Transferir tokens (sujeta a compliance y verificación de identidad)
 function transfer(address to, uint256 amount) external returns (bool);
 
 // Acuñar tokens (AGENT_ROLE)
 function mint(address to, uint256 amount) external;
 
-// Ver compliance actual
-function compliance() external view returns (address);
+// ¿Pasa este usuario los required claims del token?
+function isVerified(address account) external view returns (bool);
+
+// ¿Cumple esta transferencia todas las reglas de compliance?
+function canTransfer(address from, address to, uint256 amount) external view returns (bool);
+
+// Pausar el token (administración vía GovernanceMultisig con timelock)
+function pause() external;
 ```
 
 ---
 
-## 💾 Base de Datos MongoDB
+## 💾 Base de Datos PostgreSQL
 
-### Database: `rwa`
+Esquema `rwa` (D-095). El DDL canónico y su espejo viven en `RepoTecnico/base_datos.sql`
+(regla D-102: byte a byte con `rwa-sc`). Resumen de las tablas principales:
 
-#### Colección: `claim_requests`
+#### Tabla: `rwa.claim_requests`
 
-```javascript
-{
-  _id: ObjectId("..."),
-  requesterAddress: "0xf39Fd6...",
-  issuerAddress: "0x3C44cF...",
-  claimTopic: 1,  // 1=KYC, 7=Accreditation, 9=Jurisdiction
-  message: "I need KYC verification...",
-  
-  // Documento adjunto (GridFS)
-  documentFileId: ObjectId("..."),
-  documentName: "passport.pdf",
-  documentContentType: "application/pdf",
-  documentSize: 524288,
-  
-  // Firma digital del requester
-  signedMessage: "0xf39Fd6...2266-2024-11-11T10:30:00",
-  signature: "0xabc123def456...",
-  
-  // Estado y revisión
-  status: "approved",  // pending | approved | rejected
-  reviewedAt: ISODate("..."),
-  reviewNote: "KYC verified successfully",
-  
-  // Firma digital del issuer
-  issuerSignedMessage: "Request:abc123|Issuer:0x3C44|Decision:approved...",
-  issuerSignature: "0xdef456abc789...",
-  
-  createdAt: ISODate("..."),
-  updatedAt: ISODate("...")
-}
+```sql
+-- Columnas principales (DDL completo en base_datos.sql)
+id
+requester_address
+issuer_address
+claim_topic        -- 1=KYC, 7=Accreditation, 9=Jurisdiction
+message
+document_file_id   -- FK a rwa.document_files (sustituye a GridFS)
+signed_message     -- firma EIP-191 del requester
+signature
+status             -- pending | approved | rejected
+reviewed_at / review_note
+issuer_signed_message / issuer_signature
+created_at / updated_at
 ```
 
-#### Colección: `tokens`
+#### Tabla: `rwa.tokens`
 
-```javascript
-{
-  _id: ObjectId("..."),
-  name: "Real Estate Token",
-  symbol: "RET",
-  decimals: 18,
-  
-  tokenAddress: "0x1234567890...",
-  adminAddress: "0xf39Fd6...",
-  
-  // Compliance
-  complianceModules: [
-    "0x5b73c5498c1e3b4dba84de0f1833c4a029d90519",
-    "0x90193c961a926261b756d1e5bb255e67ff9498a1"
-  ],
-  complianceAddress: "0x5b73c5...",  // Primer módulo
-  
-  // Claims requeridos
-  requiredClaims: [1, 7, 9],
-  
-  // Precio
-  price: 0.5,  // ETH por token
-  
-  description: "Tokenized real estate...",
-  transactionHash: "0xabc...",
-  blockNumber: 12345,
-  
-  createdAt: ISODate("..."),
-  updatedAt: ISODate("...")
-}
+```sql
+-- Columnas principales
+id, name, symbol, decimals
+token_address, admin_address
+compliance_modules    -- lista de módulos
+required_claims       -- topics requeridos (p. ej. 1, 7, 9)
+price                 -- precio para la UI (módulo marketplace legacy)
+description, transaction_hash, block_number
+created_at / updated_at
 ```
 
-#### GridFS Buckets
+#### Tabla: `rwa.document_files` (sustituye a GridFS)
 
-**claim_documents:** Almacena documentos adjuntos a claims
+- Contenido en `bytea` **cifrado con AES-256-GCM** (clave `KYC_ENCRYPTION_KEY`, fuera de la BD).
+- Descarga solo para el propietario o roles autorizados (`/api/download/[fileId]`).
 
-```javascript
-// fs.files
-{
-  _id: ObjectId("..."),
-  filename: "passport.pdf",
-  contentType: "application/pdf",
-  length: 524288,
-  uploadDate: ISODate("...")
-}
+#### Indexer (línea @web)
 
-// fs.chunks (binario)
-{
-  files_id: ObjectId("..."),
-  n: 0,
-  data: Binary(...)
-}
-```
+- `rwa.chain_events`: eventos on-chain copiados por `apps/indexer`
+  (claves únicas por `(chain_id, tx_hash, log_index)`).
+- `rwa.indexer_state`: punto de reanudación del indexador.
 
 ---
 
 ## ✍️ Sistema de Firmas Digitales
+
+El sistema usa **tres esquemas** de firma según el propósito (lógica en `packages/shared`):
+
+| Esquema | Quién | Uso |
+|---|---|---|
+| **EIP-191** (`signMessage`) | Requester | Firmar la solicitud de claim |
+| **EIP-712** (`signTypedData`) | Issuer | Firmar el payload tipado del claim que se escribe on-chain |
+| **SIWE** (EIP-4361) | Todos | Autenticación de sesión (cookie firmada con `SIWE_SESSION_SECRET`) |
 
 ### Firma Dual: Requester + Issuer
 
@@ -747,12 +731,7 @@ function compliance() external view returns (address);
 ```javascript
 const message = `${requesterAddress}-${new Date().toISOString()}`;
 const signature = await signer.signMessage(message);
-
-// Guardado en MongoDB:
-{
-  signedMessage: "0xf39F...-2024-11-11T10:30:00",
-  signature: "0xabc123..."
-}
+// La solicitud se guarda junto con su firma en PostgreSQL.
 ```
 
 **Propósito:**
@@ -760,32 +739,19 @@ const signature = await signer.signMessage(message);
 - ✅ No repudio - El requester no puede negar haberla hecho
 - ✅ Timestamp - Registro del momento exacto
 
-#### Firma del Issuer (al aprobar/rechazar)
+#### Firma del Issuer (al aprobar y cargar el claim on-chain)
 
-**Mensaje firmado:**
-```
-Request:abc123def456|Issuer:0x3C44cF887c6...|Requester:0xf39Fd6...|Topic:1|Decision:approved|Timestamp:2024-11-11T11:00:00|Note:KYC verified
-```
-
-**Proceso:**
-```javascript
-const message = 
-  `Request:${requestId}` +
-  `|Issuer:${issuerAddress}` +
-  `|Requester:${requesterAddress}` +
-  `|Topic:${claimTopic}` +
-  `|Decision:${decision}` +
-  `|Timestamp:${timestamp}` +
-  `|Note:${reviewNote}`;
-
-const signature = await signer.signMessage(message);
-```
+El claim que se escribe on-chain se firma con **EIP-712** (mensaje tipado), no con un string
+libre: el struct tipado se construye en `packages/shared/src/claims/eip712.ts` con los campos
+del claim (`topic`, `scheme`, `issuer`, `data`, `uri`, `expiresAt`, …). El issuer firma con
+`signTypedData` (wagmi/viem) y el contrato `IdentityCloneable` valida esa firma antes de
+aceptar el claim.
 
 **Propósito:**
-- ✅ Autoridad - Verifica que el issuer autorizó la decisión
-- ✅ Integridad - Incluye todos los datos de la decisión
-- ✅ Auditoría - Registro inmutable de la aprobación
-- ✅ Smart Contract - Usada como _signature en addClaim()
+- ✅ Autoridad - Verifica que el issuer (trusted issuer de ese topic) autorizó el claim
+- ✅ Integridad - Firma tipada vinculada a los datos exactos del claim
+- ✅ Vigencia - `expiresAt` limita la validez; el issuer puede revocar (`revoked`)
+- ✅ Smart Contract - Usada como `_signature` en `addClaim()`
 
 ---
 
@@ -827,13 +793,12 @@ Verificar en Registry que tu address está en la lista de trusted issuers.
 
 ### Problema: No puedo descargar documento
 
-**Causa:** GridFS no encuentra el archivo
+**Causa:** el documento no existe, o la clave de cifrado (`KYC_ENCRYPTION_KEY`) no coincide,
+o no tienes permisos (solo el propietario / roles autorizados).
 
 **Verificación:**
-```javascript
-mongosh
-> use rwa
-> db.claim_documents.files.find()
+```bash
+psql "$DATABASE_URL" -c "select id, name from rwa.document_files limit 20;"
 ```
 
 ### Problema: Account no cambia en Marketplace
@@ -859,10 +824,12 @@ mongosh
 
 ### Firmas Digitales
 
-- ✅ **Requester firma** al solicitar claim
-- ✅ **Issuer firma** al aprobar/rechazar
-- ✅ **Ambas guardadas** en MongoDB
+- ✅ **Requester firma** (EIP-191) al solicitar claim
+- ✅ **Issuer firma** (EIP-712) el claim que se escribe on-chain
+- ✅ **Ambas registradas** en PostgreSQL junto a la solicitud
 - ✅ **Signature del issuer** usada en smart contract
+- ✅ **Documentos cifrados** a reposo (AES-256-GCM) en `rwa.document_files`
+- ✅ **Sesiones SIWE**; cero claves privadas en el repo (gate `check-no-private-keys.sh`)
 
 ### Compliance
 
@@ -888,7 +855,7 @@ mongosh
 |----------|--------|-------------|
 | `/api/claim-requests` | POST | Crear solicitud de claim |
 | `/api/claim-requests` | GET | Listar mis solicitudes |
-| `/api/upload` | POST | Subir documento a GridFS |
+| `/api/upload` | POST | Subir documento cifrado a `rwa.document_files` |
 | `/api/download/[fileId]` | GET | Descargar documento |
 
 ### Registry App (4002)
@@ -915,15 +882,15 @@ mongosh
 
 ### ✨ Implementadas
 
-#### web-identity:
-- ✅ Desplegar identidad on-chain
+#### apps/identity:
+- ✅ Crear/registrar identidad on-chain
 - ✅ Solicitar claims con firma digital
-- ✅ Adjuntar documentos (GridFS)
+- ✅ Adjuntar documentos (cifrados en PostgreSQL)
 - ✅ Ver estado de requests
 - ✅ Cargar claims aprobados al contrato
 - ✅ Ver account status con claims
 
-#### web-registry-trusted:
+#### apps/issuer:
 - ✅ Ver trusted issuers
 - ✅ Panel de issuer (solo si eres issuer)
 - ✅ Ver requests pendientes
@@ -931,13 +898,13 @@ mongosh
 - ✅ Ver firmas de requester e issuer
 - ✅ Descargar documentos adjuntos
 
-#### web-token:
+#### apps/token:
 - ✅ Crear tokens con factory (EIP-1167)
 - ✅ Añadir múltiples compliance modules
 - ✅ Ocultar módulos de UI
 - ✅ Gestionar required claims (con botón X)
-- ✅ Establecer y editar precio
-- ✅ Marketplace para comprar tokens
+- ⚠️ Establecer y editar precio (módulo legacy)
+- ⚠️ Marketplace para comprar tokens (ABI legacy; compra no operativa)
 - ✅ Transferir tokens
 - ✅ Cambiar de cuenta (automático)
 - ✅ Detección de "Transfer not compliant"
@@ -950,15 +917,14 @@ mongosh
 ### 1. Iniciar Servicios
 
 ```bash
-# Terminal 1: MongoDB
-mongod
+# Terminal 1: PostgreSQL
+docker compose up -d      # desde la raíz del monorepo rwa-web
 
 # Terminal 2: Anvil
 anvil
 
 # Terminal 3: Aplicaciones
-cd "57_RWA_WEB"
-./start-all.sh
+cd rwa-web && ./start-all.sh
 ```
 
 ### 2. Verificar que Todo Funciona
@@ -968,11 +934,11 @@ cd "57_RWA_WEB"
 ```
 
 Debe mostrar:
-- ✅ MongoDB running
+- ✅ PostgreSQL (docker compose) en 5432
 - ✅ Anvil running  
-- ✅ web-identity on port 4001
-- ✅ web-registry-trusted on port 4002
-- ✅ web-token on port 4003
+- ✅ apps/identity on port 4001
+- ✅ apps/issuer on port 4002
+- ✅ apps/token on port 4003
 
 ### 3. Configurar MetaMask
 
@@ -1026,7 +992,8 @@ Account #2 (Issuer):
 - **Issuer:** Entidad que emite/certifica claims
 - **Compliance:** Verificación de requisitos regulatorios
 - **EIP-1167:** Minimal Proxy Pattern - Clones baratos de contratos
-- **GridFS:** Sistema de almacenamiento de archivos en MongoDB
+- **PostgreSQL:** base de datos relacional del backend (esquema `rwa`); los documentos se
+  guardan cifrados en `rwa.document_files`
 - **Topic:** Número que identifica un tipo de claim (1, 7, 9, etc.)
 - **Factory:** Contrato que crea clones de tokens eficientemente
 
@@ -1096,7 +1063,7 @@ cast call <TRUSTED_REGISTRY> \
 ```bash
 # Ver compliance del token
 cast call <TOKEN_ADDRESS> \
-  "compliance()(address)" \
+  "aggregator()(address)" \
   --rpc-url http://localhost:8545
 
 # Ver owner
@@ -1116,8 +1083,8 @@ cast call <TOKEN_ADDRESS> \
 
 - **EIP-1167:** https://eips.ethereum.org/EIPS/eip-1167
 - **ERC-735:** Identity Claims (base de este proyecto)
-- **GridFS:** https://www.mongodb.com/docs/manual/core/gridfs/
-- **ethers.js:** https://docs.ethers.org/v6/
+- **wagmi:** https://wagmi.sh
+- **viem:** https://viem.sh
 
 ---
 
@@ -1132,13 +1099,14 @@ Has aprendido:
 ✅ **Factory pattern** - EIP-1167 para gas efficiency  
 ✅ **Marketplace** - Compra/venta de tokens  
 ✅ **Compliance checks** - Verificación automática  
-✅ **MongoDB + GridFS** - Almacenamiento de datos y archivos  
+✅ **PostgreSQL + AES-256-GCM** - Almacenamiento de datos y documentos cifrados  
+✅ **Indexer off-chain** - Eventos on-chain copiados a PostgreSQL  
 
 ---
 
-**Versión:** 2.0.0  
-**Fecha:** 11 de Noviembre, 2024  
-**Autor:** Sistema RWA Platform  
+**Versión:** 2.1.0 (actualizada al estado real del monorepo)  
+**Fecha:** 28 de Octubre, 2026  
+**Autor:** Línea @web (rwa-web) — para el detalle de ABIs: `../rwa-sc/CHANGELOG_ABIS.md`  
 
 🎓 **¡Buen aprendizaje!** 🚀
 
