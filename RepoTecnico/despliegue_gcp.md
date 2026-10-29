@@ -85,6 +85,7 @@ TAG=<tag> ./scripts/deploy_gcp.sh deploy
 | Cloud Run Job `rwa-indexer` | ✅ ejecuciones `rwa-indexer-ldjgf`, `-gjxsw`, `-szxbb` finalizadas con éxito |
 | Scheduler | ✅ `lastAttemptTime 18:07:09` → ejecución `rwa-indexer-szxbb` (`18:07:12 → 18:07:57`) |
 | Persistencia del indexer | ✅ **235 eventos / 162 txs** en `rwa.chain_events`; `rwa.indexer_state.last_block = 558` |
+| **Autenticación SIWE real** (nonce → firma Anvil → verify → session) | ✅ `nonce 200 · verify 200 · session 200` con `address 0xf39F…2266` y `role investor`; prueba el secreto `SIWE_SESSION_SECRET` y la tabla `rwa.sessions` en Cloud Run (`scripts/smoke_gcp_siwe.mjs`) |
 
 ## 5. Operación
 
@@ -100,6 +101,9 @@ gcloud run jobs execute rwa-indexer --project mcc-ecommerce --region europe-west
 
 # Nuevo despliegue (rolling) de una app
 TAG=<tag> ./scripts/deploy_gcp.sh deploy
+
+# Smoke test de sesión SIWE contra la app desplegada (requiere dependencias instaladas)
+node scripts/smoke_gcp_siwe.mjs https://rwa-identity-slzlptbcla-ew.a.run.app
 ```
 
 ## 6. Seguridad y límites conocidos
