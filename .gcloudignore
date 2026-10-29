@@ -1,0 +1,28 @@
+# =============================================================================
+# .gcloudignore — qué NO se sube a Cloud Build / Cloud Run (deploy desde raíz)
+# =============================================================================
+# Sin este archivo, Cloud Build subiría node_modules (~1.1 GB) y los builds
+# de Next (~280 MB). El contexto de build debe ser el monorepo mínimo: lockfile,
+# workspace, packages y apps.
+# =============================================================================
+
+.git/
+.gitignore
+.gitlab-ci.yml
+
+node_modules/
+**/node_modules/
+
+.next/
+**/.next/
+apps/*/.next/
+
+backups/
+.pids/
+*.log
+*.tmp
+
+# Evidencia local y artefactos no necesarios para construir la imagen
+RepoTecnico/
+diagramas.md
+*.png

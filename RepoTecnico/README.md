@@ -30,6 +30,7 @@ aquí para mantener las dos líneas separadas y con sus archivos propios (**D-10
 | [requerimientos_web.md](requerimientos_web.md) | v1.3 | RF-W-01…18, RNF-W-01…08, RT-W-01…10, modelo PostgreSQL y trazabilidad HW→requisito |
 | [plan_desarrollo_web.md](plan_desarrollo_web.md) | v1.4 | Plan vertical de la etapa: ciclos O0…O5 con tareas, gates y definición de terminado |
 | [pruebas/verificacion_gcp_o0.md](pruebas/verificacion_gcp_o0.md) | — | Acta de verificación de los servicios GCP (Anvil de GCP + Cloud SQL) del ciclo O0 |
+| [despliegue_gcp.md](despliegue_gcp.md) | v1.0 | Despliegue real en Cloud Run (3 apps + indexer + scheduler) sobre los servicios globales Anvil/Cloud SQL: recursos, pipeline `deploy_gcp.sh` y evidencia de verificación (2026-10-29) |
 | [ARTEFACTOS_DATOS_SINCRONIZADOS.md](ARTEFACTOS_DATOS_SINCRONIZADOS.md) | — | Regla de sincronización canónico↔espejo de los tres artefactos de datos |
 
 ### Estado actual de la línea `@web` (2026-10-23)
@@ -38,12 +39,12 @@ aquí para mantener las dos líneas separadas y con sus archivos propios (**D-10
 |---|---|
 | **Ciclos** | **O0–O4 cerrados**; **O5 cerrado salvo O5.1/O5.2** (validación real de Docker pendiente de host). **O2.7 cerrado** con E2E en verde contra el Anvil de GCP |
 | **Brechas de requisitos** | Cabeceras de seguridad (RNF-W-01), rate limit/cuota (RF-W-05), `error.tsx`/`loading.tsx` y `requestId` (RF-W-16), presupuesto 400 KB (D-104): cerradas |
-| **Servicios GCP** | **Anvil de GCP** ✅ (chain 31337, stack redesplegado el 2026-10-23, `CLAIM_TYPEHASH` con `uriHash`) · **Cloud SQL PostgreSQL 15.18** ✅ (`truekeate-db-dev`) |
+| **Servicios GCP** | **Anvil de GCP** ✅ (chain 31337, stack redesplegado el 2026-10-23, `CLAIM_TYPEHASH` con `uriHash`) · **Cloud SQL PostgreSQL 15.18** ✅ (`truekeate-db-dev`, esquema `rwa`) · **Cloud Run RWA** ✅ (2026-10-29: `rwa-identity`/`rwa-issuer`/`rwa-token` + job `rwa-indexer` + scheduler, ver [despliegue_gcp.md](despliegue_gcp.md)) |
 | **Repositorio** | Rama `rwa-web-DSH`, publicada en **GitLab** y **GitHub**; pipeline GitLab #4729 |
 | **Seguridad** | SIWE + cookie HMAC, autorización por propiedad, KYC cifrado, cabeceras CSP/XFO/Referrer-Policy/HSTS y `requestId` correlado |
 | **Calidad** | `ci_local.sh` exit 0: 55 tests, cobertura 96,8 % líneas, axe AA, perf ≤ 400 KB, Docker estático 58/58 |
 | **Artefactos de datos** | Canónico en `rwa-sc/RepoTecnico/` + espejo aquí: `check_sincronizacion_datos.sh --check` → **exit 0** (3/3 idénticos) |
-| **Pendiente para producción** | O5.1/O5.2 en host con Docker · R-9 (auditoría externa) · legal/indexer/multisig (fuera de `@web`) |
+| **Pendiente para producción** | O5.1/O5.2 cubierto por el despliegue real en Cloud Run (2026-10-29) · R-9 (auditoría externa) · alertas/archivado del indexer (RNF-402/403/404) · legal/multisig (fuera de `@web`) |
 
 ### Decisiones que gobiernan la etapa
 

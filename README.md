@@ -63,6 +63,22 @@ docker compose --env-file .env.compose up --build
 Imágenes multi-stage con `output: "standalone"`, `PORT` configurable y healthcheck HTTP en
 `/api/health` (ver [`Dockerfile`](Dockerfile) y [`docker-compose.yml`](docker-compose.yml)).
 
+### Despliegue en GCP (Cloud Run + servicios globales)
+
+Las 3 apps y el indexer están desplegados en **Cloud Run** (`mcc-ecommerce`, `europe-west1`) usando
+los **servicios globales** de la plataforma: **Anvil global** (`mcc-foundry-anvil`, chain 31337) y
+**Cloud SQL** (`truekeate-db-dev`, esquema `rwa`). Pipeline reproducible:
+
+```bash
+./scripts/deploy_gcp.sh provision    # SA, secretos, IAM (idempotente)
+TAG=$(date -u +%Y%m%d-%H%M%S) ./scripts/deploy_gcp.sh build
+TAG=<tag> ./scripts/deploy_gcp.sh deploy
+./scripts/deploy_gcp.sh scheduler    # indexer cada 10 min (Cloud Scheduler)
+./scripts/deploy_gcp.sh verify       # health real: RPC global + PostgreSQL global
+```
+
+Recursos, URLs y evidencia: [`RepoTecnico/despliegue_gcp.md`](RepoTecnico/despliegue_gcp.md).
+
 ---
 
 ## 🏗️ Arquitectura

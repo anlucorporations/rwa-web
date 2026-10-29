@@ -1,0 +1,75 @@
+# =============================================================================
+# cloudbuild.yaml — build de las 4 imágenes RWA para Cloud Run
+# =============================================================================
+# Uso (desde rwa-web/):
+#   gcloud builds submit --project mcc-ecommerce --config cloudbuild.yaml \
+#     --substitutions=_TAG=$(date -u +%Y%m%d-%H%M%S),_RPC_URL=...
+#
+# Las NEXT_PUBLIC_* se inlinean en el bundle del cliente durante el build
+# (ver Dockerfile). El resto de configuración es de runtime (Cloud Run).
+# =============================================================================
+
+substitutions:
+  _REGION: europe-west1
+  _REPO: cloud-run-source-deploy
+  _TAG: manual
+  _CHAIN_ID: "31337"
+  _RPC_URL: https://mcc-foundry-anvil-1095249147821.europe-west1.run.app
+
+steps:
+  - id: build-identity
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --build-arg=APP=identity
+      - --build-arg=NEXT_PUBLIC_CHAIN_ID=${_CHAIN_ID}
+      - --build-arg=NEXT_PUBLIC_RPC_URL=${_RPC_URL}
+      - -t=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/rwa-identity:${_TAG}
+      - .
+    timeout: 1800s
+
+  - id: build-issuer
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --build-arg=APP=issuer
+      - --build-arg=NEXT_PUBLIC_CHAIN_ID=${_CHAIN_ID}
+      - --build-arg=NEXT_PUBLIC_RPC_URL=${_RPC_URL}
+      - -t=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/rwa-issuer:${_TAG}
+      - .
+    timeout: 1800s
+
+  - id: build-token
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --build-arg=APP=token
+      - --build-arg=NEXT_PUBLIC_CHAIN_ID=${_CHAIN_ID}
+      - --build-arg=NEXT_PUBLIC_RPC_URL=${_RPC_URL}
+      - -t=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/rwa-token:${_TAG}
+      - .
+    timeout: 1800s
+
+  - id: build-indexer
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f=Dockerfile.indexer
+      - --build-arg=NEXT_PUBLIC_CHAIN_ID=${_CHAIN_ID}
+      - --build-arg=NEXT_PUBLIC_RPC_URL=${_RPC_URL}
+      - -t=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/rwa-indexer:${_TAG}
+      - .
+    timeout: 1800s
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/rwa-identity:${_TAG}
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/rwa-issuer:${_TAG}
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/rwa-token:${_TAG}
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/rwa-indexer:${_TAG}
+
+options:
+  machineType: E2_HIGHCPU_8
+  diskSizeGb: 200
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 3600s

@@ -1,0 +1,25 @@
+# =============================================================================
+# .dockerignore — contexto de docker build para las imágenes de Cloud Run
+# =============================================================================
+# El Dockerfile necesita: pnpm-workspace.yaml, package.json, pnpm-lock.yaml,
+# packages/ y apps/. Todo lo demás se excluye para que el contexto sea pequeño.
+# =============================================================================
+
+.git/
+.gitignore
+.gitlab-ci.yml
+
+node_modules/
+**/node_modules/
+
+.next/
+**/.next/
+
+backups/
+.pids/
+*.log
+*.tmp
+
+RepoTecnico/
+diagramas.md
+*.png
