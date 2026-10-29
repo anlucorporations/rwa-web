@@ -11,12 +11,12 @@
 
 **Contenido:**
 - ✅ Introducción a RWA
-- ✅ Arquitectura del sistema (3 aplicaciones)
+- ✅ Arquitectura del sistema (3 apps + indexer, monorepo `apps/*`)
 - ✅ Instalación y configuración
-- ✅ Guía de cada aplicación (Identity, Registry, Token)
+- ✅ Guía de cada app (identity 4001, issuer 4002, token 4003) e indexer
 - ✅ Flujo completo de uso
 - ✅ Smart contracts explicados
-- ✅ Base de datos MongoDB
+- ✅ Base de datos PostgreSQL (esquema `rwa`, D-095)
 - ✅ Sistema de firmas digitales
 - ✅ Troubleshooting
 - ✅ Glosario y conceptos avanzados
@@ -47,7 +47,7 @@
 - ✅ Nivel 2: Diagrama de Contenedores (aplicaciones)
 - ✅ Nivel 3: Diagrama de Componentes (internos)
 - ✅ Diagramas de flujo (compra, claims, etc.)
-- ✅ Diagramas de datos (MongoDB, contratos)
+- ✅ Diagramas de datos (PostgreSQL `rwa`, contratos)
 - ✅ Diagramas de secuencia (firmas, transacciones)
 - ✅ Diagramas de estados (lifecycle)
 
@@ -100,36 +100,42 @@ líneas de desarrollo con sus propios archivos.
 
 ## 📂 Documentos por Aplicación
 
-### web-identity (Puerto 4001)
+### apps/identity (Puerto 4001)
 
 **README.md**
-- Descripción de la app de identidad
-- Funcionalidades principales
+- Descripción de la app de identidad del inversor
+- Funcionalidades principales (registro on-chain, claims, documentos cifrados)
 - Cómo usar
 
-### web-registry-trusted (Puerto 4002)
+### apps/issuer (Puerto 4002)
 
 **README.md**
-- Descripción del panel de issuers
-- Cómo aprobar/rechazar claims
-- Panel de issuer
+- Descripción del panel de issuer
+- Cómo aprobar/rechazar solicitudes y firmar EIP-712
+- Carga del claim on-chain (`addClaim`)
 
 **lib/contracts/README.md**
 - Smart contracts usados
 - ABIs y addresses
 - Funciones disponibles
 
-### web-token (Puerto 4003)
+### apps/token (Puerto 4003)
 
 **README.md**
 - Token factory
-- Marketplace
-- Gestión de compliance
+- Gestión de compliance y required claims
+- Marketplace (módulo **legacy**, ver `apps/token/lib/contracts/market.ts`)
 
 **lib/contracts/README.md**
 - Token Clone Factory
 - TokenCloneable ABI
 - EIP-1167 pattern explicado
+
+### apps/indexer (CLI)
+
+**README.md**
+- Indexador off-chain de eventos on-chain → PostgreSQL (`rwa.chain_events`)
+- Modos `--once`, `--loop`, `--dry-run` y confirmaciones
 
 ---
 
@@ -148,13 +154,14 @@ líneas de desarrollo con sus propios archivos.
 │  └─→ DIAGRAMA_C4.md
 │
 ├─ Entender una app específica
-│  ├─→ web-identity/README.md
-│  ├─→ web-registry-trusted/README.md
-│  └─→ web-token/README.md
+│  ├─→ apps/identity/README.md
+│  ├─→ apps/issuer/README.md
+│  ├─→ apps/token/README.md
+│  └─→ apps/indexer/README.md
 │
 └─ Entender smart contracts
-   ├─→ web-registry-trusted/lib/contracts/README.md
-   └─→ web-token/lib/contracts/README.md
+   ├─→ apps/issuer/lib/contracts/README.md
+   └─→ apps/token/lib/contracts/README.md
 ```
 
 ---
@@ -199,7 +206,7 @@ líneas de desarrollo con sus propios archivos.
 ## 📝 Estructura de Carpetas
 
 ```
-57_RWA_WEB/
+rwa-web/                       ← monorepo pnpm (pnpm-workspace.yaml)
 │
 ├── 📚 Documentación Principal
 │   ├── FICHERO_PARA_ESTUDIANTE.md  ← Guía completa
@@ -213,33 +220,42 @@ líneas de desarrollo con sus propios archivos.
 │   ├── INFORME_OPTIMIZACION_WEB_V1.md
 │   ├── requerimientos_web.md
 │   ├── plan_desarrollo_web.md
+│   ├── base_datos.sql              ← espejo D-102 (byte a byte con rwa-sc)
+│   ├── diccionario_datos.md        ← espejo D-102
+│   ├── diagrama_er.md              ← espejo D-102
 │   └── pruebas/verificacion_gcp_o0.md
 │
-├── 🆔 web-identity/                ← App de identidad
+├── 🆔 apps/identity/               ← App de identidad (puerto 4001)
 │   ├── README.md
 │   └── ...
 │
-├── 🏛️ web-registry-trusted/        ← App de issuers
+├── 🏛️ apps/issuer/                ← App de issuers (puerto 4002)
 │   ├── README.md
 │   ├── lib/contracts/README.md
 │   └── ...
 │
-├── 🏭 web-token/                    ← App de tokens
+├── 🏭 apps/token/                  ← App de tokens (puerto 4003)
 │   ├── README.md
 │   ├── lib/contracts/README.md
 │   └── ...
+│
+├── 🔗 apps/indexer/                ← Indexador off-chain
+│   └── README.md
 │
 └── 🔧 Scripts
     ├── start-all.sh
     ├── stop-all.sh
-    └── check-status.sh
+    ├── check-status.sh
+    └── e2e_market_legacy.mjs      ← E2E de la brecha legacy de marketplace (P1)
 ```
 
 ---
 
 ## ✅ Archivos Eliminados (Consolidados)
 
-Los siguientes archivos fueron consolidados en `FICHERO_PARA_ESTUDIANTE.md`:
+Los siguientes archivos vivían en la **estructura anterior** (`web-identity/`,
+`web-registry-trusted/`, `web-token/`), hoy renombrada a `apps/identity|issuer|token`.
+Su contenido se consolidó en `FICHERO_PARA_ESTUDIANTE.md` (v2):
 
 - ❌ CHANGELOG.md
 - ❌ FIRMA_DIGITAL.md
@@ -266,20 +282,21 @@ Los siguientes archivos fueron consolidados en `FICHERO_PARA_ESTUDIANTE.md`:
 - ❌ web-registry-trusted/DEPLOYMENT_INFO.md
 - ❌ web-registry-trusted/QUICK_START.md
 
-**Razón:** Consolidar información dispersa en archivos organizados y fáciles de navegar.
+**Razón:** Consolidar información dispersa en archivos organizados y fáciles de navegar, y
+eliminar las referencias a MongoDB/GridFS (hoy PostgreSQL, D-095).
 
 ---
 
 ## 🔍 Búsqueda Rápida
 
 ### ¿Cómo crear una identidad?
-→ `FICHERO_PARA_ESTUDIANTE.md` → Sección "Aplicación 1: Identity"
+→ `FICHERO_PARA_ESTUDIANTE.md` → Sección "App Identity (puerto 4001)"
 
 ### ¿Cómo aprobar claims?
-→ `FICHERO_PARA_ESTUDIANTE.md` → Sección "Aplicación 2: Registry"
+→ `FICHERO_PARA_ESTUDIANTE.md` → Sección "App Issuer (puerto 4002)"
 
 ### ¿Cómo crear un token?
-→ `FICHERO_PARA_ESTUDIANTE.md` → Sección "Aplicación 3: Token"
+→ `FICHERO_PARA_ESTUDIANTE.md` → Sección "App Token (puerto 4003)"
 
 ### ¿Cómo ver la arquitectura?
 → `DIAGRAMA_C4.md` → Todos los diagramas
@@ -288,10 +305,10 @@ Los siguientes archivos fueron consolidados en `FICHERO_PARA_ESTUDIANTE.md`:
 → `GUIA_RAPIDA.md` → Inicio Rápido
 
 ### ¿Smart contracts?
-→ `FICHERO_PARA_ESTUDIANTE.md` → Sección "Smart Contracts"
+→ `FICHERO_PARA_ESTUDIANTE.md` → Sección "Smart contracts que consume la web"
 
-### ¿Estructura MongoDB?
-→ `FICHERO_PARA_ESTUDIANTE.md` → Sección "Base de Datos"
+### ¿Estructura de la base de datos?
+→ `FICHERO_PARA_ESTUDIANTE.md` → Sección "Base de Datos PostgreSQL" (D-095)
 
 ---
 
@@ -349,8 +366,10 @@ mmdc -i DIAGRAMA_C4.md -o diagrams.pdf
 - **GitHub Mermaid:** https://mermaid.js.org/
 - **C4 Model:** https://c4model.com/
 - **EIP-1167:** https://eips.ethereum.org/EIPS/eip-1167
-- **MongoDB GridFS:** https://www.mongodb.com/docs/manual/core/gridfs/
-- **ethers.js v6:** https://docs.ethers.org/v6/
+- **PostgreSQL 16:** https://www.postgresql.org/docs/16/
+- **wagmi + viem:** https://wagmi.sh/ · https://viem.sh/
+- **SIWE (EIP-4361):** https://eips.ethereum.org/EIPS/eip-4361
+- **EIP-712:** https://eips.ethereum.org/EIPS/eip-712
 
 ---
 

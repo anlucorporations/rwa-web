@@ -368,6 +368,11 @@ Click [✕] en badge → Remueve de UI (puede seguir on-chain)
 > en `apps/token/lib/contracts/market.ts`) que el `TokenCloneable` actual **no expone**.
 > Es material de demostración de UI; el flujo operativo hoy es la transferencia directa
 > sujeta a compliance.
+>
+> 🔎 **Verificación automática (P1):** `node scripts/e2e_market_legacy.mjs` comprueba que el
+> ABI generado desde `rwa-sc` no declara esas funciones y que `market.ts` sigue marcado como
+> legacy. Con `E2E_RPC_URL` y `E2E_TOKEN_ADDRESS` definidos, además verifica on-chain que
+> `pricePerToken()` no responde en el contrato desplegado.
 
 ```
 1. Token card → "Price per Token: Not set"
@@ -872,9 +877,9 @@ psql "$DATABASE_URL" -c "select id, name from rwa.document_files limit 20;"
 |----------|--------|-------------|
 | `/api/tokens` | POST | Crear token |
 | `/api/tokens` | GET | Listar tokens |
-| `/api/tokens/[id]/price` | POST | Actualizar precio |
-| `/api/tokens/[id]/modules` | POST | Gestionar módulos |
-| `/api/tokens/[id]/claims` | POST | Gestionar claims |
+| `/api/tokens/[tokenId]/price` | POST | Actualizar precio |
+| `/api/tokens/[tokenId]/modules` | POST | Gestionar módulos |
+| `/api/tokens/[tokenId]/claims` | POST | Gestionar claims |
 
 ---
 

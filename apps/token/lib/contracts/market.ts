@@ -1,11 +1,15 @@
 /**
- * Funciones de mercado del token clonado (precio y compra).
+ * ⚠️ LEGACY — Funciones de mercado del token clonado (precio y compra).
  *
  * El artefacto generado en `@rwa/shared/contracts` (`TokenCloneableAbi`, O2.2) **no**
  * declara `pricePerToken`, `setPrice` ni `buyToken`: la UI de mercado es anterior a esa
  * generación de artefactos. Se declaran aquí, tipadas con viem, para poder migrar las
  * llamadas de lectura/escritura sin `ethers`; cuando el contrato de mercado se alinee
  * con `rwa-sc`, este módulo debe desaparecer y usarse el ABI generado.
+ *
+ * Mientras siga así, la compra/venta **no es operativa** (la pantalla compila pero el
+ * contrato real no expone estas funciones). La brecha está cubierta por el E2E
+ * `scripts/e2e_market_legacy.mjs` (P1 del informe de evaluación de guías).
  */
 
 import { parseAbi } from 'viem';
