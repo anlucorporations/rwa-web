@@ -177,6 +177,49 @@ importers:
         specifier: ^5
         version: 5.9.3
 
+  apps/metaplace:
+    dependencies:
+      '@rwa/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@rwa/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@rwa/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@rwa/wallet-messages':
+        specifier: workspace:*
+        version: link:../../packages/wallet-messages
+      next:
+        specifier: 16.1.6
+        version: 16.1.6(@babel/core@7.29.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      react:
+        specifier: 19.2.3
+        version: 19.2.3
+      react-dom:
+        specifier: 19.2.3
+        version: 19.2.3(react@19.2.3)
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.43
+      '@types/react':
+        specifier: ^19
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.3.0(@types/react@19.3.0)
+      eslint:
+        specifier: ^9
+        version: 9.39.5(jiti@2.7.0)
+      eslint-config-next:
+        specifier: 16.1.6
+        version: 16.1.6(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
   apps/token:
     dependencies:
       '@rwa/config':
@@ -302,6 +345,18 @@ importers:
       typescript-eslint:
         specifier: ^8
         version: 8.71.2(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+
+  packages/wallet-messages:
+    devDependencies:
+      '@vitest/coverage-v8':
+        specifier: 2.1.9
+        version: 2.1.9(vitest@2.1.9(@types/node@20.19.43)(jsdom@30.1.3(@noble/hashes@1.8.0))(lightningcss@1.32.0))
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@20.19.43)(jsdom@30.1.3(@noble/hashes@1.8.0))(lightningcss@1.32.0)
 
 packages:
 
