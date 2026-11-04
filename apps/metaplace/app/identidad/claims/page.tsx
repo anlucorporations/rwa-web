@@ -30,6 +30,14 @@ export default function ClaimsPage() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    // Preselección desde /identidad (wizard): ?program=…&credential=…
+    const params = new URLSearchParams(window.location.search);
+    const program = params.get("program");
+    const credential = params.get("credential");
+    if (program) setSlug(program);
+    if (credential) setCode(credential);
+  }, []);
 
   const selected = programs.find((p) => p.slug === slug);
 

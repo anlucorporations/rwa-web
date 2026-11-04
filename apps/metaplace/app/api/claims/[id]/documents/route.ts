@@ -29,8 +29,8 @@ export async function GET(
         headers: { "Content-Type": "application/json" },
       });
     }
-    const { rows } = await query<{ id: string; label: string; mime_type: string; size_bytes: number; sha256: string }>(
-      `SELECT id, label, mime_type, size_bytes, sha256
+    const { rows } = await query<{ id: string; label: string; mime_type: string; size_bytes: number; sha256: string; retention_delete_at: string | null }>(
+      `SELECT id, label, mime_type, size_bytes, sha256, retention_delete_at
          FROM rwa.document_files WHERE claim_request_id = $1 AND deleted_at IS NULL
          ORDER BY created_at`,
       [id],
