@@ -10,7 +10,15 @@
  */
 
 export type ClaimRequestStatus = 'pending' | 'approved' | 'rejected';
-export type SessionRole = 'investor' | 'issuer' | 'admin';
+export type SessionRole =
+  | 'visitor'
+  | 'investor'
+  | 'issuer'
+  | 'operator'
+  | 'admin'
+  | 'auditor'
+  | 'arbiter'
+  | 'support';
 
 export type ClaimTopicRow = {
   id: number;
@@ -129,14 +137,13 @@ export type TokenComplianceModuleRow = {
 
 export type SessionRow = {
   id: string;
-  address: string;
+  wallet_address: string;
   nonce: string;
   role: SessionRole;
+  domain: string;
   issued_at: Date;
   expires_at: Date;
   revoked_at: Date | null;
-  user_agent: string | null;
-  ip: string | null;
 };
 
 export type AuditLogRow = {

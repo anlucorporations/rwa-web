@@ -1,8 +1,8 @@
 /**
- * Repositorio de `rwa.sessions` — base de la sesión SIWE (D-092, RF-W-01).
+ * Repositorio de `rwa.sessions` — base de la sesión SIWE (D-092, RF-V3-01).
  *
- * Ninguna de las 16 rutas heredadas lo usa todavía: la autenticación es O1.
- * Se deja listo aquí para que O1 no tenga que tocar la capa de datos.
+ * Esquema v3: `wallet_address`, `nonce`, `role`, `domain`, `issued_at`,
+ * `expires_at`, `revoked_at` (el `domain` valida EIP-4361).
  */
 
 import { normalizeAddress } from '../address';
@@ -10,34 +10,25 @@ import { query } from '../pool';
 import { translatePgError } from '../pg-errors';
 import type { SessionRole, SessionRow } from '../types';
 
-const COLUMNS =
-  'id, address, nonce, role, issued_at, expires_at, revoked_at, user_agent, ip';
+const COLUMNS = 'id, wallet_address, nonce, role, domain, issued_at, expires_at, revoked_at';
 
 export type CreateSessionInput = {
-  address: string;
+  walletAddress: string;
   nonce: string;
+  domain: string;
   role?: SessionRole;
   expiresAt: Date;
-  userAgent?: string | null;
-  ip?: string | null;
 };
 
 export class SessionsRepository {
   async create(input: CreateSessionInput): Promise<SessionRow> {
-    const address = normalizeAddress(input.address);
+    const walletAddress = normalizeAddress(input.walletAddress);
     try {
       const { rows } = await query<SessionRow>(
-        `INSERT INTO rwa.sessions (address, nonce, role, expires_at, user_agent, ip)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO rwa.sessions (wallet_address, nonce, role, domain, expires_at)
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING ${COLUMNS}`,
-        [
-          address,
-          input.nonce,
-          input.role ?? 'investor',
-          input.expiresAt,
-          input.userAgent ?? null,
-          input.ip ?? null,
-        ],
+        [walletAddress, input.nonce, input.role ?? 'investor', input.domain, input.expiresAt],
       );
       return rows[0];
     } catch (error) {
@@ -47,8 +38,7 @@ export class SessionsRepository {
 
   /**
    * Consume un nonce de un solo uso: rota el nonce y extiende la caducidad.
-   * Devuelve `null` si el nonce no existe, ya se usó, está revocado o caducó
-   * (así un reintento de firma con el mismo nonce no puede reautenticarse).
+   * Devuelve `null` si el nonce no existe, ya se usó, está revocado o caducó.
    */
   async consumeNonce(
     nonce: string,
@@ -69,7 +59,7 @@ export class SessionsRepository {
     return rows[0] ?? null;
   }
 
-  /** Nonce de un solo uso: la fila se busca antes de consumirla (O1). */
+  /** Nonce de un solo uso: la fila se busca antes de consumirla. */
   async findByNonce(nonce: string): Promise<SessionRow | null> {
     const { rows } = await query<SessionRow>(
       `SELECT ${COLUMNS} FROM rwa.sessions WHERE nonce = $1`,
@@ -95,7 +85,7 @@ export class SessionsRepository {
     return (rowCount ?? 0) > 0;
   }
 
-  /** Limpieza programada (O5.5). Devuelve cuántas filas se purgaron. */
+  /** Limpieza programada (C1). Devuelve cuántas filas se purgaron. */
   async deleteExpired(): Promise<number> {
     const { rowCount } = await query('DELETE FROM rwa.sessions WHERE expires_at < now()');
     return rowCount ?? 0;

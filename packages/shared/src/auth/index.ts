@@ -107,7 +107,7 @@ export async function requireSession(request: Request): Promise<SessionIdentity>
   if (!session) throw new UnauthorizedError('Sesión caducada o revocada');
   return {
     id: session.id,
-    address: session.address,
+    address: session.wallet_address,
     role: session.role,
     expiresAt: session.expires_at,
   };
@@ -194,12 +194,11 @@ export async function createChallenge(
   const expiresAt = new Date(Date.now() + NONCE_TTL_MS);
 
   await repos.sessions.create({
-    address: normalized,
+    walletAddress: normalized,
     nonce,
+    domain: origin.domain,
     role: 'investor',
     expiresAt,
-    userAgent,
-    ip: origin.ip,
   });
 
   const message = createSiweMessage({
@@ -244,7 +243,7 @@ export async function verifyChallenge(
   const address = parsed.address.toLowerCase();
   const pending = await repos.sessions.findByNonce(parsed.nonce);
   if (!pending) throw new UnauthorizedError('Nonce desconocido o ya utilizado');
-  if (pending.address !== address) throw new UnauthorizedError('El nonce no corresponde a esa dirección');
+  if (pending.wallet_address !== address) throw new UnauthorizedError('El nonce no corresponde a esa dirección');
   if (pending.revoked_at) throw new UnauthorizedError('Nonce revocado');
   if (pending.expires_at.getTime() <= Date.now()) throw new UnauthorizedError('Nonce caducado');
 
@@ -261,7 +260,7 @@ export async function verifyChallenge(
 
   return {
     sessionId: session.id,
-    address: session.address,
+    address: session.wallet_address,
     role: session.role,
     expiresAt: session.expires_at,
   };

@@ -29,7 +29,8 @@ export interface ServerConfig {
 
 function readNetworkConfig(env: NodeJS.ProcessEnv): NetworkConfig {
   const chainIdRaw = env.NEXT_PUBLIC_CHAIN_ID;
-  const rpcUrl = env.NEXT_PUBLIC_RPC_URL;
+  // En servidor se admite `RPC_URL` (Cloud Run) además del público del cliente.
+  const rpcUrl = env.NEXT_PUBLIC_RPC_URL ?? env.RPC_URL;
 
   const chainId = chainIdRaw === undefined ? CANONICAL_CHAIN_ID : Number(chainIdRaw);
   if (!Number.isInteger(chainId) || chainId <= 0) {

@@ -10,5 +10,5 @@ pnpm --filter @rwa/metaplace dev      # desarrollo
 pnpm --filter @rwa/metaplace build    # build standalone
 ```
 
-La sesión SIWE, la capa de datos y los flujos de identidad se conectan en C1. El catálogo real
+SIWE (`/api/auth/*`), `/api/identity` y la página `/identidad` están conectados (C1). El catálogo real
 (CU-01) se implementa en C3 sobre `listings`.
