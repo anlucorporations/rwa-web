@@ -11,6 +11,8 @@ export default function PublicarPage() {
   const [quantity, setQuantity] = useState("1");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [onChainId, setOnChainId] = useState("");
+  const [escrowTx, setEscrowTx] = useState("");
 
   const load = useCallback(async () => {
     const response = await fetch("/api/assets");
@@ -25,7 +27,7 @@ export default function PublicarPage() {
     const response = await fetch("/api/listings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tokenId, priceBrlt: price, quantity: Number(quantity) }),
+      body: JSON.stringify({ tokenId, priceBrlt: price, quantity: Number(quantity), onChainListingId: onChainId || undefined, escrowTxHash: escrowTx || undefined }),
     });
     const body = (await response.json()) as { error?: { message: string } };
     if (!response.ok) { setError(body.error?.message ?? "No se pudo publicar."); return; }
@@ -45,6 +47,8 @@ export default function PublicarPage() {
       </select>
       <input style={input} placeholder="Precio en BRLT (ej. 1250.50)" value={price} onChange={(e) => setPrice(e.target.value)} />
       <input style={input} placeholder="Cantidad" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+      <input style={input} placeholder="id de publicación on-chain (opcional)" value={onChainId} onChange={(e) => setOnChainId(e.target.value)} />
+      <input style={input} placeholder="tx de createListing (opcional)" value={escrowTx} onChange={(e) => setEscrowTx(e.target.value)} />
       <button type="button" onClick={publish} style={{ background: "#3b6cff", color: "white", border: 0, borderRadius: 8, padding: "10px 18px", cursor: "pointer" }}>
         Publicar a precio fijo
       </button>

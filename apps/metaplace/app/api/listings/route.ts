@@ -22,11 +22,11 @@ export async function GET(): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   try {
     const session = await requireSession(request);
-    const body = (await request.json()) as { tokenId?: string; priceBrlt?: string; quantity?: number };
+    const body = (await request.json()) as { tokenId?: string; priceBrlt?: string; quantity?: number; onChainListingId?: string; escrowTxHash?: string };
     if (!body.tokenId) {
       return json({ success: false, error: { code: "validation_error", message: "Falta `tokenId`" } }, 400);
     }
-    const listing = await createListing(session.address, body.tokenId, body.priceBrlt ?? "", Number(body.quantity ?? 1));
+    const listing = await createListing(session.address, body.tokenId, body.priceBrlt ?? "", Number(body.quantity ?? 1), { onChainListingId: body.onChainListingId, escrowTxHash: body.escrowTxHash });
     return json({ success: true, data: listing }, 201);
   } catch (error) {
     const { status, body } = toErrorResponse(error, request);

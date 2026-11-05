@@ -40,16 +40,26 @@ async function requireSocio(wallet: string): Promise<string> {
   return identityId;
 }
 
-export async function createListing(sellerWallet: string, tokenId: string, priceBrlt: string, quantity: number) {
+export async function createListing(
+  sellerWallet: string,
+  tokenId: string,
+  priceBrlt: string,
+  quantity: number,
+  onChain?: { onChainListingId?: string; escrowTxHash?: string },
+) {
   if (!/^\d+(\.\d{1,8})?$/.test(priceBrlt) || Number(priceBrlt) <= 0) {
     throw new ValidationError("Precio inválido", "priceBrlt");
   }
   if (!Number.isInteger(quantity) || quantity <= 0) throw new ValidationError("Cantidad inválida", "quantity");
   const sellerIdentity = await requireSocio(sellerWallet);
+  if (onChain?.escrowTxHash && !TX.test(onChain.escrowTxHash)) {
+    throw new ValidationError("tx del escrow con formato inválido", "escrowTxHash");
+  }
   const { rows } = await query<{ id: string }>(
-    `INSERT INTO rwa.listings (token_id, seller_identity_id, price_brlt, quantity, remaining_quantity)
-     VALUES ($1, $2, $3, $4, $4) RETURNING id`,
-    [tokenId, sellerIdentity, priceBrlt, quantity],
+    `INSERT INTO rwa.listings
+       (token_id, seller_identity_id, price_brlt, quantity, remaining_quantity, on_chain_listing_id, escrow_tx_hash)
+     VALUES ($1, $2, $3, $4, $4, $5, $6) RETURNING id`,
+    [tokenId, sellerIdentity, priceBrlt, quantity, onChain?.onChainListingId ?? null, onChain?.escrowTxHash ?? null],
   );
   return rows[0];
 }
@@ -58,6 +68,7 @@ export async function listActiveListings() {
   const { rows } = await query(
     `SELECT l.id, l.price_brlt::text AS price_brlt, l.quantity::text AS quantity,
             l.remaining_quantity::text AS remaining_quantity, l.status,
+            l.on_chain_listing_id::text AS on_chain_listing_id, l.escrow_tx_hash,
             t.id AS token_id, t.name, t.asset_kind::text AS asset_kind, t.metadata_uri,
             ip.name AS issuer_name, i.display_alias AS seller_alias, i.wallet_address AS seller_wallet
        FROM rwa.listings l
@@ -81,7 +92,7 @@ export async function createOrder(
   tx: { escrowTxHash: string; escrowAssetTxHash: string },
   intent?: { message: string; signature: string },
 ) {
-  if (!TX.test(tx.escrowTxHash) || !TX.test(tx.escrowAssetTxHash)) {
+  if (!TX.test(tx.escrowTxHash) || (!TX.test(tx.escrowAssetTxHash) && !chainVerificationEnabled())) {
     throw new ValidationError("Se requieren los dos tx hashes del escrow (BRLT + activo)", "escrowTxHash");
   }
   if (intent?.signature) {
@@ -111,6 +122,14 @@ export async function createOrder(
     if (!listing.rows[0]) throw new NotFoundError("Publicación", listingId);
     const sellerIdentity = listing.rows[0].seller_identity_id;
     if (sellerIdentity === buyerIdentity) throw new ConflictError("No puedes comprar tu propia publicación");
+    // Si la publicación es on-chain y no llega la tx del activo, se usa la tx del escrow del listing.
+    if (!tx.escrowAssetTxHash) {
+      const esc = await client.query<{ escrow_tx_hash: string | null }>(
+        "SELECT escrow_tx_hash FROM rwa.listings WHERE id = $1",
+        [listingId],
+      );
+      tx.escrowAssetTxHash = esc.rows[0]?.escrow_tx_hash ?? "";
+    }
 
     const order = await client.query<{ id: string }>(
       `INSERT INTO rwa.orders (listing_id, buyer_identity_id, seller_identity_id, quantity, price_brlt)
