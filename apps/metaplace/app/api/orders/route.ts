@@ -23,12 +23,16 @@ export async function GET(request: Request): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   try {
     const session = await requireSession(request);
-    const body = (await request.json()) as { listingId?: string; escrowTxHash?: string; escrowAssetTxHash?: string };
+    const body = (await request.json()) as { listingId?: string; escrowTxHash?: string; escrowAssetTxHash?: string; intentMessage?: string; intentSignature?: string };
     if (!body.listingId) throw new ValidationError("Falta `listingId`", "listingId");
-    const orderId = await createOrder(session.address, body.listingId, {
-      escrowTxHash: body.escrowTxHash ?? "",
-      escrowAssetTxHash: body.escrowAssetTxHash ?? "",
-    });
+    const orderId = await createOrder(
+      session.address,
+      body.listingId,
+      { escrowTxHash: body.escrowTxHash ?? "", escrowAssetTxHash: body.escrowAssetTxHash ?? "" },
+      body.intentMessage && body.intentSignature
+        ? { message: body.intentMessage, signature: body.intentSignature }
+        : undefined,
+    );
     return json({ success: true, data: { id: orderId, status: "escrowed" } }, 201);
   } catch (error) {
     const { status, body } = toErrorResponse(error, request);

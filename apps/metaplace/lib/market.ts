@@ -4,6 +4,10 @@
  * el contrato `Marketplace` es la fuente on-chain (tx hashes obligatorios al confirmar).
  */
 import { ConflictError, ForbiddenError, NotFoundError, query, ValidationError, withTransaction } from "@rwa/shared";
+import { recoverMessageAddress } from "viem";
+import type { Hex } from "viem";
+
+import { chainVerificationEnabled, verifyEscrowTx } from "./chain";
 
 const TX = /^0x[0-9a-fA-F]{64}$/;
 
@@ -66,9 +70,37 @@ export async function listActiveListings() {
   return rows;
 }
 
-export async function createOrder(buyerWallet: string, listingId: string, tx: { escrowTxHash: string; escrowAssetTxHash: string }) {
+/** Texto legible que firma el comprador antes de crear la orden. */
+export function orderIntentMessage(tokenName: string, priceBrlt: string, listingId: string): string {
+  return `Barlo: compro "${tokenName}" por ${priceBrlt} BRLT en la publicación ${listingId}`;
+}
+
+export async function createOrder(
+  buyerWallet: string,
+  listingId: string,
+  tx: { escrowTxHash: string; escrowAssetTxHash: string },
+  intent?: { message: string; signature: string },
+) {
   if (!TX.test(tx.escrowTxHash) || !TX.test(tx.escrowAssetTxHash)) {
     throw new ValidationError("Se requieren los dos tx hashes del escrow (BRLT + activo)", "escrowTxHash");
+  }
+  if (intent?.signature) {
+    const signer = await recoverMessageAddress({ message: intent.message, signature: intent.signature as Hex });
+    if (signer.toLowerCase() !== buyerWallet.toLowerCase()) {
+      throw new ValidationError("La firma de la orden no corresponde a tu wallet", "signature");
+    }
+  }
+  if (chainVerificationEnabled()) {
+    try {
+      await verifyEscrowTx(tx.escrowTxHash, buyerWallet);
+      await verifyEscrowTx(tx.escrowAssetTxHash, buyerWallet);
+    } catch (error) {
+      const code = (error as Error).message;
+      throw new ValidationError(
+        code === "TX_FORMAT" ? "tx hash con formato inválido" : "El escrow on-chain no es válido para esta orden",
+        "escrowTxHash",
+      );
+    }
   }
   const buyerIdentity = await requireSocio(buyerWallet);
   return withTransaction(async (client) => {
