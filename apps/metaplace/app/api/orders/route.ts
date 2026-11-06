@@ -2,6 +2,7 @@
 import { requireSession, toErrorResponse, ValidationError } from "@rwa/shared";
 
 import { createOrder, listOrdersFor } from "@/lib/market";
+import { checkWriteRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -23,6 +24,7 @@ export async function GET(request: Request): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   try {
     const session = await requireSession(request);
+    checkWriteRateLimit(session.address);
     const body = (await request.json()) as { listingId?: string; escrowTxHash?: string; escrowAssetTxHash?: string; intentMessage?: string; intentSignature?: string };
     if (!body.listingId) throw new ValidationError("Falta `listingId`", "listingId");
     const orderId = await createOrder(

@@ -2,6 +2,7 @@
 import { requireSession, toErrorResponse } from "@rwa/shared";
 
 import { createListing, listActiveListings } from "@/lib/market";
+import { checkWriteRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,6 +23,7 @@ export async function GET(): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   try {
     const session = await requireSession(request);
+    checkWriteRateLimit(session.address);
     const body = (await request.json()) as { tokenId?: string; priceBrlt?: string; quantity?: number; onChainListingId?: string; escrowTxHash?: string };
     if (!body.tokenId) {
       return json({ success: false, error: { code: "validation_error", message: "Falta `tokenId`" } }, 400);

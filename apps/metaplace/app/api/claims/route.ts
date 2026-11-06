@@ -18,6 +18,7 @@ import {
 import type { Hex } from "viem";
 
 import { createClaim, insertDocument, listClaimsFor } from "@/lib/claims";
+import { checkWriteRateLimit } from "@/lib/rate-limit";
 import { findIdentity } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +44,7 @@ export async function GET(request: Request): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   try {
     const session = await requireSession(request);
+    checkWriteRateLimit(session.address);
     const identity = await findIdentity(session.address);
     if (!identity) throw new NotFoundError("Identidad", session.address);
 
