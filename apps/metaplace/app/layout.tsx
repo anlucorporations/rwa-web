@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+// CSP con nonce por petición (AM-09): las páginas deben renderizarse en servidor
+// para que Next aplique el nonce a sus scripts.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Barlo Metaplace",
   description:

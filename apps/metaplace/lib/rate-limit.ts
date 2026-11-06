@@ -14,9 +14,12 @@ import { RateLimitError } from "@rwa/shared";
 const WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60_000);
 const AUTH_LIMIT = Number(process.env.RATE_LIMIT_AUTH_PER_MIN ?? 10);
 const WRITE_LIMIT = Number(process.env.RATE_LIMIT_WRITE_PER_MIN ?? 30);
+const UPLOAD_FILES_PER_HOUR = Number(process.env.UPLOAD_QUOTA_FILES_PER_HOUR ?? 10);
+const UPLOAD_MB_PER_HOUR = Number(process.env.UPLOAD_QUOTA_MB_PER_HOUR ?? 50);
 
 type Bucket = number[];
 const buckets = new Map<string, Bucket>();
+const uploadUsage = new Map<string, { t: number; files: number; bytes: number }[]>();
 
 function hit(key: string, limit: number, now = Date.now()): { ok: boolean; retryAfterSec: number } {
   const windowStart = now - WINDOW_MS;
@@ -60,4 +63,27 @@ export function rateLimitResponse(error: unknown): Response | null {
 /** Solo para tests. */
 export function resetRateLimits(): void {
   buckets.clear();
+}
+
+/** Cuota de subida KYC por wallet (AM-15): ficheros y MB por hora. */
+export function checkUploadQuota(wallet: string, files: number, bytes: number): void {
+  const now = Date.now();
+  const key = wallet.toLowerCase();
+  const windowStart = now - 60 * 60 * 1000;
+  const usage = (uploadUsage.get(key) ?? []).filter((entry) => entry.t > windowStart);
+  const totalFiles = usage.reduce((sum, entry) => sum + entry.files, 0);
+  const totalBytes = usage.reduce((sum, entry) => sum + entry.bytes, 0);
+  if (totalFiles + files > UPLOAD_FILES_PER_HOUR) {
+    throw new RateLimitError(`Cuota de subida alcanzada (${UPLOAD_FILES_PER_HOUR} ficheros/hora)`, 3600);
+  }
+  if (totalBytes + bytes > UPLOAD_MB_PER_HOUR * 1024 * 1024) {
+    throw new RateLimitError(`Cuota de subida alcanzada (${UPLOAD_MB_PER_HOUR} MB/hora)`, 3600);
+  }
+  usage.push({ t: now, files, bytes });
+  uploadUsage.set(key, usage);
+}
+
+/** Solo para tests. */
+export function resetUploadQuotas(): void {
+  uploadUsage.clear();
 }

@@ -1,7 +1,7 @@
 /** PATCH /api/admin/issuer-programs/{id} — activar/desactivar un ISSUER (solo Admin). */
 import { setProgramActive } from "@/lib/admin";
 import { adminError } from "@/lib/api-errors";
-import { requireAnyRole } from "@/lib/rbac";
+import { requireAdminFresh } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -11,7 +11,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   try {
-    const { session } = await requireAnyRole(request, ["admin"]);
+    const session = await requireAdminFresh(request);
     const { id } = await params;
     const body = (await request.json()) as { active?: boolean };
     if (typeof body.active !== "boolean") {

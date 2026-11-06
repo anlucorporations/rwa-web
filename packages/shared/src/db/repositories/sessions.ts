@@ -77,6 +77,15 @@ export class SessionsRepository {
     return rows[0] ?? null;
   }
 
+  /** Rolling session: extiende la caducidad sin tocar el nonce (AM-09). */
+  async touch(id: string, expiresAt: Date): Promise<boolean> {
+    const { rowCount } = await query(
+      'UPDATE rwa.sessions SET expires_at = $2 WHERE id = $1 AND revoked_at IS NULL',
+      [id, expiresAt],
+    );
+    return (rowCount ?? 0) > 0;
+  }
+
   async revoke(id: string): Promise<boolean> {
     const { rowCount } = await query(
       'UPDATE rwa.sessions SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL',

@@ -31,14 +31,24 @@ export function sessionCookieName(env: NodeJS.ProcessEnv = process.env): string 
 }
 /** Validez del nonce sin firmar (ventana para que el usuario firme). */
 export const NONCE_TTL_MS = 10 * 60 * 1000;
-/** Validez de la sesión ya autenticada. */
+/** Validez de la sesión ya autenticada (configurable por `SESSION_TTL_HOURS`). */
 export const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+export function getSessionTtlMs(env: NodeJS.ProcessEnv = process.env): number {
+  const hours = Number(env.SESSION_TTL_HOURS ?? "");
+  return Number.isFinite(hours) && hours > 0 ? hours * 60 * 60 * 1000 : SESSION_TTL_MS;
+}
+/** Rolling session: renueva la caducidad al usar la sesión (AM-09). */
+export function rollingSessionEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.SESSION_ROLLING === '1';
+}
 
 export type SessionIdentity = {
   id: string;
   address: string;
   role: SessionRole;
   expiresAt: Date;
+  /** Momento de la autenticación (para re-auth de admin, AM-09). */
+  issuedAt: Date;
 };
 
 /** Secreto de firma de la cookie. Nunca vive en el repositorio (D-092/RT-W-08). */
@@ -66,7 +76,7 @@ export function serializeSessionCookie(sessionId: string, secret: string, secure
     'Path=/',
     'HttpOnly',
     'SameSite=Strict',
-    `Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`,
+    `Max-Age=${Math.floor(getSessionTtlMs() / 1000)}`,
   ];
   if (secure || forcedSecure) parts.push('Secure');
   return parts.join('; ');
@@ -113,11 +123,15 @@ export async function requireSession(request: Request): Promise<SessionIdentity>
   if (!sessionId) throw new UnauthorizedError('Cookie de sesión inválida');
   const session = await repos.sessions.findActiveById(sessionId);
   if (!session) throw new UnauthorizedError('Sesión caducada o revocada');
+  if (rollingSessionEnabled()) {
+    await repos.sessions.touch(sessionId, new Date(Date.now() + getSessionTtlMs()));
+  }
   return {
     id: session.id,
     address: session.wallet_address,
     role: session.role,
     expiresAt: session.expires_at,
+    issuedAt: session.issued_at,
   };
 }
 
@@ -272,7 +286,7 @@ export async function verifyChallenge(
   const role = await resolveRole(address);
   const session = await repos.sessions.consumeNonce(parsed.nonce, {
     newNonce: generateSiweNonce(),
-    expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+    expiresAt: new Date(Date.now() + getSessionTtlMs()),
     role,
   });
   if (!session) throw new UnauthorizedError('Nonce ya consumido');

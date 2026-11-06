@@ -4,6 +4,9 @@
  */
 import { ForbiddenError, requireSession, query, type SessionIdentity } from "@rwa/shared";
 
+/** Ventana de re-autenticación para acciones de admin (AM-09). */
+const ADMIN_REAUTH_WINDOW_MS = Number(process.env.ADMIN_REAUTH_WINDOW_MIN ?? 15) * 60 * 1000;
+
 export type RoleName = "operator" | "admin" | "issuer" | "auditor" | "arbiter" | "support";
 
 export interface RoleAssignment {
@@ -40,4 +43,14 @@ export function assertProgramScope(assignments: RoleAssignment[], programId: str
   if (assignments.some((a) => a.role === "admin")) return;
   const covered = assignments.some((a) => a.role === "issuer" && a.issuer_program_id === programId);
   if (!covered) throw new ForbiddenError("Tu rol de emisor no cubre este programa");
+}
+
+/** Admin con sesión "fresca" (re-login dentro de la ventana). */
+export async function requireAdminFresh(request: Request): Promise<SessionIdentity> {
+  const { session } = await requireAnyRole(request, ["admin"]);
+  const ageMs = Date.now() - new Date(session.issuedAt).getTime();
+  if (ageMs > ADMIN_REAUTH_WINDOW_MS) {
+    throw new ForbiddenError("Reautenticación requerida: vuelve a iniciar sesión para operar como Admin");
+  }
+  return session;
 }

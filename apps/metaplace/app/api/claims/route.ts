@@ -19,7 +19,7 @@ import type { Hex } from "viem";
 
 import { createClaim, insertDocument, listClaimsFor } from "@/lib/claims";
 import { recordAudit } from "@/lib/audit";
-import { checkWriteRateLimit } from "@/lib/rate-limit";
+import { checkUploadQuota, checkWriteRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { findIdentity } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +39,8 @@ export async function GET(request: Request): Promise<Response> {
     const claims = await listClaimsFor(session.address);
     return json({ success: true, data: claims });
   } catch (error) {
+    const limited = rateLimitResponse(error);
+    if (limited) return limited;
     const { status, body } = toErrorResponse(error, request);
     return json(body, status);
   }
@@ -61,6 +63,7 @@ export async function POST(request: Request): Promise<Response> {
     if (files.length > MAX_FILES) throw new ValidationError(`Máximo ${MAX_FILES} documentos por solicitud`, "file");
     const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
     if (totalBytes > MAX_TOTAL_BYTES) throw new ValidationError("El total de documentos supera 50 MB", "file");
+    checkUploadQuota(session.address, files.length, totalBytes);
 
     // Firma del solicitante (EIP-191): vincula la solicitud a su wallet.
     const message = `Barlo: solicito el certificado ${credentialCode} para ${identity.id}`;
@@ -148,6 +151,8 @@ export async function POST(request: Request): Promise<Response> {
     await recordAudit({ actor: session.address, action: "claim.requested", resourceType: "claim", resourceId: claim.id, metadata: { programSlug, credentialCode } });
     return json({ success: true, data: claim }, 201);
   } catch (error) {
+    const limited = rateLimitResponse(error);
+    if (limited) return limited;
     const { status, body } = toErrorResponse(error, request);
     return json(body, status);
   }
