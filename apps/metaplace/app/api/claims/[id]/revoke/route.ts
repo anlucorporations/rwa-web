@@ -1,4 +1,5 @@
 /** POST /api/claims/{id}/revoke — revocación de un claim (CU-05, RBAC por programa). */
+import { checkWriteRateLimit } from "@/lib/rate-limit";
 import { toErrorResponse, ValidationError } from "@rwa/shared";
 
 import { getClaim, revokeClaim } from "@/lib/claims";

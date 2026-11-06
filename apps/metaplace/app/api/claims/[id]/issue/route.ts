@@ -1,4 +1,5 @@
 /** POST /api/claims/{id}/issue — emisión firmada del claim (CU-10). */
+import { checkWriteRateLimit } from "@/lib/rate-limit";
 import { toErrorResponse, ValidationError, ForbiddenError, query } from "@rwa/shared";
 import { recoverClaimIssuer } from "@rwa/shared/claims";
 import type { Hex } from "viem";
@@ -20,7 +21,8 @@ export async function POST(
 ): Promise<Response> {
   try {
     const { id } = await params;
-    const { assignments } = await requireAnyRole(request, ["issuer", "admin"]);
+    const { assignments, session } = await requireAnyRole(request, ["issuer", "admin"]);
+    checkWriteRateLimit(session.address);
     const body = (await request.json()) as Body;
     if (!body.signature) throw new ValidationError("Falta la firma del emisor", "signature");
 

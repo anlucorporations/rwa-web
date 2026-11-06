@@ -3,6 +3,7 @@ import { query, toErrorResponse, ValidationError } from "@rwa/shared";
 
 import { getClaim } from "@/lib/claims";
 import { requireAnyRole } from "@/lib/rbac";
+import { checkWriteRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,6 +15,7 @@ export async function POST(
   try {
     const { id } = await params;
     const { session } = await requireAnyRole(request, ["operator", "admin"]);
+    checkWriteRateLimit(session.address);
     const body = (await request.json().catch(() => ({}))) as { reason?: string };
     if (!body.reason || body.reason.trim().length < 5) {
       throw new ValidationError("Indica el motivo del rechazo (mínimo 5 caracteres)", "reason");

@@ -39,13 +39,22 @@ function clientIp(request: Request): string {
 /** Limita por IP (endpoints públicos como el nonce SIWE). */
 export function checkAuthRateLimit(request: Request): void {
   const { ok, retryAfterSec } = hit(`auth:${clientIp(request)}`, AUTH_LIMIT);
-  if (!ok) throw new RateLimitError(`Demasiados intentos de acceso. Reintenta en ${retryAfterSec}s`);
+  if (!ok) throw new RateLimitError(`Demasiados intentos de acceso. Reintenta en ${retryAfterSec}s`, retryAfterSec);
 }
 
 /** Limita por wallet autenticada (escrituras). */
 export function checkWriteRateLimit(wallet: string): void {
   const { ok, retryAfterSec } = hit(`write:${wallet.toLowerCase()}`, WRITE_LIMIT);
-  if (!ok) throw new RateLimitError(`Demasiadas operaciones. Reintenta en ${retryAfterSec}s`);
+  if (!ok) throw new RateLimitError(`Demasiadas operaciones. Reintenta en ${retryAfterSec}s`, retryAfterSec);
+}
+
+/** Respuesta 429 con `Retry-After` (AM-08). */
+export function rateLimitResponse(error: unknown): Response | null {
+  if (!(error instanceof RateLimitError)) return null;
+  return new Response(
+    JSON.stringify({ success: false, error: { code: "rate_limited", message: error.message }, retryAfterSec: error.retryAfterSec }),
+    { status: 429, headers: { "Content-Type": "application/json", "Retry-After": String(error.retryAfterSec) } },
+  );
 }
 
 /** Solo para tests. */

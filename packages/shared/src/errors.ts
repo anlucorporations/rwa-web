@@ -65,8 +65,12 @@ export class ForbiddenError extends AppError {
 
 /** Límite de tasa o cuota superado (429, RF-W-05 / HW-02). */
 export class RateLimitError extends AppError {
-  constructor(message = 'Límite de uso alcanzado') {
+  /** Segundos hasta poder reintentar (cabecera `Retry-After`). */
+  readonly retryAfterSec: number;
+
+  constructor(message = 'Límite de uso alcanzado', retryAfterSec = 60) {
     super('RATE_LIMITED', message, 429);
+    this.retryAfterSec = retryAfterSec;
   }
 }
 

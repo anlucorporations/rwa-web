@@ -25,6 +25,10 @@ import { normalizeAddress } from '../db/address';
 import { ConfigError, ForbiddenError, UnauthorizedError, ValidationError } from '../errors';
 
 export const SESSION_COOKIE = 'rwa_session';
+/** Nombre efectivo: admite `__Host-` en producción (AM-09). */
+export function sessionCookieName(env: NodeJS.ProcessEnv = process.env): string {
+  return env.SESSION_COOKIE_NAME?.trim() || SESSION_COOKIE;
+}
 /** Validez del nonce sin firmar (ventana para que el usuario firme). */
 export const NONCE_TTL_MS = 10 * 60 * 1000;
 /** Validez de la sesión ya autenticada. */
@@ -56,30 +60,34 @@ function signSessionId(sessionId: string, secret: string): string {
 /** `Set-Cookie` de sesión: httpOnly + SameSite=Strict + Secure (si HTTPS). */
 export function serializeSessionCookie(sessionId: string, secret: string, secure: boolean): string {
   const value = `${sessionId}.${signSessionId(sessionId, secret)}`;
+  const forcedSecure = process.env.COOKIE_SECURE === '1';
   const parts = [
-    `${SESSION_COOKIE}=${value}`,
+    `${sessionCookieName()}=${value}`,
     'Path=/',
     'HttpOnly',
     'SameSite=Strict',
     `Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`,
   ];
-  if (secure) parts.push('Secure');
+  if (secure || forcedSecure) parts.push('Secure');
   return parts.join('; ');
 }
 
 /** `Set-Cookie` de borrado. */
 export function serializeClearCookie(secure: boolean): string {
-  const parts = [`${SESSION_COOKIE}=`, 'Path=/', 'HttpOnly', 'SameSite=Strict', 'Max-Age=0'];
-  if (secure) parts.push('Secure');
+  const forcedSecure = process.env.COOKIE_SECURE === '1';
+  const parts = [`${sessionCookieName()}=`, 'Path=/', 'HttpOnly', 'SameSite=Strict', 'Max-Age=0'];
+  if (secure || forcedSecure) parts.push('Secure');
   return parts.join('; ');
 }
 
 export function readSessionCookie(request: Request): string | null {
   const header = request.headers.get('cookie');
   if (!header) return null;
+  const expected = sessionCookieName();
   for (const chunk of header.split(';')) {
     const [name, ...rest] = chunk.trim().split('=');
-    if (name === SESSION_COOKIE) return rest.join('=');
+    // Se acepta también el nombre base durante la migración de cookie (AM-09).
+    if (name === expected || name === SESSION_COOKIE) return rest.join('=');
   }
   return null;
 }
@@ -179,6 +187,17 @@ export function requestOrigin(request: Request): RequestOrigin {
   const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? url.host;
   const forwardedFor = request.headers.get('x-forwarded-for');
   const ip = forwardedFor ? (forwardedFor.split(',')[0]?.trim() ?? null) : null;
+  // AM-09: allowlist opcional de hosts (obligatoria en despliegue).
+  const allowedHosts = (process.env.ALLOWED_HOSTS ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (allowedHosts.length > 0 && !allowedHosts.includes(host)) {
+    throw new ValidationError(`Host no permitido: ${host}`, 'host');
+  }
+  if (proto !== 'http' && proto !== 'https') {
+    throw new ValidationError(`Protocolo no permitido: ${proto}`, 'proto');
+  }
   return { domain: host, uri: `${proto}://${host}`, secure: proto === 'https', ip };
 }
 

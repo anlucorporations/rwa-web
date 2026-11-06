@@ -1,4 +1,5 @@
 /** POST /api/claims/{id}/verify — el Operador marca documentos verificados (CU-09). */
+import { checkWriteRateLimit } from "@/lib/rate-limit";
 import { toErrorResponse } from "@rwa/shared";
 
 import { verifyDocuments } from "@/lib/claims";
@@ -14,6 +15,7 @@ export async function POST(
   try {
     const { id } = await params;
     const { session } = await requireAnyRole(request, ["operator", "admin"]);
+    checkWriteRateLimit(session.address);
     const claim = await verifyDocuments(id, session.address);
     return new Response(JSON.stringify({ success: true, data: claim }), {
       status: 200,
