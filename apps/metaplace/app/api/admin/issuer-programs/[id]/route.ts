@@ -11,7 +11,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   try {
-    await requireAnyRole(request, ["admin"]);
+    const { session } = await requireAnyRole(request, ["admin"]);
     const { id } = await params;
     const body = (await request.json()) as { active?: boolean };
     if (typeof body.active !== "boolean") {
@@ -20,7 +20,7 @@ export async function PATCH(
         { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
-    const ok = await setProgramActive(id, body.active);
+    const ok = await setProgramActive(id, body.active, session.address);
     return new Response(JSON.stringify({ success: ok, data: { active: body.active } }), {
       status: ok ? 200 : 404,
       headers: { "Content-Type": "application/json" },

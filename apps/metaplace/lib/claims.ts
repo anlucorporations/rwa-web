@@ -3,6 +3,8 @@
  * y emisión firmada con EIP-712 (esquema `rwa.claim_requests` v3).
  */
 import { query } from "@rwa/shared";
+
+import { recordAudit } from "./audit";
 import { buildClaimTypedData, claimDataHash, claimUriHash, type ClaimPayload } from "@rwa/shared/claims";
 import type { Address, Hex } from "viem";
 
@@ -171,6 +173,7 @@ export async function verifyDocuments(claimId: string, operatorWallet: string): 
     [claimId, operatorWallet],
   );
   if (!rows[0]) throw Object.assign(new Error("La solicitud no está pendiente"), { code: "CONFLICT" });
+  await recordAudit({ actor: operatorWallet, action: "claim.documents_verified", resourceType: "claim", resourceId: claimId });
   const claim = await getClaim(claimId);
   if (!claim) throw new Error("Solicitud no encontrada");
   return claim;
@@ -199,6 +202,13 @@ export async function issueClaim(input: IssueClaimInput): Promise<ClaimRow> {
     [input.claimId, input.issuerId, input.issuerSignature, input.issuerWallet, input.txHash],
   );
   if (!rows[0]) throw Object.assign(new Error("La solicitud no está verificada"), { code: "CONFLICT" });
+  await recordAudit({
+    actor: input.issuerWallet,
+    action: "claim.issued",
+    resourceType: "claim",
+    resourceId: input.claimId,
+    metadata: { issuerId: input.issuerId, txHash: input.txHash },
+  });
   const claim = await getClaim(input.claimId);
   if (!claim) throw new Error("Solicitud no encontrada");
   return claim;

@@ -8,6 +8,7 @@ import { recoverMessageAddress } from "viem";
 import type { Hex } from "viem";
 
 import { chainVerificationEnabled, verifyEscrowTx } from "./chain";
+import { recordAudit } from "./audit";
 
 const TX = /^0x[0-9a-fA-F]{64}$/;
 
@@ -149,6 +150,13 @@ export async function createOrder(
          FROM rwa.identities i WHERE i.id = $5`,
       [orderId, buyerIdentity, listing.rows[0].price_brlt, tx.escrowTxHash, sellerIdentity],
     );
+    await recordAudit({
+      actor: buyerWallet,
+      action: "order.created",
+      resourceType: "order",
+      resourceId: orderId,
+      metadata: { listingId, escrowTxHash: tx.escrowTxHash },
+    });
     return orderId;
   });
 }
@@ -183,6 +191,7 @@ export async function confirmOrder(orderId: string, buyerWallet: string) {
       [orderId],
     );
   });
+  await recordAudit({ actor: buyerWallet, action: "order.confirmed", resourceType: "order", resourceId: orderId });
   return orderFor(orderId);
 }
 
@@ -198,6 +207,7 @@ export async function openDispute(orderId: string, buyerWallet: string, reason: 
       [orderId, order.buyer_identity_id, reason.trim()],
     );
   });
+  await recordAudit({ actor: buyerWallet, action: "order.disputed", resourceType: "order", resourceId: orderId, metadata: { reason: reason.trim() } });
   return orderFor(orderId);
 }
 
@@ -232,6 +242,13 @@ export async function resolveDispute(orderId: string, arbiterWallet: string, res
         [order.buyer_identity_id, order.price_brlt],
       );
     }
+  });
+  await recordAudit({
+    actor: arbiterWallet,
+    action: resolution === "buyer" ? "dispute.resolved_buyer" : "dispute.resolved_seller",
+    resourceType: "order",
+    resourceId: orderId,
+    metadata: { note: note.trim() },
   });
   return orderFor(orderId);
 }

@@ -11,9 +11,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   try {
-    await requireAnyRole(request, ["admin"]);
+    const { session } = await requireAnyRole(request, ["admin"]);
     const { id } = await params;
-    const revoked = await revokeRole(id);
+    const revoked = await revokeRole(id, session.address);
     return new Response(JSON.stringify({ success: revoked }), {
       status: revoked ? 200 : 404,
       headers: { "Content-Type": "application/json" },

@@ -1,6 +1,7 @@
 /** GET /api/documents/{id} — descarga descifrada para titular/Operador/Admin (CU-04/09). */
 import { decryptDocument, requireSession, toErrorResponse } from "@rwa/shared";
 
+import { recordAudit } from "@/lib/audit";
 import { getClaim, getDocument } from "@/lib/claims";
 import { roleAssignments } from "@/lib/rbac";
 
@@ -33,6 +34,13 @@ export async function GET(
       });
     }
 
+    await recordAudit({
+      actor: session.address,
+      action: "kyc.document.downloaded",
+      resourceType: "document",
+      resourceId: id,
+      metadata: { claimId: document.claim_request_id, asStaff: !isOwner },
+    });
     const nonce = document.encryption_meta?.nonce ? Buffer.from(document.encryption_meta.nonce, "hex") : null;
     const plain = decryptDocument({
       content: document.encrypted_data,

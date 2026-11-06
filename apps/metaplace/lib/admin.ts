@@ -3,6 +3,8 @@
  */
 import { query, withTransaction } from "@rwa/shared";
 
+import { recordAudit } from "./audit";
+
 export interface ProgramInput {
   slug: string;
   name: string;
@@ -93,11 +95,14 @@ export async function createProgram(input: ProgramInput, adminWallet: string): P
   return created;
 }
 
-export async function setProgramActive(id: string, active: boolean): Promise<boolean> {
+export async function setProgramActive(id: string, active: boolean, adminWallet: string): Promise<boolean> {
   const { rowCount } = await query(
     `UPDATE rwa.issuer_programs SET active = $2 WHERE id = $1`,
     [id, active],
   );
+  if ((rowCount ?? 0) > 0) {
+    await recordAudit({ actor: adminWallet, action: active ? "issuer.activated" : "issuer.deactivated", resourceType: "issuer_program", resourceId: id });
+  }
   return (rowCount ?? 0) > 0;
 }
 
@@ -122,6 +127,13 @@ export async function grantRole(input: GrantInput, adminWallet: string): Promise
      RETURNING id`,
     [input.wallet, input.role, input.scope, input.issuerProgramSlug ?? null, adminWallet, input.reason ?? null],
   );
+  await recordAudit({
+    actor: adminWallet,
+    action: "role.granted",
+    resourceType: "role_assignment",
+    resourceId: rows[0].id,
+    metadata: { wallet: input.wallet.toLowerCase(), role: input.role, scope: input.scope },
+  });
   return rows[0];
 }
 
@@ -136,11 +148,14 @@ export async function listRoles() {
   return rows;
 }
 
-export async function revokeRole(id: string): Promise<boolean> {
+export async function revokeRole(id: string, adminWallet: string): Promise<boolean> {
   const { rowCount } = await query(
     `UPDATE rwa.role_assignments SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL`,
     [id],
   );
+  if ((rowCount ?? 0) > 0) {
+    await recordAudit({ actor: adminWallet, action: "role.revoked", resourceType: "role_assignment", resourceId: id });
+  }
   return (rowCount ?? 0) > 0;
 }
 
