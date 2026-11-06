@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 interface Listing {
   id: string; name: string; price_brlt: string; quantity: string; remaining_quantity: string;
   asset_kind: string; issuer_name: string; seller_alias: string;
-  on_chain_listing_id: string | null; escrow_tx_hash: string | null;
+  on_chain_listing_id: string | null; escrow_tx_hash: string | null; token_id: string;
 }
 
 export default function ActivoPage() {
@@ -19,6 +19,7 @@ export default function ActivoPage() {
   const [assetTx, setAssetTx] = useState("");
   const [buyTx, setBuyTx] = useState("");
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [consumed, setConsumed] = useState(false);
 
   const load = useCallback(async () => {
     const response = await fetch("/api/listings");
@@ -90,6 +91,20 @@ export default function ActivoPage() {
     }
   }
 
+  async function consume() {
+    if (!listing) return;
+    setError(null);
+    try {
+      const response = await fetch(`/api/services/${listing.token_id}/consume`, { method: "POST" });
+      const body = (await response.json()) as { error?: { message: string } };
+      if (!response.ok) throw new Error(body.error?.message ?? "No se pudo consumir el servicio.");
+      setConsumed(true);
+      setStatus("Servicio consumido. ¡Gracias!");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error inesperado.");
+    }
+  }
+
   const input: React.CSSProperties = { background: "#0b1020", color: "#e8ecf7", border: "1px solid #33406b", borderRadius: 8, padding: "8px 10px", width: "100%", marginBottom: 8, fontSize: 12 };
 
   return (
@@ -120,6 +135,12 @@ export default function ActivoPage() {
           <button type="button" onClick={buy} style={{ marginTop: 12, background: "#3b6cff", color: "white", border: 0, borderRadius: 8, padding: "10px 18px", cursor: "pointer" }}>
             {listing.on_chain_listing_id ? "Comprar on-chain" : "Firmar y comprar"}
           </button>
+          {consumed && <p style={{ color: "#9fd2a8" }}>Servicio consumido ✔</p>}
+          {listing.asset_kind === "service" && !consumed && (
+            <button type="button" onClick={consume} style={{ marginTop: 12, marginLeft: 8, background: "#7a5cff", color: "white", border: 0, borderRadius: 8, padding: "10px 18px", cursor: "pointer" }}>
+              Usar servicio
+            </button>
+          )}
           {orderId && (
             <button type="button" onClick={confirm} style={{ marginTop: 12, marginLeft: 8, background: "#2f8f5b", color: "white", border: 0, borderRadius: 8, padding: "10px 18px", cursor: "pointer" }}>
               Confirmar recepción
