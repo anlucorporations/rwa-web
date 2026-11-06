@@ -1,6 +1,7 @@
 /** GET/POST /api/listings — publicaciones a precio fijo (CU-18). */
 import { requireSession, toErrorResponse } from "@rwa/shared";
 
+import { recordAudit } from "@/lib/audit";
 import { createListing, listActiveListings } from "@/lib/market";
 import { checkWriteRateLimit } from "@/lib/rate-limit";
 
@@ -29,6 +30,7 @@ export async function POST(request: Request): Promise<Response> {
       return json({ success: false, error: { code: "validation_error", message: "Falta `tokenId`" } }, 400);
     }
     const listing = await createListing(session.address, body.tokenId, body.priceBrlt ?? "", Number(body.quantity ?? 1), { onChainListingId: body.onChainListingId, escrowTxHash: body.escrowTxHash });
+    await recordAudit({ actor: session.address, action: "listing.created", resourceType: "listing", resourceId: listing.id, metadata: { tokenId: body.tokenId } });
     return json({ success: true, data: listing }, 201);
   } catch (error) {
     const { status, body } = toErrorResponse(error, request);

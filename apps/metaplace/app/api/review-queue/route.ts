@@ -17,8 +17,16 @@ export async function GET(request: Request): Promise<Response> {
       throw new ForbiddenError("Estado de cola no soportado");
     }
     const roles = status === "pending" ? (["operator", "admin"] as const) : (["issuer", "admin"] as const);
-    await requireAnyRole(request, roles);
-    const claims = await listReviewQueue([status as ClaimStatus]);
+    const { assignments } = await requireAnyRole(request, roles);
+    // AM-05: el Emisor solo ve la cola de los programas que cubre su rol.
+    const isAdmin = assignments.some((a) => a.role === "admin");
+    const programFilter = isAdmin ? null : (assignments[0]?.issuer_program_id ?? null);
+    if (!isAdmin && !programFilter) {
+      return new Response(JSON.stringify({ success: true, data: [] }), {
+        status: 200, headers: { "Content-Type": "application/json" },
+      });
+    }
+    const claims = await listReviewQueue([status as ClaimStatus], programFilter);
     return new Response(JSON.stringify({ success: true, data: claims }), {
       status: 200,
       headers: { "Content-Type": "application/json" },

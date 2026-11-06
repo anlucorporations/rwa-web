@@ -3,7 +3,7 @@ import { toErrorResponse } from "@rwa/shared";
 import { getAddress } from "viem";
 
 import { getClaim, typedDataFor } from "@/lib/claims";
-import { requireAnyRole } from "@/lib/rbac";
+import { assertProgramScope, requireAnyRole } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,7 +14,7 @@ export async function GET(
 ): Promise<Response> {
   try {
     const { id } = await params;
-    await requireAnyRole(request, ["issuer", "admin"]);
+    const { assignments } = await requireAnyRole(request, ["issuer", "admin"]);
     const claim = await getClaim(id);
     if (!claim) {
       return new Response(JSON.stringify({ success: false, error: { code: "not_found", message: "Solicitud no encontrada" } }), {
@@ -22,6 +22,7 @@ export async function GET(
         headers: { "Content-Type": "application/json" },
       });
     }
+    assertProgramScope(assignments, claim.issuer_program_id);
     const data = typedDataFor(claim);
     // Serializa los enteros de 256 bits como strings (JSON no admite bigint).
     const serialized = {

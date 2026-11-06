@@ -31,9 +31,7 @@ export async function POST(request: Request): Promise<Response> {
       session.address,
       body.listingId,
       { escrowTxHash: body.escrowTxHash ?? "", escrowAssetTxHash: body.escrowAssetTxHash ?? "" },
-      body.intentMessage && body.intentSignature
-        ? { message: body.intentMessage, signature: body.intentSignature }
-        : undefined,
+      { signature: body.intentSignature ?? "" },
     );
     return json({ success: true, data: { id: orderId, status: "escrowed" } }, 201);
   } catch (error) {

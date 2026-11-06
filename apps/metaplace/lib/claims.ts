@@ -77,7 +77,10 @@ export async function getClaim(id: string): Promise<ClaimRow | null> {
   return rows[0] ?? null;
 }
 
-export async function listReviewQueue(statuses: readonly ClaimStatus[]): Promise<ClaimRow[]> {
+export async function listReviewQueue(
+  statuses: readonly ClaimStatus[],
+  issuerProgramId: string | null = null,
+): Promise<ClaimRow[]> {
   const { rows } = await query<ClaimRow>(
     `SELECT ${CLAIM_COLUMNS}
        FROM rwa.claim_requests cr
@@ -85,8 +88,9 @@ export async function listReviewQueue(statuses: readonly ClaimStatus[]): Promise
        JOIN rwa.credential_types ct ON ct.id = cr.credential_type_id
        JOIN rwa.issuer_programs ip ON ip.id = cr.issuer_program_id
       WHERE cr.status::text = ANY($1::text[])
+        AND ($2::uuid IS NULL OR cr.issuer_program_id = $2)
       ORDER BY cr.created_at ASC`,
-    [statuses],
+    [statuses, issuerProgramId],
   );
   return rows;
 }
@@ -174,6 +178,23 @@ export async function verifyDocuments(claimId: string, operatorWallet: string): 
   );
   if (!rows[0]) throw Object.assign(new Error("La solicitud no está pendiente"), { code: "CONFLICT" });
   await recordAudit({ actor: operatorWallet, action: "claim.documents_verified", resourceType: "claim", resourceId: claimId });
+  const claim = await getClaim(claimId);
+  if (!claim) throw new Error("Solicitud no encontrada");
+  return claim;
+}
+
+/** Revocación de un claim (CU-05): cascada de garantías/tokens vía trigger. */
+export async function revokeClaim(claimId: string, wallet: string, reason: string): Promise<ClaimRow> {
+  if (!reason || reason.trim().length < 5) throw new Error("REASON_REQUIRED");
+  const { rows } = await query<{ id: string }>(
+    `UPDATE rwa.claim_requests
+        SET status = 'revoked', revoked_at = now(), revocation_reason = $2
+      WHERE id = $1 AND status IN ('pending', 'documents_verified', 'approved')
+      RETURNING id`,
+    [claimId, reason.trim()],
+  );
+  if (!rows[0]) throw Object.assign(new Error("El claim no se puede revocar en su estado actual"), { code: "CONFLICT" });
+  await recordAudit({ actor: wallet, action: "claim.revoked", resourceType: "claim", resourceId: claimId, metadata: { reason: reason.trim() } });
   const claim = await getClaim(claimId);
   if (!claim) throw new Error("Solicitud no encontrada");
   return claim;

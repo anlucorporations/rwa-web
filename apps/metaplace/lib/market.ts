@@ -71,7 +71,7 @@ export async function listActiveListings() {
             l.remaining_quantity::text AS remaining_quantity, l.status,
             l.on_chain_listing_id::text AS on_chain_listing_id, l.escrow_tx_hash,
             t.id AS token_id, t.name, t.asset_kind::text AS asset_kind, t.metadata_uri,
-            ip.name AS issuer_name, i.display_alias AS seller_alias, i.wallet_address AS seller_wallet
+            ip.name AS issuer_name, i.display_alias AS seller_alias
        FROM rwa.listings l
        JOIN rwa.tokens t ON t.id = l.token_id
        JOIN rwa.issuer_programs ip ON ip.id = t.issuer_program_id
@@ -91,16 +91,28 @@ export async function createOrder(
   buyerWallet: string,
   listingId: string,
   tx: { escrowTxHash: string; escrowAssetTxHash: string },
-  intent?: { message: string; signature: string },
+  intent: { signature: string },
 ) {
   if (!TX.test(tx.escrowTxHash) || (!TX.test(tx.escrowAssetTxHash) && !chainVerificationEnabled())) {
     throw new ValidationError("Se requieren los dos tx hashes del escrow (BRLT + activo)", "escrowTxHash");
   }
-  if (intent?.signature) {
-    const signer = await recoverMessageAddress({ message: intent.message, signature: intent.signature as Hex });
-    if (signer.toLowerCase() !== buyerWallet.toLowerCase()) {
-      throw new ValidationError("La firma de la orden no corresponde a tu wallet", "signature");
-    }
+  // La intención se exige y el mensaje se reconstruye en servidor (evita replay/alteración).
+  if (!intent?.signature) throw new ValidationError("Falta la firma de intención de compra", "signature");
+  const listingInfo = await query<{ name: string; price_brlt: string }>(
+    `SELECT t.name, l.price_brlt::text AS price_brlt
+       FROM rwa.listings l JOIN rwa.tokens t ON t.id = l.token_id
+      WHERE l.id = $1`,
+    [listingId],
+  );
+  if (!listingInfo.rows[0]) throw new NotFoundError("Publicación", listingId);
+  const canonicalMessage = orderIntentMessage(
+    listingInfo.rows[0].name,
+    listingInfo.rows[0].price_brlt,
+    listingId,
+  );
+  const signer = await recoverMessageAddress({ message: canonicalMessage, signature: intent.signature as Hex });
+  if (signer.toLowerCase() !== buyerWallet.toLowerCase()) {
+    throw new ValidationError("La firma de la orden no corresponde a tu wallet", "signature");
   }
   if (chainVerificationEnabled()) {
     try {
@@ -216,6 +228,10 @@ export async function resolveDispute(orderId: string, arbiterWallet: string, res
   if (!note || note.trim().length < 5) throw new ValidationError("Añade una nota de resolución (mín. 5)", "note");
   const order = await orderFor(orderId);
   if (order.status !== "disputed") throw new ConflictError("La orden no está en disputa");
+  if (arbiterWallet.toLowerCase() === order.buyer_wallet.toLowerCase()
+      || arbiterWallet.toLowerCase() === order.seller_wallet.toLowerCase()) {
+    throw new ForbiddenError("El árbitro no puede ser parte de la disputa");
+  }
   await withTransaction(async (client) => {
     const disputeStatus = resolution === "buyer" ? "resolved_buyer" : "resolved_seller";
     const { rowCount } = await client.query(

@@ -34,3 +34,10 @@ export async function requireAnyRole(
   }
   return { session, assignments };
 }
+
+/** Comprueba que el rol `issuer` cubre el programa del recurso (admin exento). */
+export function assertProgramScope(assignments: RoleAssignment[], programId: string): void {
+  if (assignments.some((a) => a.role === "admin")) return;
+  const covered = assignments.some((a) => a.role === "issuer" && a.issuer_program_id === programId);
+  if (!covered) throw new ForbiddenError("Tu rol de emisor no cubre este programa");
+}

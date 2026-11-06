@@ -4,7 +4,7 @@ import { recoverClaimIssuer } from "@rwa/shared/claims";
 import type { Hex } from "viem";
 
 import { getClaim, issueClaim, typedDataFor } from "@/lib/claims";
-import { requireAnyRole } from "@/lib/rbac";
+import { assertProgramScope, requireAnyRole } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -20,7 +20,7 @@ export async function POST(
 ): Promise<Response> {
   try {
     const { id } = await params;
-    await requireAnyRole(request, ["issuer", "admin"]);
+    const { assignments } = await requireAnyRole(request, ["issuer", "admin"]);
     const body = (await request.json()) as Body;
     if (!body.signature) throw new ValidationError("Falta la firma del emisor", "signature");
 
@@ -31,6 +31,7 @@ export async function POST(
         headers: { "Content-Type": "application/json" },
       });
     }
+    assertProgramScope(assignments, claim.issuer_program_id);
     if (claim.status !== "documents_verified") {
       return new Response(
         JSON.stringify({ success: false, error: { code: "conflict", message: "La solicitud debe estar verificada por el Operador" } }),
